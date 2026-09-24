@@ -4,7 +4,7 @@
  * Asset Disposal & Write-Off Governance Modal
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Asset, DisposalMethod, DisposalRecord } from '../../types';
 import { calculateDisposalGainLoss } from '../../services/depreciationCalculator';
 
@@ -37,6 +37,18 @@ export const DisposeAssetModal: React.FC<DisposeAssetModalProps> = ({
   const [recommendation, setRecommendation] = useState<string>('Competitive executive auction to certified bidders');
   const [approvedBy, setApprovedBy] = useState<string>('Babajide Adeleke (CFO Review)');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (selectedAsset) {
+      setAssetId(selectedAsset.id);
+    }
+  }, [selectedAsset]);
+
+  useEffect(() => {
+    if (currentAsset) {
+      setProceeds(Math.round(currentAsset.net_book_value * 1.1));
+    }
+  }, [assetId]);
 
   const bookValue = currentAsset ? currentAsset.net_book_value : 0;
   const { gainOrLoss, isGain } = calculateDisposalGainLoss(proceeds, bookValue);

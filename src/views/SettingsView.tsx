@@ -25,6 +25,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
     load();
   }, []);
 
+  const [showConfirmReset, setShowConfirmReset] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!settings) return;
@@ -33,12 +36,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const handleResetData = async () => {
-    if (confirm('Reset demo ledger to default Nigerian fixed assets database?')) {
-      await assetRepository.resetToDefaultData();
-      alert('Ledger reset to baseline sample data.');
+  const handleConfirmReset = async () => {
+    await assetRepository.resetToDefaultData();
+    setShowConfirmReset(false);
+    setResetMessage('Ledger database has been reset to baseline enterprise data. Reloading application view...');
+    setTimeout(() => {
       window.location.reload();
-    }
+    }, 1500);
   };
 
   if (!settings) return null;
@@ -188,14 +192,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
             <div className="text-[12px] text-slate-600">
               Active Adapter: <strong className="text-slate-900">MockAssetRepository (Local Persistent Storage)</strong>
             </div>
-            <button
-              type="button"
-              onClick={handleResetData}
-              className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-[12px] font-bold transition-colors"
-            >
-              Reset Demo Seed Data
-            </button>
+            {!showConfirmReset ? (
+              <button
+                type="button"
+                onClick={() => setShowConfirmReset(true)}
+                className="px-3 py-1.5 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-[12px] font-bold transition-colors"
+              >
+                Reset Demo Seed Data
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 p-1.5 bg-red-50 border border-red-200 rounded-lg">
+                <span className="text-[11px] text-red-800 font-medium">Reset all asset records to baseline?</span>
+                <button
+                  type="button"
+                  onClick={handleConfirmReset}
+                  className="px-2 py-1 bg-red-700 text-white rounded text-[11px] font-bold hover:bg-red-800"
+                >
+                  Yes, Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmReset(false)}
+                  className="px-2 py-1 bg-white border border-slate-300 text-slate-700 rounded text-[11px] font-semibold hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
+
+          {resetMessage && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg text-xs font-medium">
+              {resetMessage}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-3">

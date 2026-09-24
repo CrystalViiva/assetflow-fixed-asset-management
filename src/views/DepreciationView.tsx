@@ -49,8 +49,27 @@ export const DepreciationView: React.FC<DepreciationViewProps> = ({ onNavigate, 
   const totalPortfolioNbv = assets.reduce((sum, a) => sum + a.net_book_value, 0);
   const totalMonthlyRun = assets.reduce((sum, a) => sum + a.monthly_depreciation, 0);
 
+  const [postingSuccess, setPostingSuccess] = useState<string | null>(null);
+
+  const handleRunPosting = () => {
+    setPostingSuccess('Monthly Depreciation Posting Run executed successfully! ₦32,400,000 amortized to General Ledger.');
+    setTimeout(() => setPostingSuccess(null), 4000);
+  };
+
   return (
     <div className="w-full p-4 md:p-6 select-text space-y-5">
+      {postingSuccess && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg flex items-center justify-between text-sm shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+            <span className="font-medium">{postingSuccess}</span>
+          </div>
+          <button onClick={() => setPostingSuccess(null)} className="text-emerald-700 hover:text-emerald-950">
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-1.5 text-[12px] text-slate-500 mb-1">
@@ -70,7 +89,7 @@ export const DepreciationView: React.FC<DepreciationViewProps> = ({ onNavigate, 
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => alert('Monthly Depreciation Posting Run simulation executed successfully! ₦32.4M amortized.')}
+            onClick={handleRunPosting}
             className="h-9 px-3.5 bg-[#00288e] text-white font-semibold text-[13px] rounded-lg shadow-xs hover:bg-[#1e40af] transition-all flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[18px]">play_circle</span>

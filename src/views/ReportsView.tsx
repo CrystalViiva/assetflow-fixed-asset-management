@@ -62,12 +62,27 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onNavigate, onSelectAs
     { id: 'acquisition', title: 'Acquisitions & Capex Report', desc: 'Gross additions, shipping freight, and installation capitalized base', icon: 'payments' },
   ];
 
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
+
   const handleExport = (type: 'csv' | 'pdf') => {
-    alert(`Exporting ${selectedReport.toUpperCase()} report as ${type.toUpperCase()}... Download generated.`);
+    setExportNotice(`Exporting ${selectedReport.toUpperCase()} report as ${type.toUpperCase()}... Download generated.`);
+    setTimeout(() => setExportNotice(null), 3500);
   };
 
   return (
     <div className="w-full p-4 md:p-6 select-text space-y-5">
+      {exportNotice && (
+        <div className="p-3.5 bg-blue-50 border border-blue-200 text-blue-900 rounded-lg flex items-center justify-between text-sm shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-[20px] text-blue-600">download_done</span>
+            <span className="font-medium">{exportNotice}</span>
+          </div>
+          <button onClick={() => setExportNotice(null)} className="text-blue-700 hover:text-blue-950">
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-1.5 text-[12px] text-slate-500 mb-1">

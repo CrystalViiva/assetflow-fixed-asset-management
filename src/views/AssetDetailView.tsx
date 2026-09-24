@@ -69,7 +69,7 @@ export const AssetDetailView: React.FC<AssetDetailViewProps> = ({
     load();
   }, [assetId]);
 
-  if (loading || !asset) {
+  if (loading) {
     return (
       <div className="p-12 flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-500 font-medium">
@@ -78,6 +78,24 @@ export const AssetDetailView: React.FC<AssetDetailViewProps> = ({
           </span>
           <span>Loading asset details for {assetId}...</span>
         </div>
+      </div>
+    );
+  }
+
+  if (!asset) {
+    return (
+      <div className="p-12 flex flex-col items-center justify-center gap-3 text-slate-600">
+        <span className="material-symbols-outlined text-[48px] text-slate-300">
+          search_off
+        </span>
+        <div className="text-lg font-bold text-slate-800">Asset Record Not Found</div>
+        <p className="text-sm text-slate-500">The requested asset ID &quot;{assetId}&quot; does not exist or has been removed from the ledger.</p>
+        <button
+          onClick={() => onNavigate('all-assets')}
+          className="mt-2 px-4 py-2 bg-[#00288e] text-white text-sm font-semibold rounded-lg hover:bg-[#1e40af] transition-colors"
+        >
+          Return to Asset Register
+        </button>
       </div>
     );
   }

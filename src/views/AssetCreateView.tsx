@@ -71,24 +71,114 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
   // Submit states
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   // Real-time calculations
   const totalCost = useMemo(() => {
     return (costBase || 0) + (costFreight || 0) + (costInstall || 0) + (costCivil || 0) + (costOther || 0);
   }, [costBase, costFreight, costInstall, costCivil, costOther]);
 
-  const usefulMonths = useMemo(() => usefulYears * 12, [usefulYears]);
+  const usefulMonths = useMemo(() => Math.max(0, usefulYears * 12), [usefulYears]);
 
   const depResult = useMemo(() => {
     return calculateStraightLine({
       cost: totalCost,
       residualRatePct: residualRate,
-      usefulLifeMonths: usefulMonths,
+      usefulLifeMonths: usefulMonths || 12,
       capitalizationDate,
     });
   }, [totalCost, residualRate, usefulMonths, capitalizationDate]);
 
+  const clearError = (key: string) => {
+    setErrors(prev => {
+      if (!(key in prev)) return prev;
+      const copy = { ...prev };
+      delete copy[key];
+      return copy;
+    });
+  };
+
+  const validateForm = (
+    currentName = name,
+    currentCat = categoryId,
+    currentAcq = acquisitionDate,
+    currentCap = capitalizationDate,
+    currentTotal = totalCost,
+    currentRes = residualRate,
+    currentYears = usefulYears,
+    currentMethod = depMethod,
+    currentSal = depResult.salvageValue
+  ): Record<string, string> => {
+    const errs: Record<string, string> = {};
+
+    // 1. Asset name is required.
+    if (!currentName.trim()) {
+      errs.name = 'Asset name is required.';
+    }
+
+    // 2. Asset category is required.
+    if (!currentCat.trim()) {
+      errs.categoryId = 'Asset category is required.';
+    }
+
+    // 3. Acquisition date is required.
+    if (!currentAcq.trim()) {
+      errs.acquisitionDate = 'Acquisition date is required.';
+    }
+
+    // 4. Capitalization date is required.
+    if (!currentCap.trim()) {
+      errs.capitalizationDate = 'Capitalization date is required.';
+    }
+
+    // 5. Capitalization date must not be earlier than acquisition date.
+    if (currentAcq.trim() && currentCap.trim()) {
+      const acqTime = new Date(currentAcq).getTime();
+      const capTime = new Date(currentCap).getTime();
+      if (!isNaN(acqTime) && !isNaN(capTime) && capTime < acqTime) {
+        errs.capitalizationDate = 'Capitalization date must not be earlier than acquisition date.';
+      }
+    }
+
+    // 6. Capitalizable cost must be greater than zero.
+    if (currentTotal <= 0) {
+      errs.cost = 'Capitalizable cost must be greater than zero.';
+    }
+
+    // 7. Residual/salvage value must not be negative.
+    if (currentRes < 0 || currentSal < 0) {
+      errs.residualRate = 'Residual/salvage value must not be negative.';
+    }
+    // 8. Residual/salvage value must not exceed the capitalizable cost.
+    else if (currentRes > 100 || currentSal > currentTotal) {
+      errs.residualRate = 'Residual/salvage value must not exceed the capitalizable cost.';
+    }
+
+    // 9. Useful life must be greater than zero.
+    if (currentYears <= 0 || isNaN(currentYears)) {
+      errs.usefulYears = 'Useful life must be greater than zero.';
+    }
+
+    // 10. Required depreciation method must be selected.
+    if (!currentMethod) {
+      errs.depMethod = 'Depreciation method is required.';
+    }
+
+    return errs;
+  };
+
   const handleValidateAndCapitalize = async () => {
+    setHasAttemptedSubmit(true);
+    const formErrors = validateForm();
+    setErrors(formErrors);
+
+    if (Object.keys(formErrors).length > 0) {
+      setSuccessMessage(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setSubmitting(true);
     setSuccessMessage('Validating against IAS 16 thresholds and capitalization ledger...');
 
@@ -181,7 +271,10 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => alert('Draft saved to local session.')}
+              onClick={() => {
+                setSuccessMessage('Draft details saved to local session.');
+                setTimeout(() => setSuccessMessage(null), 3000);
+              }}
               className="px-3.5 py-2 bg-white text-slate-800 text-[13px] font-semibold rounded-lg flex items-center gap-1.5 hover:bg-slate-50 border border-slate-200 transition-colors shadow-2xs"
             >
               <span className="material-symbols-outlined text-[18px] text-slate-500">save</span>
@@ -200,6 +293,25 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
             </button>
           </div>
         </div>
+
+        {hasAttemptedSubmit && Object.keys(errors).length > 0 && (
+          <div className="mt-4 p-4 bg-rose-50 border border-rose-200 text-rose-900 rounded-xl text-[13px] flex items-start gap-3 animate-in fade-in shadow-xs">
+            <span className="material-symbols-outlined text-[22px] text-rose-600 shrink-0 mt-0.5">error</span>
+            <div className="space-y-1">
+              <div className="font-bold text-rose-950 text-[14px]">
+                Capitalization Validation Failed ({Object.keys(errors).length} issue{Object.keys(errors).length > 1 ? 's' : ''})
+              </div>
+              <p className="text-rose-800 text-xs leading-relaxed">
+                Please correct the highlighted fields per IAS 16 statutory capitalization guidelines:
+              </p>
+              <ul className="list-disc pl-4 text-xs text-rose-800 space-y-0.5 pt-1">
+                {Object.values(errors).map((err, idx) => (
+                  <li key={idx} className="font-medium">{err}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
 
         {successMessage && (
           <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-[13px] font-semibold flex items-center gap-2 animate-in fade-in">
@@ -238,11 +350,22 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
                 <input
                   type="text"
                   value={name}
-                  onChange={e => setName(e.target.value)}
+                  onChange={e => {
+                    setName(e.target.value);
+                    clearError('name');
+                  }}
                   placeholder="Enter manufacturer model or title"
-                  className="w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 rounded-md border border-slate-200 focus:outline-none focus:ring-1.5 focus:ring-[#00288e] font-medium"
+                  className={`w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 rounded-md border font-medium focus:outline-none ${
+                    errors.name ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20' : 'border-slate-200 focus:ring-1.5 focus:ring-[#00288e]'
+                  }`}
                   required
                 />
+                {errors.name && (
+                  <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                    <span className="material-symbols-outlined text-[14px]">error</span>
+                    {errors.name}
+                  </p>
+                )}
               </div>
 
               {/* System Asset Tag with Custom Toggle */}
@@ -302,15 +425,27 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
                 </label>
                 <select
                   value={categoryId}
-                  onChange={e => setCategoryId(e.target.value)}
-                  className="w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 rounded-md border border-slate-200 focus:outline-none focus:ring-1.5 focus:ring-[#00288e]"
+                  onChange={e => {
+                    setCategoryId(e.target.value);
+                    clearError('categoryId');
+                  }}
+                  className={`w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 rounded-md border focus:outline-none ${
+                    errors.categoryId ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20' : 'border-slate-200 focus:ring-1.5 focus:ring-[#00288e]'
+                  }`}
                 >
+                  <option value="">-- Select Asset Category --</option>
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.code})
                     </option>
                   ))}
                 </select>
+                {errors.categoryId && (
+                  <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                    <span className="material-symbols-outlined text-[14px]">error</span>
+                    {errors.categoryId}
+                  </p>
+                )}
               </div>
 
               {/* Sub-Category */}
@@ -579,10 +714,22 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
                   <input
                     type="date"
                     value={acquisitionDate}
-                    onChange={e => setAcquisitionDate(e.target.value)}
-                    className="w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 font-mono rounded-md border border-slate-200 focus:outline-none focus:ring-1.5 focus:ring-[#00288e]"
+                    onChange={e => {
+                      setAcquisitionDate(e.target.value);
+                      clearError('acquisitionDate');
+                      clearError('capitalizationDate');
+                    }}
+                    className={`w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 font-mono rounded-md border focus:outline-none ${
+                      errors.acquisitionDate ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20' : 'border-slate-200 focus:ring-1.5 focus:ring-[#00288e]'
+                    }`}
                     required
                   />
+                  {errors.acquisitionDate && (
+                    <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                      <span className="material-symbols-outlined text-[14px]">error</span>
+                      {errors.acquisitionDate}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -591,10 +738,21 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
                   <input
                     type="date"
                     value={capitalizationDate}
-                    onChange={e => setCapitalizationDate(e.target.value)}
-                    className="w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 font-mono rounded-md border border-slate-200 focus:outline-none focus:ring-1.5 focus:ring-[#00288e]"
+                    onChange={e => {
+                      setCapitalizationDate(e.target.value);
+                      clearError('capitalizationDate');
+                    }}
+                    className={`w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 font-mono rounded-md border focus:outline-none ${
+                      errors.capitalizationDate ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20' : 'border-slate-200 focus:ring-1.5 focus:ring-[#00288e]'
+                    }`}
                     required
                   />
+                  {errors.capitalizationDate && (
+                    <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                      <span className="material-symbols-outlined text-[14px]">error</span>
+                      {errors.capitalizationDate}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -623,8 +781,14 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
                         min="0"
                         step="100000"
                         value={costBase}
-                        onChange={e => setCostBase(parseFloat(e.target.value) || 0)}
-                        className="w-full h-8 pl-7 pr-3 bg-white text-right font-mono font-bold text-slate-900 rounded border border-slate-200 focus:ring-1.5 focus:ring-[#00288e]"
+                        onChange={e => {
+                          const val = parseFloat(e.target.value);
+                          setCostBase(isNaN(val) ? 0 : val);
+                          clearError('cost');
+                        }}
+                        className={`w-full h-8 pl-7 pr-3 bg-white text-right font-mono font-bold text-slate-900 rounded border ${
+                          errors.cost ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:ring-1.5 focus:ring-[#00288e]'
+                        }`}
                       />
                     </div>
                   </div>
@@ -714,17 +878,25 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
                   </div>
 
                   {/* Total Highlight Row */}
-                  <div className="pt-2 mt-2 bg-[#dce9ff] rounded-lg p-3 flex items-center justify-between border border-blue-200">
+                  <div className={`pt-2 mt-2 rounded-lg p-3 flex items-center justify-between border ${
+                    errors.cost ? 'bg-rose-50 border-rose-300' : 'bg-[#dce9ff] border-blue-200'
+                  }`}>
                     <div>
-                      <span className="text-[14px] text-[#00288e] font-bold block">
+                      <span className={`text-[14px] font-bold block ${errors.cost ? 'text-rose-900' : 'text-[#00288e]'}`}>
                         Total Capitalized Acquisition Cost
                       </span>
                       <span className="text-[11px] text-slate-600">
                         Recognized under IAS 16 Non-Current Asset Register
                       </span>
+                      {errors.cost && (
+                        <p className="text-[11px] font-semibold text-rose-700 flex items-center gap-1 mt-1">
+                          <span className="material-symbols-outlined text-[14px]">error</span>
+                          {errors.cost}
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
-                      <span className="text-[20px] text-[#00288e] font-mono font-bold">
+                      <span className={`text-[20px] font-mono font-bold ${errors.cost ? 'text-rose-700' : 'text-[#00288e]'}`}>
                         {formatNaira(totalCost)}
                       </span>
                     </div>
@@ -758,14 +930,25 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
                 </label>
                 <select
                   value={depMethod}
-                  onChange={e => setDepMethod(e.target.value as any)}
-                  className="w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 rounded-md border border-slate-200 focus:outline-none focus:ring-1.5 focus:ring-[#00288e]"
+                  onChange={e => {
+                    setDepMethod(e.target.value as any);
+                    clearError('depMethod');
+                  }}
+                  className={`w-full h-9 px-3 bg-[#eff4ff]/60 text-slate-900 rounded-md border focus:outline-none ${
+                    errors.depMethod ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20' : 'border-slate-200 focus:ring-1.5 focus:ring-[#00288e]'
+                  }`}
                 >
                   <option value="SLM">Straight Line Method (SLM)</option>
                   <option value="RBM">Reducing Balance Method (20% DBM)</option>
                   <option value="UOP">Units of Production (Running Hours)</option>
                   <option value="SYD">Sum of Years Digits</option>
                 </select>
+                {errors.depMethod && (
+                  <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                    <span className="material-symbols-outlined text-[14px]">error</span>
+                    {errors.depMethod}
+                  </p>
+                )}
               </div>
 
               {/* Useful Economic Life */}
@@ -779,14 +962,24 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
                 <div className="relative flex items-center">
                   <input
                     type="number"
-                    min="1"
-                    max="50"
                     value={usefulYears}
-                    onChange={e => setUsefulYears(Math.max(1, parseFloat(e.target.value) || 1))}
-                    className="w-full h-9 px-3 pr-16 bg-[#eff4ff]/60 text-slate-900 rounded-md border border-slate-200 focus:outline-none focus:ring-1.5 focus:ring-[#00288e] font-mono font-bold"
+                    onChange={e => {
+                      const val = parseFloat(e.target.value);
+                      setUsefulYears(isNaN(val) ? 0 : val);
+                      clearError('usefulYears');
+                    }}
+                    className={`w-full h-9 px-3 pr-16 bg-[#eff4ff]/60 text-slate-900 rounded-md border font-mono font-bold focus:outline-none ${
+                      errors.usefulYears ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20' : 'border-slate-200 focus:ring-1.5 focus:ring-[#00288e]'
+                    }`}
                   />
                   <span className="absolute right-3 text-[12px] text-slate-500 pointer-events-none">Years</span>
                 </div>
+                {errors.usefulYears && (
+                  <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                    <span className="material-symbols-outlined text-[14px]">error</span>
+                    {errors.usefulYears}
+                  </p>
+                )}
               </div>
 
               {/* Salvage Rate */}
@@ -797,14 +990,24 @@ export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
                 <div className="relative flex items-center">
                   <input
                     type="number"
-                    min="0"
-                    max="90"
                     value={residualRate}
-                    onChange={e => setResidualRate(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                    className="w-full h-9 px-3 pr-10 bg-[#eff4ff]/60 text-slate-900 rounded-md border border-slate-200 focus:outline-none focus:ring-1.5 focus:ring-[#00288e] font-mono font-bold"
+                    onChange={e => {
+                      const val = parseFloat(e.target.value);
+                      setResidualRate(isNaN(val) ? 0 : val);
+                      clearError('residualRate');
+                    }}
+                    className={`w-full h-9 px-3 pr-10 bg-[#eff4ff]/60 text-slate-900 rounded-md border font-mono font-bold focus:outline-none ${
+                      errors.residualRate ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20' : 'border-slate-200 focus:ring-1.5 focus:ring-[#00288e]'
+                    }`}
                   />
                   <span className="absolute right-3 text-[12px] text-slate-500 pointer-events-none">%</span>
                 </div>
+                {errors.residualRate && (
+                  <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                    <span className="material-symbols-outlined text-[14px]">error</span>
+                    {errors.residualRate}
+                  </p>
+                )}
               </div>
 
               {/* Calculated Salvage Value */}
