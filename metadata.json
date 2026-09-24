@@ -1,0 +1,6 @@
+{
+  "name": "AssetFlow — Fixed Asset Management System",
+  "description": "Enterprise Fixed Asset Management System managing the complete asset lifecycle from acquisition, capitalization, assignments, transfers, and maintenance to depreciation and disposal under IFRS / IAS 16 standards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
