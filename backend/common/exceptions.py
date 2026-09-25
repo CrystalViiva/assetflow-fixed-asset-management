@@ -1,5 +1,6 @@
 """Consistent public error format for DRF API failures."""
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
@@ -11,6 +12,10 @@ from rest_framework.views import exception_handler
 
 
 def api_exception_handler(exc, context):
+    if isinstance(exc, DjangoValidationError):
+        details = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+        exc = ValidationError(details)
+
     response = exception_handler(exc, context)
     if response is None:
         return None

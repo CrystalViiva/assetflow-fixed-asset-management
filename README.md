@@ -5,9 +5,9 @@ AssetFlow is an IAS 16-aligned fixed asset management portfolio project. The exi
 ## Current state
 
 - React 19, TypeScript, Vite, and Tailwind frontend with lifecycle screens and local mock data.
-- Django 5.2 backend foundation with environment-based settings, PostgreSQL, DRF, OpenAPI, email-based users, organization structure, audit events, JWT authentication, and Celery/Redis configuration.
+- Django 5.2 backend with PostgreSQL, DRF, OpenAPI, email-based users, organization structure, asset/category master-data APIs, audit events, JWT authentication, and Celery/Redis configuration.
 - PostgreSQL is required through `DATABASE_URL`; there is no implicit SQLite fallback.
-- Domain APIs and asset lifecycle resources are being added in subsequent milestones.
+- Acquisition, capitalization, depreciation, transfer, maintenance, disposal, and reporting workflows remain future milestones.
 
 ## Local development
 
@@ -17,7 +17,7 @@ Backend: copy `.env.example` to `.env`, set a unique `DJANGO_SECRET_KEY` and loc
 
 To run the full stack, use `docker compose up --build`. Run backend checks from `backend/` with `python manage.py check`, `pytest`, `ruff check .`, and `ruff format --check .`.
 
-Milestone 1 API and error envelope details are in [docs/api.md](docs/api.md).
+API and error-envelope details are in [docs/api.md](docs/api.md). Asset-domain decisions are in [docs/architecture.md](docs/architecture.md) and [docs/business-rules.md](docs/business-rules.md).
 
 ## Engineering direction
 

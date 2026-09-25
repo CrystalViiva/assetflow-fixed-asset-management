@@ -28,3 +28,17 @@ Known error codes include `VALIDATION_ERROR`, `AUTHENTICATION_ERROR`, `PERMISSIO
 ## Pagination
 
 List endpoints use page-number pagination with a default page size of 25. Clients may set `page_size` up to 100; larger requested values are capped.
+
+## Asset master data
+
+- `GET/POST /api/v1/assets/` list and create assets.
+- `GET/PATCH/PUT /api/v1/assets/{id}/` retrieve or update an asset. Physical deletion is not exposed.
+- `GET /api/v1/assets/by-tag/{asset_tag}/` retrieve an asset by its organization-scoped tag.
+- `GET/POST /api/v1/assets/categories/` list or create categories.
+- `GET/PATCH/PUT /api/v1/assets/categories/{id}/` retrieve or update a category. Physical deletion is not exposed.
+
+Asset lists accept `status`, `category` (UUID) or the frontend-compatible `category__name`, `department` or `department__name`, `location` or `location__name`, `manufacturer`, `acquisition_date_after`, `acquisition_date_before`, `search`, and `ordering`. Search checks tag, name, serial/model number, manufacturer, and description. Ordering is limited to explicitly supported fields.
+
+Asset payloads use domain names such as `asset_tag`, `purchase_cost`, and `current_book_value`. Related category, department, and location IDs are accepted as `category_id`, `department_id`, and `location_id`; responses include their names and codes. Organization ID and lifecycle/accounting snapshots are read-only. `current_book_value` and `accumulated_depreciation` are reserved for later posting services.
+
+ADMIN and ASSET_MANAGER can write asset/category master data. ACCOUNTANT is read-only. DEPARTMENT_MANAGER reads their configured department's assets; EMPLOYEE reads active assets in their organization. All querysets are tenant-scoped.

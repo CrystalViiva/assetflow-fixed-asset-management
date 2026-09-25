@@ -7,12 +7,12 @@ from accounts.models import User
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     ordering = ("email",)
-    list_display = ("email", "organization", "role", "is_active", "is_staff")
-    list_filter = ("role", "is_active", "is_staff", "organization")
+    list_display = ("email", "organization", "department", "role", "is_active", "is_staff")
+    list_filter = ("role", "is_active", "is_staff", "organization", "department")
     search_fields = ("email",)
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Organization", {"fields": ("organization", "role")}),
+        ("Organization", {"fields": ("organization", "department", "role")}),
         (
             "Permissions",
             {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")},

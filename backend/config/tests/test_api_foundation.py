@@ -112,6 +112,12 @@ def test_openapi_schema_includes_authentication_routes(client):
     schema = yaml.safe_load(response.content)
     assert "/api/v1/auth/token/" in schema["paths"]
     assert "/api/v1/auth/token/refresh/" in schema["paths"]
+    assert "/api/v1/assets/" in schema["paths"]
+    assert "/api/v1/assets/categories/" in schema["paths"]
+    asset_parameters = {
+        parameter["name"] for parameter in schema["paths"]["/api/v1/assets/"]["get"]["parameters"]
+    }
+    assert {"status", "search", "ordering", "acquisition_date_after"} <= asset_parameters
     assert schema["paths"]["/api/v1/auth/me/"]["get"]["security"]
     assert any(
         security_scheme.get("type") == "http"

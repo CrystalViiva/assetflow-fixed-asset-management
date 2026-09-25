@@ -2,6 +2,7 @@
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -53,6 +54,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         blank=True,
         related_name="users",
     )
+    department = models.ForeignKey(
+        "organizations.Department",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="members",
+    )
     role = models.CharField(max_length=32, choices=UserRole.choices, default=UserRole.EMPLOYEE)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -66,6 +74,17 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         ordering = ("email",)
+
+    def clean(self):
+        super().clean()
+        if (
+            self.department_id
+            and self.organization_id
+            and self.department.organization_id != self.organization_id
+        ):
+            raise ValidationError(
+                {"department": "The department must belong to the user's organization."}
+            )
 
     def save(self, *args, **kwargs):
         if self.email:
