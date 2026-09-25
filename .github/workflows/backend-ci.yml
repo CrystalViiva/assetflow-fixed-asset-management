@@ -1,0 +1,66 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: assetflow
+          POSTGRES_USER: assetflow
+          POSTGRES_PASSWORD: assetflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U assetflow -d assetflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DJANGO_SECRET_KEY: ci-only-secret-key
+      DEBUG: "false"
+      SECURE_SSL_REDIRECT: "false"
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      DATABASE_URL: postgresql://assetflow:assetflow@localhost:5432/assetflow
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      CELERY_RESULT_BACKEND: redis://localhost:6379/1
+      TIME_ZONE: Africa/Lagos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Django system checks
+        working-directory: backend
+        run: python manage.py check
+      - name: Verify migrations
+        working-directory: backend
+        run: python manage.py makemigrations --check --dry-run
+      - name: Run tests
+        working-directory: backend
+        run: pytest
+      - name: Ruff lint
+        working-directory: backend
+        run: ruff check .
+      - name: Ruff format check
+        working-directory: backend
+        run: ruff format --check .

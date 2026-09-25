@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+node_modules/
+dist/
+build/
+coverage/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+*.sqlite3
