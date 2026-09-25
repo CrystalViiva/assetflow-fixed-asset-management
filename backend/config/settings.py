@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "depreciation.apps.DepreciationConfig",
     "transfers.apps.TransfersConfig",
     "maintenance.apps.MaintenanceConfig",
+    "disposals.apps.DisposalsConfig",
 ]
 
 MIDDLEWARE = [

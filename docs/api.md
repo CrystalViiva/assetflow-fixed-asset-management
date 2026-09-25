@@ -80,3 +80,13 @@ List endpoints are paginated and organization-scoped. Assignment filters include
 - `GET /api/v1/assets/maintenance-records/` lists permanent records created as part of work-order completion; detail retrieval is also available.
 
 Lists are paginated, organization-scoped, searchable, and have allow-listed ordering. Plans filter by asset/type/active/due date; work orders by asset/type/priority/status/assignee/due date/opened date; costs by work order/type; records by asset/type/maintenance date. ADMIN and ASSET_MANAGER may create/update plans, operate work orders, and add costs. Other roles are read-only and limited by department or current assignment scope. Completed work orders, costs, and records are not edited or deleted through the API. Plans store scheduling intent only; automatic scheduling is not implemented.
+
+## Disposals and derecognition
+
+- `GET/POST /api/v1/assets/disposals/` lists organization-scoped disposal workflows or creates a DRAFT request.
+- `GET/PATCH /api/v1/assets/disposals/{id}/` retrieves a disposal or updates editable DRAFT fields. Physical deletion is not exposed.
+- `POST /api/v1/assets/disposals/{id}/submit/` submits a draft for approval; `/approve/`, `/reject/`, and `/cancel/` advance valid workflow transitions; `/complete/` performs transactional derecognition.
+
+Creation accepts `asset_id`, `disposal_date`, `disposal_method`, `reason`, `proceeds`, and optional `currency`. Proceeds must be nonnegative; currency defaults to the organization's base currency and FX conversion is not supported. Status, actor/timestamps, carrying amount, capitalized cost snapshot, accumulated depreciation snapshot, and gain/loss are server-controlled. Completion returns the completed disposal with its accounting snapshots. Carrying amount is the locked asset capitalized cost less posted accumulated depreciation; gain/(loss) is proceeds less carrying amount.
+
+Lists support filters for asset, status, method, requester, approver, department, location, disposal-date bounds, and gain/loss bounds, along with search and allow-listed ordering. ADMIN and ASSET_MANAGER may manage the workflow. ACCOUNTANT has read access; DEPARTMENT_MANAGER reads records for their configured department; EMPLOYEE has no disposal access. Requesters cannot approve their own disposal. Completion is rejected for non-ACTIVE assets, active custody, pending transfers, or active work orders. Domain validation failures use the standard API error envelope described above.
