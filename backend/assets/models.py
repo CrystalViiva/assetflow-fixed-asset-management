@@ -316,6 +316,7 @@ class Asset(models.Model):
     status = models.CharField(max_length=32, choices=AssetStatus.choices, default=AssetStatus.DRAFT)
     acquisition_date = models.DateField(null=True, blank=True)
     capitalization_date = models.DateField(null=True, blank=True)
+    available_for_use_date = models.DateField(null=True, blank=True)
     purchase_cost = models.DecimalField(
         max_digits=20,
         decimal_places=2,
@@ -399,6 +400,12 @@ class Asset(models.Model):
                 | Q(capitalization_date__gte=F("acquisition_date")),
                 name="asset_capitalization_not_before_acquisition",
             ),
+            models.CheckConstraint(
+                condition=Q(available_for_use_date__isnull=True)
+                | Q(capitalization_date__isnull=True)
+                | Q(available_for_use_date__gte=F("capitalization_date")),
+                name="asset_available_after_capitalization",
+            ),
         ]
         indexes = [
             models.Index(fields=("organization", "status"), name="asset_org_status_idx"),
@@ -425,6 +432,11 @@ class Asset(models.Model):
             if self.capitalization_date < self.acquisition_date:
                 errors["capitalization_date"] = (
                     "Capitalization date cannot precede acquisition date."
+                )
+        if self.capitalization_date and self.available_for_use_date:
+            if self.available_for_use_date < self.capitalization_date:
+                errors["available_for_use_date"] = (
+                    "Available-for-use date cannot precede capitalization date."
                 )
 
         for field_name in ("category", "department", "location"):

@@ -185,6 +185,7 @@ class AssetSerializer(serializers.ModelSerializer):
             "status",
             "acquisition_date",
             "capitalization_date",
+            "available_for_use_date",
             "purchase_cost",
             "residual_value",
             "useful_life_months",

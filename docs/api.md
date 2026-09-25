@@ -52,3 +52,13 @@ ADMIN and ASSET_MANAGER can write asset/category master data. ACCOUNTANT is read
 Acquisition input accepts `asset_id`, `vendor_name`, `invoice_number`, `reference`, `acquisition_date`, optional `capitalization_date` and `currency`, plus `purchase_price`, `freight_cost`, `installation_cost`, `civil_works_cost`, and `other_capitalizable_cost`. `total_cost`, acquisition status, organization, and actor fields are server-controlled; any client-supplied read-only value is ignored. The cost total is calculated from the five components. Currency defaults to the organization's base currency; until foreign-exchange support is implemented, an acquisition must use that base currency.
 
 ADMIN and ASSET_MANAGER can create, update, and capitalize acquisitions. ACCOUNTANT can read organization acquisitions. DEPARTMENT_MANAGER can read acquisitions for assets in their department. EMPLOYEE has no acquisition API access. Acquisitions are tenant-scoped and cannot be deleted through the API.
+
+## Depreciation and accounting periods
+
+- `GET/POST /api/v1/depreciation/schedules/` lists schedules or generates the one schedule for an asset. Creation accepts `asset_id`; all assumptions are read from its capitalized asset record.
+- `GET /api/v1/depreciation/schedules/{id}/` retrieves an organization-scoped schedule.
+- `GET /api/v1/depreciation/entries/` lists posted entries. `POST /api/v1/depreciation/entries/post/` posts one using `{ "asset_id": "…", "period_id": "…" }`.
+- `GET/POST /api/v1/depreciation/periods/` lists periods or explicitly opens a month with `{ "year": 2025, "month": 2 }`.
+- `POST /api/v1/depreciation/periods/{id}/close/` closes an open period and records the actor and timestamp.
+
+ADMIN, ASSET_MANAGER, and ACCOUNTANT may generate schedules, post depreciation, and manage periods. DEPARTMENT_MANAGER receives read-only depreciation access for assets in their department; EMPLOYEE has no depreciation access. Data is organization-scoped. Schedule lists support asset, tag, method, status, and start-date filters; entry lists support asset, tag/search, method, period ID or `YYYY-MM`, year/month, and period date bounds. Period lists support year, month, and status. The list endpoints use shared page-number pagination and allow-list ordering.

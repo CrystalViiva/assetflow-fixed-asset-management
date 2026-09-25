@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "organizations.apps.OrganizationsConfig",
     "audit.apps.AuditConfig",
     "assets.apps.AssetsConfig",
+    "depreciation.apps.DepreciationConfig",
 ]
 
 MIDDLEWARE = [

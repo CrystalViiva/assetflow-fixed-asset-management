@@ -270,6 +270,7 @@ def capitalize_acquisition(*, acquisition_id, actor, ip_address=None):
             "current_book_value": asset.current_book_value,
             "acquisition_date": asset.acquisition_date,
             "capitalization_date": asset.capitalization_date,
+            "available_for_use_date": asset.available_for_use_date,
             "useful_life_months": asset.useful_life_months,
         }
         before_acquisition_status = acquisition.status
@@ -285,6 +286,9 @@ def capitalize_acquisition(*, acquisition_id, actor, ip_address=None):
         asset.current_book_value = capitalized_cost
         asset.acquisition_date = acquisition.acquisition_date
         asset.capitalization_date = acquisition.capitalization_date
+        asset.available_for_use_date = (
+            asset.available_for_use_date or acquisition.capitalization_date
+        )
         asset.status = AssetStatus.ACTIVE
         asset.updated_by = actor
         asset.full_clean()
@@ -299,6 +303,7 @@ def capitalize_acquisition(*, acquisition_id, actor, ip_address=None):
                 "current_book_value",
                 "acquisition_date",
                 "capitalization_date",
+                "available_for_use_date",
                 "useful_life_months",
                 "status",
                 "updated_by",

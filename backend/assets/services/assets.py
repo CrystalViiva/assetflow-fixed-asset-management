@@ -22,6 +22,7 @@ ASSET_MASTER_FIELDS = {
     "location",
     "acquisition_date",
     "capitalization_date",
+    "available_for_use_date",
     "purchase_cost",
     "residual_value",
     "useful_life_months",
@@ -30,6 +31,7 @@ ASSET_MASTER_FIELDS = {
 ASSET_ACCOUNTING_FIELDS = {
     "acquisition_date",
     "capitalization_date",
+    "available_for_use_date",
     "purchase_cost",
     "residual_value",
     "useful_life_months",

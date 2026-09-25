@@ -5,9 +5,9 @@ AssetFlow is an IAS 16-aligned fixed asset management portfolio project. The exi
 ## Current state
 
 - React 19, TypeScript, Vite, and Tailwind frontend with lifecycle screens and local mock data.
-- Django 5.2 backend with PostgreSQL, DRF, OpenAPI, email-based users, organization structure, asset/category and acquisition APIs, transactional capitalization, audit events, JWT authentication, and Celery/Redis configuration.
+- Django 5.2 backend with PostgreSQL, DRF, OpenAPI, email-based users, organization structure, asset/category and acquisition APIs, transactional capitalization, auditable straight-line depreciation, explicit accounting periods, JWT authentication, and Celery/Redis configuration.
 - PostgreSQL is required through `DATABASE_URL`; there is no implicit SQLite fallback.
-- Depreciation, transfer, maintenance, disposal, impairment, and reporting workflows remain future milestones.
+- Reducing balance, units of production, and sum-of-years-digits calculation engines, transfers, maintenance, disposal, impairment, and reporting workflows remain future milestones.
 
 ## Local development
 

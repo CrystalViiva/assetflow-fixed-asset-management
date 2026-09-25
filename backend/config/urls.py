@@ -39,6 +39,7 @@ class AuthenticatedUserView(APIView):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include("assets.urls")),
+    path("api/v1/", include("depreciation.urls")),
     path("api/v1/health/", health_check, name="health-check"),
     path("api/v1/auth/token/", TokenObtainPairView.as_view(), name="token-obtain-pair"),
     path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),

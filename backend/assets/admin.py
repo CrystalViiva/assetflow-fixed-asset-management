@@ -64,6 +64,7 @@ class AssetAdmin(OrganizationScopedAdmin):
     accounting_fields = (
         "acquisition_date",
         "capitalization_date",
+        "available_for_use_date",
         "purchase_cost",
         "residual_value",
         "useful_life_months",
@@ -120,6 +121,7 @@ class AssetAdmin(OrganizationScopedAdmin):
                 "fields": (
                     "acquisition_date",
                     "capitalization_date",
+                    "available_for_use_date",
                     "purchase_cost",
                     "residual_value",
                     "useful_life_months",

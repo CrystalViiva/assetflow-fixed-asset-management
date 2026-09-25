@@ -13,13 +13,13 @@ HTTP request
   -> Django ORM and PostgreSQL constraints
 ```
 
-Asset list and detail queries use selectors with `select_related` for organization, category, department, location, and audit attribution users. Asset and acquisition services are the integration boundary for lifecycle workflows. Acquisition and capitalization rules do not live in serializers or viewsets. Depreciation, transfers, maintenance, and disposal remain future modules.
+Asset list and detail queries use selectors with `select_related` for organization, category, department, location, and audit attribution users. Asset, acquisition, and depreciation services are the integration boundary for lifecycle workflows. Accounting rules do not live in serializers or viewsets. Transfers, maintenance, and disposal remain future modules.
 
 ## Asset master data
 
 `AssetCategory` belongs to an organization and carries default accounting-policy values. The category defaults are applied when an asset is created without an explicit useful life or depreciation method. The selected values are copied onto the asset, so a later category-default edit does not silently rewrite existing asset policy.
 
-`Asset` has an organization-scoped asset tag and optional department and location. Its category is required. Purchase cost, residual value, useful life, and depreciation method are the current policy/master-data inputs. Accumulated depreciation and current book value are persisted state for efficient reads; later posting services must keep them synchronized with the depreciation ledger. The ledger, once implemented, is the historical accounting source of truth.
+`Asset` has an organization-scoped asset tag and optional department and location. Its category is required. Purchase cost, residual value, useful life, and depreciation method are the current policy/master-data inputs. Accumulated depreciation and current book value are persisted state for efficient reads; the depreciation ledger is the historical accounting source of truth, and posting updates both snapshots atomically.
 
 Assets are not physically deleted through the API or Django admin. Status changes belong to lifecycle services, so the master-data endpoint returns status but does not allow callers to set it. Categories use `PROTECT` on assets, preserving the policy reference used by historical assets.
 
@@ -42,3 +42,11 @@ An `Acquisition` stores vendor/invoice references, acquisition and capitalizatio
 `assets.services.acquisition` owns creation, financial edits, and capitalization. Capitalization locks the acquisition row and then its asset row, validates lifecycle/accounting preconditions, activates the asset, sets the asset's `purchase_cost` and opening `current_book_value` to the derived capitalized cost, and updates the acquisition state. The asset and acquisition audit events are written in the same transaction, so either all state and audit changes commit or none do. Repeated requests serialize on the row lock and the second request sees the capitalized state.
 
 Currency codes use an explicit supported ISO 4217 choice set. Until exchange-rate capture and translation are implemented, the acquisition currency must match its organization's base currency; no implicit currency conversion occurs.
+
+## Depreciation ledger and accounting periods
+
+`Asset.purchase_cost` remains the capitalized cost basis. Capitalization initializes `current_book_value` to that cost and `accumulated_depreciation` to zero. `available_for_use_date` defaults to capitalization date and determines schedule commencement. The monthly convention takes a full monthly amount for the calendar month containing that date, without day proration.
+
+`DepreciationSchedule` snapshots capitalized cost, depreciable amount, residual value, useful life, method, and relevant dates. `AccountingPeriod` is an explicitly opened organization/year/month record. `DepreciationEntry` is protected ledger history and has a PostgreSQL uniqueness constraint on organization, asset, and period.
+
+The posting service locks the period, asset, and schedule, verifies sequential posting, writes the entry, advances the asset balance snapshots, and records audit in one transaction. Posting after a gap is rejected; catch-up is not implicit. Closed periods reject entries. Schedule revisions and regeneration are deferred; this milestone allows one schedule per asset and refuses replacement.
