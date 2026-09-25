@@ -42,3 +42,13 @@ Asset lists accept `status`, `category` (UUID) or the frontend-compatible `categ
 Asset payloads use domain names such as `asset_tag`, `purchase_cost`, and `current_book_value`. Related category, department, and location IDs are accepted as `category_id`, `department_id`, and `location_id`; responses include their names and codes. Organization ID and lifecycle/accounting snapshots are read-only. `current_book_value` and `accumulated_depreciation` are reserved for later posting services.
 
 ADMIN and ASSET_MANAGER can write asset/category master data. ACCOUNTANT is read-only. DEPARTMENT_MANAGER reads their configured department's assets; EMPLOYEE reads active assets in their organization. All querysets are tenant-scoped.
+
+## Acquisitions and capitalization
+
+- `GET/POST /api/v1/assets/acquisitions/` lists organization-scoped acquisitions or records an acquisition against a draft asset.
+- `GET/PATCH/PUT /api/v1/assets/acquisitions/{id}/` retrieves or updates a draft acquisition.
+- `POST /api/v1/assets/acquisitions/{id}/capitalize/` performs the controlled capitalization transition.
+
+Acquisition input accepts `asset_id`, `vendor_name`, `invoice_number`, `reference`, `acquisition_date`, optional `capitalization_date` and `currency`, plus `purchase_price`, `freight_cost`, `installation_cost`, `civil_works_cost`, and `other_capitalizable_cost`. `total_cost`, acquisition status, organization, and actor fields are server-controlled; any client-supplied read-only value is ignored. The cost total is calculated from the five components. Currency defaults to the organization's base currency; until foreign-exchange support is implemented, an acquisition must use that base currency.
+
+ADMIN and ASSET_MANAGER can create, update, and capitalize acquisitions. ACCOUNTANT can read organization acquisitions. DEPARTMENT_MANAGER can read acquisitions for assets in their department. EMPLOYEE has no acquisition API access. Acquisitions are tenant-scoped and cannot be deleted through the API.

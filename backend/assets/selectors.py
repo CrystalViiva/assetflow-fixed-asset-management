@@ -1,6 +1,21 @@
 """Reusable organization-scoped asset queries."""
 
-from assets.models import Asset, AssetCategory, AssetStatus
+from assets.models import Acquisition, Asset, AssetCategory, AssetStatus
+
+
+def acquisitions_for_organization(organization):
+    organization_id = getattr(organization, "pk", organization)
+    return Acquisition.objects.filter(
+        organization_id=organization_id,
+        asset__organization_id=organization_id,
+    ).select_related(
+        "organization",
+        "asset",
+        "asset__category",
+        "asset__department",
+        "created_by",
+        "updated_by",
+    )
 
 
 def assets_for_organization(organization):

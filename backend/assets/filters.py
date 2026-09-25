@@ -6,7 +6,7 @@ from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import BaseFilterBackend
 
-from assets.models import AssetStatus
+from assets.models import AcquisitionStatus, AssetStatus
 
 
 class AssetFilterBackend(BaseFilterBackend):
@@ -90,3 +90,67 @@ class AssetFilterBackend(BaseFilterBackend):
         if parsed is None:
             raise ValidationError({field_name: "Enter a valid date in YYYY-MM-DD format."})
         return parsed
+
+
+class AcquisitionFilterBackend(BaseFilterBackend):
+    """Explicit filtering for organization-scoped acquisition records."""
+
+    def get_schema_operation_parameters(self, view):
+        return [
+            {
+                "name": "status",
+                "required": False,
+                "in": "query",
+                "schema": {"type": "string", "enum": AcquisitionStatus.values},
+            },
+            {
+                "name": "asset",
+                "required": False,
+                "in": "query",
+                "schema": {"type": "string", "format": "uuid"},
+            },
+            {
+                "name": "invoice_number",
+                "required": False,
+                "in": "query",
+                "schema": {"type": "string"},
+            },
+            *[
+                {
+                    "name": parameter,
+                    "required": False,
+                    "in": "query",
+                    "schema": {"type": "string", "format": "date"},
+                }
+                for parameter in (
+                    "acquisition_date_after",
+                    "acquisition_date_before",
+                    "capitalization_date_after",
+                    "capitalization_date_before",
+                )
+            ],
+        ]
+
+    def filter_queryset(self, request, queryset, view):
+        params = request.query_params
+        status = params.get("status")
+        if status:
+            if status not in AcquisitionStatus.values:
+                raise ValidationError({"status": "Select a valid acquisition status."})
+            queryset = queryset.filter(status=status)
+
+        if params.get("asset"):
+            queryset = queryset.filter(asset_id=params["asset"])
+        if params.get("invoice_number"):
+            queryset = queryset.filter(invoice_number__icontains=params["invoice_number"].strip())
+
+        for field in ("acquisition_date", "capitalization_date"):
+            start = AssetFilterBackend._query_date(params.get(f"{field}_after"), f"{field}_after")
+            end = AssetFilterBackend._query_date(params.get(f"{field}_before"), f"{field}_before")
+            if start and end and start > end:
+                raise ValidationError({field: "The start date must not be after the end date."})
+            if start:
+                queryset = queryset.filter(**{f"{field}__gte": start})
+            if end:
+                queryset = queryset.filter(**{f"{field}__lte": end})
+        return queryset

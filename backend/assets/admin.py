@@ -4,7 +4,9 @@ from decimal import Decimal
 from django.contrib import admin
 from django.db import transaction
 
-from assets.models import Asset, AssetCategory
+from assets.models import Acquisition, Asset, AssetCategory, AssetStatus
+from assets.services import create_acquisition, update_acquisition
+from assets.services.acquisition import ACQUISITION_FIELDS
 from audit.services import record_event
 
 
@@ -30,7 +32,7 @@ class OrganizationScopedAdmin(admin.ModelAdmin):
             organization_id = request.user.organization_id
             if db_field.name == "organization":
                 kwargs["queryset"] = db_field.remote_field.model.objects.filter(pk=organization_id)
-            elif db_field.name in {"category", "department", "location"}:
+            elif db_field.name in {"asset", "category", "department", "location"}:
                 kwargs["queryset"] = db_field.remote_field.model.objects.filter(
                     organization_id=organization_id
                 )
@@ -59,6 +61,14 @@ class AssetCategoryAdmin(OrganizationScopedAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(OrganizationScopedAdmin):
+    accounting_fields = (
+        "acquisition_date",
+        "capitalization_date",
+        "purchase_cost",
+        "residual_value",
+        "useful_life_months",
+        "depreciation_method",
+    )
     list_display = (
         "asset_tag",
         "name",
@@ -160,6 +170,88 @@ class AssetAdmin(OrganizationScopedAdmin):
                 changes=changes,
                 metadata={"source": "django_admin"},
             )
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = super().get_readonly_fields(request, obj)
+        if obj and obj.status not in (AssetStatus.DRAFT, AssetStatus.PENDING_CAPITALIZATION):
+            return (*fields, *self.accounting_fields)
+        return fields
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Acquisition)
+class AcquisitionAdmin(OrganizationScopedAdmin):
+    list_display = (
+        "invoice_number",
+        "asset",
+        "vendor_name",
+        "organization",
+        "acquisition_date",
+        "capitalization_date",
+        "currency",
+        "total_cost",
+        "status",
+    )
+    list_filter = ("organization", "status", "currency", "acquisition_date")
+    search_fields = (
+        "invoice_number",
+        "reference",
+        "vendor_name",
+        "asset__asset_tag",
+        "asset__name",
+    )
+    readonly_fields = (
+        "organization",
+        "total_cost",
+        "status",
+        "created_by",
+        "updated_by",
+        "created_at",
+        "updated_at",
+    )
+    fieldsets = (
+        (
+            "Asset and source documents",
+            {"fields": ("organization", "asset", "vendor_name", "invoice_number", "reference")},
+        ),
+        ("Dates and currency", {"fields": ("acquisition_date", "capitalization_date", "currency")}),
+        (
+            "Capitalizable cost components",
+            {
+                "fields": (
+                    "purchase_price",
+                    "freight_cost",
+                    "installation_cost",
+                    "civil_works_cost",
+                    "other_capitalizable_cost",
+                    "total_cost",
+                )
+            },
+        ),
+        (
+            "Notes and record history",
+            {"fields": ("notes", "status", "created_by", "updated_by", "created_at", "updated_at")},
+        ),
+    )
+
+    def save_model(self, request, obj, form, change):
+        values = {field: getattr(obj, field) for field in ACQUISITION_FIELDS}
+        if change:
+            acquisition = update_acquisition(
+                acquisition_id=obj.pk,
+                actor=request.user,
+                data=values,
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        else:
+            acquisition = create_acquisition(
+                actor=request.user,
+                data={"asset": obj.asset, **values},
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        obj.__dict__.update(acquisition.__dict__)
 
     def has_delete_permission(self, request, obj=None):
         return False

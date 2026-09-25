@@ -8,12 +8,12 @@ The API follows a layered Django REST Framework structure:
 HTTP request
   -> viewset and organization/role permission
   -> serializer (input and presentation)
-  -> asset service (domain validation, transaction, audit)
+  -> domain service (validation, transaction, audit)
   -> selector/query layer
   -> Django ORM and PostgreSQL constraints
 ```
 
-Asset list and detail queries use selectors with `select_related` for organization, category, department, location, and audit attribution users. The asset service is the integration boundary for future capitalization, depreciation, transfers, maintenance, and disposal workflows. Those workflows do not live in the asset serializer or viewset.
+Asset list and detail queries use selectors with `select_related` for organization, category, department, location, and audit attribution users. Asset and acquisition services are the integration boundary for lifecycle workflows. Acquisition and capitalization rules do not live in serializers or viewsets. Depreciation, transfers, maintenance, and disposal remain future modules.
 
 ## Asset master data
 
@@ -34,3 +34,11 @@ ADMIN and ASSET_MANAGER can create and update asset master data. ACCOUNTANT can 
 PostgreSQL is configured through `DATABASE_URL`. Scoped unique constraints protect category codes/names and asset tags under concurrent requests. Check constraints enforce nonnegative monetary values, residual value not exceeding purchase cost, positive useful life when present, and date ordering.
 
 Asset creation and updates run in a database transaction with an audit record. If validation or audit persistence fails, the operation rolls back. Audit changes store before/after values for submitted master-data fields.
+
+## Acquisition and capitalization
+
+An `Acquisition` stores vendor/invoice references, acquisition and capitalization dates, currency, and each directly attributable cost component. Its `total_cost` is calculated server-side from the Decimal components; a PostgreSQL check constraint keeps the stored total synchronized with that formula. One acquisition is currently associated with each asset.
+
+`assets.services.acquisition` owns creation, financial edits, and capitalization. Capitalization locks the acquisition row and then its asset row, validates lifecycle/accounting preconditions, activates the asset, sets the asset's `purchase_cost` and opening `current_book_value` to the derived capitalized cost, and updates the acquisition state. The asset and acquisition audit events are written in the same transaction, so either all state and audit changes commit or none do. Repeated requests serialize on the row lock and the second request sees the capitalized state.
+
+Currency codes use an explicit supported ISO 4217 choice set. Until exchange-rate capture and translation are implemented, the acquisition currency must match its organization's base currency; no implicit currency conversion occurs.

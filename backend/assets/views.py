@@ -7,16 +7,108 @@ from rest_framework.status import HTTP_201_CREATED
 from rest_framework.viewsets import GenericViewSet
 
 from accounts.models import UserRole
-from assets.filters import AssetFilterBackend
-from assets.models import Asset, AssetCategory
-from assets.permissions import AssetDomainPermission
-from assets.selectors import active_assets, assets_for_organization, categories_for_organization
-from assets.serializers import AssetCategorySerializer, AssetSerializer
-from assets.services import create_asset, update_asset
+from assets.filters import AcquisitionFilterBackend, AssetFilterBackend
+from assets.models import Acquisition, Asset, AssetCategory
+from assets.permissions import AcquisitionPermission, AssetDomainPermission
+from assets.selectors import (
+    acquisitions_for_organization,
+    active_assets,
+    assets_for_organization,
+    categories_for_organization,
+)
+from assets.serializers import AcquisitionSerializer, AssetCategorySerializer, AssetSerializer
+from assets.services import (
+    capitalize_acquisition,
+    create_acquisition,
+    create_asset,
+    update_acquisition,
+    update_asset,
+)
 
 
 def _request_ip(request):
     return request.META.get("REMOTE_ADDR")
+
+
+class AcquisitionViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    GenericViewSet,
+):
+    serializer_class = AcquisitionSerializer
+    permission_classes = (AcquisitionPermission,)
+    filter_backends = (AcquisitionFilterBackend, SearchFilter, OrderingFilter)
+    search_fields = (
+        "asset__asset_tag",
+        "asset__name",
+        "vendor_name",
+        "invoice_number",
+        "reference",
+    )
+    ordering_fields = (
+        "acquisition_date",
+        "capitalization_date",
+        "total_cost",
+        "invoice_number",
+        "created_at",
+    )
+    ordering = ("-acquisition_date",)
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated or not user.organization_id:
+            return Acquisition.objects.none()
+        queryset = acquisitions_for_organization(user.organization_id)
+        if user.role == UserRole.DEPARTMENT_MANAGER:
+            if not user.department_id:
+                return queryset.none()
+            return queryset.filter(
+                asset__department_id=user.department_id,
+                asset__department__organization_id=user.organization_id,
+            )
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        acquisition = create_acquisition(
+            actor=request.user,
+            data=serializer.validated_data,
+            ip_address=_request_ip(request),
+        )
+        output = self.get_serializer(acquisition)
+        return Response(
+            output.data, status=HTTP_201_CREATED, headers=self.get_success_headers(output.data)
+        )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        acquisition = self.get_object()
+        serializer = self.get_serializer(acquisition, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        updated = update_acquisition(
+            acquisition_id=acquisition.pk,
+            actor=request.user,
+            data=serializer.validated_data,
+            ip_address=_request_ip(request),
+        )
+        return Response(self.get_serializer(updated).data)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
+
+    @action(detail=True, methods=("post",), url_path="capitalize")
+    def capitalize(self, request, pk=None):
+        acquisition = self.get_object()
+        capitalized = capitalize_acquisition(
+            acquisition_id=acquisition.pk,
+            actor=request.user,
+            ip_address=_request_ip(request),
+        )
+        return Response(self.get_serializer(capitalized).data)
 
 
 class AssetViewSet(

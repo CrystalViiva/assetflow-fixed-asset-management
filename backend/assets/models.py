@@ -1,6 +1,7 @@
 """Asset master data and the accounting policy captured for each asset."""
 
 import uuid
+from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
@@ -23,6 +24,31 @@ class AssetStatus(models.TextChoices):
     TRANSFERRED = "TRANSFERRED", "Transferred"
     IMPAIRED = "IMPAIRED", "Impaired"
     DISPOSED = "DISPOSED", "Disposed"
+
+
+class AcquisitionStatus(models.TextChoices):
+    DRAFT = "DRAFT", "Draft"
+    CAPITALIZED = "CAPITALIZED", "Capitalized"
+
+
+class CurrencyCode(models.TextChoices):
+    NGN = "NGN", "Nigerian naira"
+    USD = "USD", "US dollar"
+    GBP = "GBP", "Pound sterling"
+    EUR = "EUR", "Euro"
+    ZAR = "ZAR", "South African rand"
+    GHS = "GHS", "Ghanaian cedi"
+    KES = "KES", "Kenyan shilling"
+    XOF = "XOF", "West African CFA franc"
+    XAF = "XAF", "Central African CFA franc"
+    AED = "AED", "UAE dirham"
+    SAR = "SAR", "Saudi riyal"
+    CAD = "CAD", "Canadian dollar"
+    AUD = "AUD", "Australian dollar"
+    CHF = "CHF", "Swiss franc"
+    CNY = "CNY", "Chinese yuan"
+    JPY = "JPY", "Japanese yen"
+    INR = "INR", "Indian rupee"
 
 
 class AssetCategory(models.Model):
@@ -84,6 +110,173 @@ class AssetCategory(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+
+class Acquisition(models.Model):
+    """Acquisition cost components and controlled capitalization state."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "organizations.Organization", on_delete=models.PROTECT, related_name="acquisitions"
+    )
+    asset = models.OneToOneField(
+        "assets.Asset", on_delete=models.PROTECT, related_name="acquisition"
+    )
+    vendor_name = models.CharField(max_length=200, blank=True)
+    invoice_number = models.CharField(max_length=128, blank=True)
+    acquisition_date = models.DateField()
+    capitalization_date = models.DateField(null=True, blank=True)
+    currency = models.CharField(
+        max_length=3, choices=CurrencyCode.choices, default=CurrencyCode.NGN
+    )
+    purchase_price = models.DecimalField(
+        max_digits=20, decimal_places=2, default=0, validators=[MinValueValidator(0)]
+    )
+    freight_cost = models.DecimalField(
+        max_digits=20, decimal_places=2, default=0, validators=[MinValueValidator(0)]
+    )
+    installation_cost = models.DecimalField(
+        max_digits=20, decimal_places=2, default=0, validators=[MinValueValidator(0)]
+    )
+    civil_works_cost = models.DecimalField(
+        max_digits=20, decimal_places=2, default=0, validators=[MinValueValidator(0)]
+    )
+    other_capitalizable_cost = models.DecimalField(
+        max_digits=20, decimal_places=2, default=0, validators=[MinValueValidator(0)]
+    )
+    total_cost = models.DecimalField(max_digits=20, decimal_places=2, default=0, editable=False)
+    reference = models.CharField(max_length=128, blank=True)
+    notes = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=16, choices=AcquisitionStatus.choices, default=AcquisitionStatus.DRAFT
+    )
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_acquisitions",
+    )
+    updated_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_acquisitions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    COST_FIELDS = (
+        "purchase_price",
+        "freight_cost",
+        "installation_cost",
+        "civil_works_cost",
+        "other_capitalizable_cost",
+    )
+
+    class Meta:
+        ordering = ("-acquisition_date", "-created_at")
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(purchase_price__gte=0), name="acq_purchase_nonnegative"
+            ),
+            models.CheckConstraint(
+                condition=Q(freight_cost__gte=0), name="acq_freight_nonnegative"
+            ),
+            models.CheckConstraint(
+                condition=Q(installation_cost__gte=0), name="acq_install_nonnegative"
+            ),
+            models.CheckConstraint(
+                condition=Q(civil_works_cost__gte=0), name="acq_civil_nonnegative"
+            ),
+            models.CheckConstraint(
+                condition=Q(other_capitalizable_cost__gte=0), name="acq_other_nonnegative"
+            ),
+            models.CheckConstraint(condition=Q(total_cost__gt=0), name="acq_total_positive"),
+            models.CheckConstraint(
+                condition=Q(
+                    total_cost=F("purchase_price")
+                    + F("freight_cost")
+                    + F("installation_cost")
+                    + F("civil_works_cost")
+                    + F("other_capitalizable_cost")
+                ),
+                name="acq_total_matches_components",
+            ),
+            models.CheckConstraint(
+                condition=Q(currency__in=CurrencyCode.values), name="acq_currency_supported"
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=AcquisitionStatus.values), name="acq_status_supported"
+            ),
+            models.CheckConstraint(
+                condition=Q(capitalization_date__isnull=True)
+                | Q(capitalization_date__gte=F("acquisition_date")),
+                name="acq_capdate_after_acqdate",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("organization", "status"), name="acq_org_status_idx"),
+            models.Index(fields=("organization", "acquisition_date"), name="acq_org_acqdate_idx"),
+            models.Index(
+                fields=("organization", "capitalization_date"), name="acq_org_capdate_idx"
+            ),
+            models.Index(fields=("organization", "invoice_number"), name="acq_org_invoice_idx"),
+        ]
+
+    def calculate_capitalized_cost(self):
+        """Sum monetary cost components without binary floating-point arithmetic."""
+        return sum((getattr(self, field) for field in self.COST_FIELDS), Decimal("0.00"))
+
+    def clean(self):
+        super().clean()
+        if isinstance(self.currency, str):
+            self.currency = self.currency.strip().upper()
+        self.total_cost = self.calculate_capitalized_cost()
+        errors = {}
+        if not self.currency:
+            errors["currency"] = "A supported currency code is required."
+
+        for field in self.COST_FIELDS:
+            if getattr(self, field) < 0:
+                errors[field] = "Capitalizable cost components cannot be negative."
+        if self.total_cost <= 0:
+            errors["total_cost"] = "Total capitalized cost must be greater than zero."
+        if self.capitalization_date and self.capitalization_date < self.acquisition_date:
+            errors["capitalization_date"] = "Capitalization date cannot precede acquisition date."
+        if self.asset_id and self.organization_id:
+            if self.asset.organization_id != self.organization_id:
+                errors["asset"] = "The asset must belong to the acquisition's organization."
+            elif (
+                self.asset.acquisition_date and self.asset.acquisition_date != self.acquisition_date
+            ):
+                errors["acquisition_date"] = (
+                    "Acquisition date must match the asset's recorded date."
+                )
+        if (
+            self.organization_id
+            and self.currency
+            and self.currency != self.organization.currency.strip().upper()
+        ):
+            errors["currency"] = "Acquisition currency must match the organization's base currency."
+        for field_name in ("created_by", "updated_by"):
+            user = getattr(self, field_name, None)
+            if user and user.organization_id not in (None, self.organization_id):
+                errors[field_name] = "The user must belong to the acquisition's organization."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.total_cost = self.calculate_capitalized_cost()
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and set(update_fields).intersection(self.COST_FIELDS):
+            kwargs["update_fields"] = set(update_fields) | {"total_cost"}
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.invoice_number or self.reference or self.pk} - {self.asset.asset_tag}"
 
 
 class Asset(models.Model):

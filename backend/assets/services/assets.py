@@ -6,7 +6,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
-from assets.models import Asset
+from assets.models import Asset, AssetStatus
 from assets.services.validation import validate_organization_relationships
 from audit.services import record_event
 
@@ -20,6 +20,14 @@ ASSET_MASTER_FIELDS = {
     "manufacturer",
     "department",
     "location",
+    "acquisition_date",
+    "capitalization_date",
+    "purchase_cost",
+    "residual_value",
+    "useful_life_months",
+    "depreciation_method",
+}
+ASSET_ACCOUNTING_FIELDS = {
     "acquisition_date",
     "capitalization_date",
     "purchase_cost",
@@ -156,6 +164,16 @@ def update_asset(*, asset_id, actor, data, ip_address=None):
                 raise ValidationError(
                     {"asset": "The asset was not found in your organization."}
                 ) from exc
+
+            if asset.status not in (AssetStatus.DRAFT, AssetStatus.PENDING_CAPITALIZATION):
+                accounting_changes = set(submitted_data) & ASSET_ACCOUNTING_FIELDS
+                if accounting_changes:
+                    raise ValidationError(
+                        {
+                            field: "Accounting basis fields cannot be changed after capitalization."
+                            for field in accounting_changes
+                        }
+                    )
 
             original_values = {
                 field_name: getattr(asset, field_name) for field_name in submitted_data

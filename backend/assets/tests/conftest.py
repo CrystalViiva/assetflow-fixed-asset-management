@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from accounts.models import User, UserRole
-from assets.models import Asset, AssetCategory
+from assets.models import Acquisition, Asset, AssetCategory
 from organizations.models import Department, Location, Organization
 
 
@@ -109,3 +109,29 @@ def asset_instance_factory(organization, category, asset_manager, department, lo
         return Asset(**values)
 
     return make_asset
+
+
+@pytest.fixture
+def acquisition_factory(asset_manager, asset_factory):
+    def make_acquisition(asset=None, **overrides):
+        if asset is None:
+            asset = asset_factory(
+                overrides.pop("asset_tag", "AST-ACQ-001"),
+                acquisition_date=overrides.get("acquisition_date"),
+            )
+        values = {
+            "organization": asset_manager.organization,
+            "asset": asset,
+            "acquisition_date": "2025-01-15",
+            "capitalization_date": "2025-02-01",
+            "currency": "NGN",
+            "purchase_price": Decimal("10000000.00"),
+            "freight_cost": Decimal("500000.00"),
+            "installation_cost": Decimal("1000000.00"),
+            "created_by": asset_manager,
+            "updated_by": asset_manager,
+        }
+        values.update(overrides)
+        return Acquisition.objects.create(**values)
+
+    return make_acquisition

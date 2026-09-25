@@ -1,7 +1,67 @@
 from rest_framework import serializers
 
-from assets.models import Asset, AssetCategory
+from assets.models import Acquisition, Asset, AssetCategory, CurrencyCode
 from organizations.models import Department, Location
+
+
+class AcquisitionSerializer(serializers.ModelSerializer):
+    organization_id = serializers.UUIDField(read_only=True)
+    asset_id = serializers.PrimaryKeyRelatedField(
+        source="asset", queryset=Asset.objects.none(), required=True
+    )
+    asset_tag = serializers.CharField(source="asset.asset_tag", read_only=True)
+    asset_name = serializers.CharField(source="asset.name", read_only=True)
+    total_cost = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+    currency = serializers.ChoiceField(choices=CurrencyCode.choices, required=False)
+
+    class Meta:
+        model = Acquisition
+        fields = (
+            "id",
+            "organization_id",
+            "asset_id",
+            "asset_tag",
+            "asset_name",
+            "vendor_name",
+            "invoice_number",
+            "acquisition_date",
+            "capitalization_date",
+            "currency",
+            "purchase_price",
+            "freight_cost",
+            "installation_cost",
+            "civil_works_cost",
+            "other_capitalizable_cost",
+            "total_cost",
+            "reference",
+            "notes",
+            "status",
+            "created_by",
+            "updated_by",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "organization_id",
+            "asset_tag",
+            "asset_name",
+            "total_cost",
+            "status",
+            "created_by",
+            "updated_by",
+            "created_at",
+            "updated_at",
+        )
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get("request")
+        organization_id = getattr(getattr(request, "user", None), "organization_id", None)
+        fields["asset_id"].queryset = Asset.objects.filter(organization_id=organization_id)
+        if self.instance is not None:
+            fields["asset_id"].read_only = True
+        return fields
 
 
 class AssetCategorySerializer(serializers.ModelSerializer):

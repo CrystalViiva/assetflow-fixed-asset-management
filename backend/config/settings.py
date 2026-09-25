@@ -122,6 +122,9 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "IAS 16-aligned fixed asset management API.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "DepreciationMethodEnum": "assets.models.DepreciationMethod",
+    },
 }
 
 LOGGING = {

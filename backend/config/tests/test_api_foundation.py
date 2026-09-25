@@ -114,6 +114,8 @@ def test_openapi_schema_includes_authentication_routes(client):
     assert "/api/v1/auth/token/refresh/" in schema["paths"]
     assert "/api/v1/assets/" in schema["paths"]
     assert "/api/v1/assets/categories/" in schema["paths"]
+    assert "/api/v1/assets/acquisitions/" in schema["paths"]
+    assert "/api/v1/assets/acquisitions/{id}/capitalize/" in schema["paths"]
     asset_parameters = {
         parameter["name"] for parameter in schema["paths"]["/api/v1/assets/"]["get"]["parameters"]
     }
