@@ -62,3 +62,12 @@ ADMIN and ASSET_MANAGER can create, update, and capitalize acquisitions. ACCOUNT
 - `POST /api/v1/depreciation/periods/{id}/close/` closes an open period and records the actor and timestamp.
 
 ADMIN, ASSET_MANAGER, and ACCOUNTANT may generate schedules, post depreciation, and manage periods. DEPARTMENT_MANAGER receives read-only depreciation access for assets in their department; EMPLOYEE has no depreciation access. Data is organization-scoped. Schedule lists support asset, tag, method, status, and start-date filters; entry lists support asset, tag/search, method, period ID or `YYYY-MM`, year/month, and period date bounds. Period lists support year, month, and status. The list endpoints use shared page-number pagination and allow-list ordering.
+
+## Assignments and transfers
+
+- `GET/POST /api/v1/assets/assignments/` lists custody history or opens an assignment. Creation accepts `asset_id`, optional nullable `assigned_to_id`, `department_id`, `location_id`, optional `assigned_at`, and `notes`.
+- `GET /api/v1/assets/assignments/{id}/` retrieves an organization-scoped assignment. `POST /api/v1/assets/assignments/{id}/return/` closes the active assignment and records the actor/time.
+- `GET/POST /api/v1/assets/transfers/` lists transfer history or requests movement using `asset_id`, destination `to_department_id`/`to_location_id`, `reason`, and optional `notes`. Source department/location are server-captured from the asset.
+- `GET /api/v1/assets/transfers/{id}/` retrieves a transfer. POST actions `/approve/`, `/reject/`, `/cancel/`, and `/complete/` advance valid workflow transitions. State, actor, and timestamps are server-controlled.
+
+List endpoints are paginated and organization-scoped. Assignment filters include asset, assigned user, department, location, and `active=true|false`; transfer filters include asset, status, source/destination department/location. Both support search and allow-listed ordering. ADMIN and ASSET_MANAGER may mutate workflows. ACCOUNTANT reads organization records; DEPARTMENT_MANAGER reads records involving their department; EMPLOYEE reads assignments to them and transfers for assets currently assigned to them. Historical records are not physically deleted. Assignment denotes custody; transfer changes the asset department/location snapshot and does not implicitly alter custody.
