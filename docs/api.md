@@ -71,3 +71,12 @@ ADMIN, ASSET_MANAGER, and ACCOUNTANT may generate schedules, post depreciation, 
 - `GET /api/v1/assets/transfers/{id}/` retrieves a transfer. POST actions `/approve/`, `/reject/`, `/cancel/`, and `/complete/` advance valid workflow transitions. State, actor, and timestamps are server-controlled.
 
 List endpoints are paginated and organization-scoped. Assignment filters include asset, assigned user, department, location, and `active=true|false`; transfer filters include asset, status, source/destination department/location. Both support search and allow-listed ordering. ADMIN and ASSET_MANAGER may mutate workflows. ACCOUNTANT reads organization records; DEPARTMENT_MANAGER reads records involving their department; EMPLOYEE reads assignments to them and transfers for assets currently assigned to them. Historical records are not physically deleted. Assignment denotes custody; transfer changes the asset department/location snapshot and does not implicitly alter custody.
+
+## Maintenance and work orders
+
+- `GET/POST /api/v1/assets/maintenance-plans/` lists or creates plans. `GET/PUT/PATCH /api/v1/assets/maintenance-plans/{id}/` retrieves or updates a plan; plans are deactivated rather than deleted.
+- `GET/POST /api/v1/assets/work-orders/` lists or creates operational orders. Detail actions are `POST /assign/` with `assigned_to_id`, `POST /start/` with no body, `POST /complete/` with `resolution` and optional completion notes/downtime/performer/date, and `POST /cancel/` with an optional reason.
+- `GET/POST /api/v1/assets/maintenance-costs/` lists costs or adds a cost to a nonterminal work order. Inputs include work order, type, description, quantity, unit cost, and optional vendor reference/date; `total_cost` is calculated server-side.
+- `GET /api/v1/assets/maintenance-records/` lists permanent records created as part of work-order completion; detail retrieval is also available.
+
+Lists are paginated, organization-scoped, searchable, and have allow-listed ordering. Plans filter by asset/type/active/due date; work orders by asset/type/priority/status/assignee/due date/opened date; costs by work order/type; records by asset/type/maintenance date. ADMIN and ASSET_MANAGER may create/update plans, operate work orders, and add costs. Other roles are read-only and limited by department or current assignment scope. Completed work orders, costs, and records are not edited or deleted through the API. Plans store scheduling intent only; automatic scheduling is not implemented.

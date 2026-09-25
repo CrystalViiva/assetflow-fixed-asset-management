@@ -40,6 +40,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     # Specific nested routes must precede the assets router's catch-all detail route.
     path("api/v1/", include("transfers.urls")),
+    path("api/v1/", include("maintenance.urls")),
     path("api/v1/", include("assets.urls")),
     path("api/v1/", include("depreciation.urls")),
     path("api/v1/health/", health_check, name="health-check"),
