@@ -6,7 +6,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from accounts.models import User, UserRole
-from assets.models import AssetStatus
+from assets.models import AssetCondition, AssetStatus
 from audit.models import AuditLog
 from organizations.models import Department
 
@@ -74,9 +74,14 @@ def test_asset_create_retrieve_and_update_use_service_and_related_presentation(
     retrieved = client.get(detail_url)
     assert retrieved.status_code == 200
 
-    updated = client.patch(detail_url, {"name": "Updated finance laptop"}, format="json")
+    updated = client.patch(
+        detail_url,
+        {"name": "Updated finance laptop", "condition": AssetCondition.GOOD},
+        format="json",
+    )
     assert updated.status_code == 200
     assert updated.data["name"] == "Updated finance laptop"
+    assert updated.data["condition"] == AssetCondition.GOOD
     assert AuditLog.objects.filter(action="ASSET_UPDATED", entity_id=created.data["id"]).exists()
 
     forbidden_delete = client.delete(detail_url)

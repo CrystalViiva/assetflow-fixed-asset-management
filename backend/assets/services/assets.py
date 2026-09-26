@@ -18,6 +18,7 @@ ASSET_MASTER_FIELDS = {
     "serial_number",
     "model_number",
     "manufacturer",
+    "condition",
     "department",
     "location",
     "acquisition_date",

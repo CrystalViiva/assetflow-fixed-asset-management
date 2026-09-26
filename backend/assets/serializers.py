@@ -183,6 +183,7 @@ class AssetSerializer(serializers.ModelSerializer):
             "location_name",
             "location_code",
             "status",
+            "condition",
             "acquisition_date",
             "capitalization_date",
             "available_for_use_date",

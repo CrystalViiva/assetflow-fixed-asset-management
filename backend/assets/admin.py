@@ -78,12 +78,14 @@ class AssetAdmin(OrganizationScopedAdmin):
         "department",
         "location",
         "status",
+        "condition",
         "purchase_cost",
         "current_book_value",
     )
     list_filter = (
         "organization",
         "status",
+        "condition",
         "category",
         "department",
         "location",
@@ -113,7 +115,7 @@ class AssetAdmin(OrganizationScopedAdmin):
         ),
         (
             "Asset details",
-            {"fields": ("serial_number", "model_number", "manufacturer")},
+            {"fields": ("serial_number", "model_number", "manufacturer", "condition")},
         ),
         (
             "Accounting policy and balances",

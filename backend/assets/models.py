@@ -26,6 +26,14 @@ class AssetStatus(models.TextChoices):
     DISPOSED = "DISPOSED", "Disposed"
 
 
+class AssetCondition(models.TextChoices):
+    GOOD = "GOOD", "Good"
+    FAIR = "FAIR", "Fair"
+    DAMAGED = "DAMAGED", "Damaged"
+    CRITICAL = "CRITICAL", "Critical"
+    UNKNOWN = "UNKNOWN", "Unknown"
+
+
 class AcquisitionStatus(models.TextChoices):
     DRAFT = "DRAFT", "Draft"
     CAPITALIZED = "CAPITALIZED", "Capitalized"
@@ -314,6 +322,9 @@ class Asset(models.Model):
         related_name="assets",
     )
     status = models.CharField(max_length=32, choices=AssetStatus.choices, default=AssetStatus.DRAFT)
+    condition = models.CharField(
+        max_length=12, choices=AssetCondition.choices, default=AssetCondition.UNKNOWN
+    )
     acquisition_date = models.DateField(null=True, blank=True)
     capitalization_date = models.DateField(null=True, blank=True)
     available_for_use_date = models.DateField(null=True, blank=True)
@@ -389,6 +400,9 @@ class Asset(models.Model):
             ),
             models.CheckConstraint(
                 condition=Q(current_book_value__gte=0), name="asset_book_value_nonnegative"
+            ),
+            models.CheckConstraint(
+                condition=Q(condition__in=AssetCondition.values), name="asset_condition_valid"
             ),
             models.CheckConstraint(
                 condition=Q(accumulated_depreciation__gte=0),

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "transfers.apps.TransfersConfig",
     "maintenance.apps.MaintenanceConfig",
     "disposals.apps.DisposalsConfig",
+    "verification.apps.VerificationConfig",
 ]
 
 MIDDLEWARE = [
@@ -128,6 +129,17 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "ENUM_NAME_OVERRIDES": {
         "DepreciationMethodEnum": "assets.models.DepreciationMethod",
+        "AssetStatusEnum": "assets.models.AssetStatus",
+        "ObservedConditionEnum": "assets.models.AssetCondition",
+        "AcquisitionStatusEnum": "assets.models.AcquisitionStatus",
+        "AccountingPeriodStatusEnum": "depreciation.models.PeriodStatus",
+        "DepreciationScheduleStatusEnum": "depreciation.models.ScheduleStatus",
+        "TransferStatusEnum": "transfers.models.TransferStatus",
+        "WorkOrderStatusEnum": "maintenance.models.WorkOrderStatus",
+        "WorkOrderPriorityEnum": "maintenance.models.WorkOrderPriority",
+        "DisposalStatusEnum": "disposals.models.DisposalStatus",
+        "VerificationCampaignStatusEnum": "verification.models.CampaignStatus",
+        "VerificationExceptionStatusEnum": "verification.models.ExceptionStatus",
     },
 }
 
