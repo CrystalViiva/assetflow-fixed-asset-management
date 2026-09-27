@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "maintenance.apps.MaintenanceConfig",
     "disposals.apps.DisposalsConfig",
     "verification.apps.VerificationConfig",
+    "assurance.apps.AssuranceConfig",
 ]
 
 MIDDLEWARE = [
@@ -140,6 +141,10 @@ SPECTACULAR_SETTINGS = {
         "DisposalStatusEnum": "disposals.models.DisposalStatus",
         "VerificationCampaignStatusEnum": "verification.models.CampaignStatus",
         "VerificationExceptionStatusEnum": "verification.models.ExceptionStatus",
+        "AssuranceRunRunTypeEnum": "assurance.models.AssuranceRunType",
+        "AssuranceRunStatusEnum": "assurance.models.AssuranceRunStatus",
+        "AssuranceFindingFindingTypeEnum": "assurance.models.FindingType",
+        "AssuranceFindingSourceEnum": "assurance.models.FindingSource",
     },
 }
 
