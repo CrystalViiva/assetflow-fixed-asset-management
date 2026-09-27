@@ -75,6 +75,55 @@ def test_update_asset_writes_before_after_audit_information(asset_factory, asset
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("field", ["department", "location"])
+def test_active_asset_placement_must_use_transfer_workflow(
+    field, asset_factory, asset_manager
+):
+    from organizations.models import Department, Location
+
+    asset = asset_factory("AST-ACTIVE-PLACEMENT", status=AssetStatus.ACTIVE)
+    destination = (
+        Department.objects.create(
+            organization=asset.organization, name="Local destination", code="LOCAL-DEST"
+        )
+        if field == "department"
+        else Location.objects.create(
+            organization=asset.organization, name="Local destination", code="LOCAL-DEST"
+        )
+    )
+    before = getattr(asset, f"{field}_id")
+
+    with pytest.raises(ValidationError, match="transfer workflow") as exc_info:
+        update_asset(asset_id=asset.pk, actor=asset_manager, data={field: destination})
+
+    assert field in exc_info.value.message_dict
+    asset.refresh_from_db()
+    assert getattr(asset, f"{field}_id") == before
+    assert not AuditLog.objects.filter(action="ASSET_UPDATED", entity_id=str(asset.pk)).exists()
+
+
+@pytest.mark.django_db
+def test_draft_asset_placement_can_be_corrected(asset_factory, asset_manager):
+    from organizations.models import Department, Location
+
+    asset = asset_factory("AST-DRAFT-PLACEMENT")
+    department = Department.objects.create(
+        organization=asset.organization, name="Local destination", code="LOCAL-DEST"
+    )
+    location = Location.objects.create(
+        organization=asset.organization, name="Local destination", code="LOCAL-DEST"
+    )
+    updated = update_asset(
+        asset_id=asset.pk,
+        actor=asset_manager,
+        data={"department": department, "location": location},
+    )
+
+    assert updated.department_id == department.pk
+    assert updated.location_id == location.pk
+
+
+@pytest.mark.django_db
 def test_noop_update_does_not_create_an_audit_event(asset_factory, asset_manager):
     asset = asset_factory("AST-NOOP", manufacturer="Acme")
     before_count = AuditLog.objects.count()

@@ -27,7 +27,7 @@ Known error codes include `VALIDATION_ERROR`, `AUTHENTICATION_ERROR`, `PERMISSIO
 
 ## Pagination
 
-List endpoints use page-number pagination with a default page size of 25. Clients may set `page_size` up to 100; larger requested values are capped.
+List endpoints use DRF page-number pagination with a default page size of 25 and response keys `count`, `next`, `previous`, and `results`. Clients may set `page` and `page_size` (up to 100); larger page sizes are capped.
 
 ## Asset master data
 
@@ -40,6 +40,8 @@ List endpoints use page-number pagination with a default page size of 25. Client
 Asset lists accept `status`, `category` (UUID) or the frontend-compatible `category__name`, `department` or `department__name`, `location` or `location__name`, `manufacturer`, `acquisition_date_after`, `acquisition_date_before`, `search`, and `ordering`. Search checks tag, name, serial/model number, manufacturer, and description. Ordering is limited to explicitly supported fields.
 
 Asset payloads use domain names such as `asset_tag`, `purchase_cost`, and `current_book_value`. Related category, department, and location IDs are accepted as `category_id`, `department_id`, and `location_id`; responses include their names and codes. Organization ID and lifecycle/accounting snapshots are read-only. `current_book_value` and `accumulated_depreciation` are reserved for later posting services.
+
+For ACTIVE assets, a PATCH/PUT that changes department or location returns a validation error directing the caller to the transfer workflow. Draft placement may be edited as master data. Approved transfer completion remains the API workflow for active placement changes.
 
 ADMIN and ASSET_MANAGER can write asset/category master data. ACCOUNTANT is read-only. DEPARTMENT_MANAGER reads their configured department's assets; EMPLOYEE reads active assets in their organization. All querysets are tenant-scoped.
 
@@ -69,6 +71,8 @@ ADMIN, ASSET_MANAGER, and ACCOUNTANT may generate schedules, post depreciation, 
 - `GET /api/v1/assets/assignments/{id}/` retrieves an organization-scoped assignment. `POST /api/v1/assets/assignments/{id}/return/` closes the active assignment and records the actor/time.
 - `GET/POST /api/v1/assets/transfers/` lists transfer history or requests movement using `asset_id`, destination `to_department_id`/`to_location_id`, `reason`, and optional `notes`. Source department/location are server-captured from the asset.
 - `GET /api/v1/assets/transfers/{id}/` retrieves a transfer. POST actions `/approve/`, `/reject/`, `/cancel/`, and `/complete/` advance valid workflow transitions. State, actor, and timestamps are server-controlled.
+
+For an ACTIVE asset, assignment creation may record its current department/location but cannot change either placement value; request and complete a transfer for movement. Assignment remains the custody workflow and does not create a transfer implicitly.
 
 List endpoints are paginated and organization-scoped. Assignment filters include asset, assigned user, department, location, and `active=true|false`; transfer filters include asset, status, source/destination department/location. Both support search and allow-listed ordering. ADMIN and ASSET_MANAGER may mutate workflows. ACCOUNTANT reads organization records; DEPARTMENT_MANAGER reads records involving their department; EMPLOYEE reads assignments to them and transfers for assets currently assigned to them. Historical records are not physically deleted. Assignment denotes custody; transfer changes the asset department/location snapshot and does not implicitly alter custody.
 
@@ -112,7 +116,7 @@ Assurance endpoints are available under `/api/v1/assurance/` and use the existin
 | --- | --- | --- |
 | `GET`, `POST` | `/runs/` | List scoped runs or create a pending run (`run_type`, optional completed `verification_campaign_id`, optional positive `stale_after_days`). |
 | `GET` | `/runs/{id}/` | Retrieve a run in the user's permitted scope. |
-| `POST` | `/runs/{id}/execute/` | Execute a pending run through the deterministic rule registry. |
+| `POST` | `/runs/{id}/execute/` | Execute or safely re-enter a pending/running run; completed runs return their existing result. |
 | `POST` | `/runs/{id}/cancel/` | Cancel a pending run. |
 | `GET` | `/runs/{id}/findings/` | List findings detected during a run. |
 | `GET` | `/findings/`, `/findings/{id}/` | Search and filter durable findings. |
@@ -120,9 +124,9 @@ Assurance endpoints are available under `/api/v1/assurance/` and use the existin
 | `POST` | `/findings/{id}/resolve/`, `/accept/`, `/reject/` | Close an under-review finding; each requires `resolution_notes`. |
 | `GET` | `/summary/` | Return role-scoped counts by severity, type, and status plus recurring/multi-finding totals. |
 
-Run filters: `run_type`, `status`, and `verification_campaign`. Finding filters: `finding_type`, `severity`, `status`, `source`, `run`, `asset`, `department`, and `location`. Findings support text search over tag, name, type, description, expected value, and observed value, plus ordering on type, severity, status, source, detection timestamps, occurrence count, and creation time. List endpoints use the shared paginated response format (`page`, `page_size`).
+Run filters: `run_type`, `status`, and `verification_campaign`. Finding filters: `finding_type`, `severity`, `status`, `source`, `run`, `asset`, `department`, and `location`. Findings support text search over tag, name, type, description, expected value, and observed value, plus ordering on type, severity, status, source, detection timestamps, occurrence count, and creation time. List endpoints use the shared response format (`count`, `next`, `previous`, `results`) with `page` and `page_size` query parameters.
 
-Run types are `FULL`, `PHYSICAL`, `FINANCIAL`, and `OPERATIONAL`. Physical runs require a completed verification campaign in the same organization. A run executes once; create a new run to repeat a control. Finding transitions are `OPEN → UNDER_REVIEW → RESOLVED|ACCEPTED|REJECTED`; the final states are immutable. Repeat detections update an active finding and append a per-run occurrence snapshot. A finding that reappears after closure is a new finding record.
+Run types are `FULL`, `PHYSICAL`, `FINANCIAL`, and `OPERATIONAL`. Physical runs require a completed verification campaign in the same organization. Repeating execution of a `COMPLETED` run returns the saved result without evaluating again. A `RUNNING` run can be re-entered after interrupted work; concurrent evaluators serialize on the run row, and finding changes commit atomically. A `FAILED` or `CANCELLED` run is terminal; create a new run to repeat a control after failure. Future task dispatch must occur after the run-creation transaction commits. Current evaluation processes and locks the full scoped population to preserve cross-asset rule context; chunked execution is deferred until its snapshot and deduplication semantics are defined. Finding transitions are `OPEN → UNDER_REVIEW → RESOLVED|ACCEPTED|REJECTED`; the final states are immutable. Repeat detections update an active finding and append a per-run occurrence snapshot. A finding that reappears after closure is a new finding record.
 
 Administrators and asset managers can create, execute, cancel, review, and close findings. Accountants can read financial runs and finding types. Department managers can read operational findings within their department and do not receive organization-wide run listings. Employees have no assurance access. Every query remains organization-scoped.
 

@@ -23,24 +23,35 @@ from transfers.services import (
 
 
 @pytest.mark.django_db
-def test_assignment_opens_custody_and_updates_explicit_asset_placement(
-    asset_factory, asset_manager, employee, other_department, other_location
+def test_assignment_opens_custody_without_changing_active_asset_placement(
+    asset_factory, asset_manager, employee
 ):
     asset = asset_factory()
     assignment = assign_asset(
         asset_id=asset.pk,
         actor=asset_manager,
         assigned_to=employee,
-        department=other_department,
-        location=other_location,
     )
     asset.refresh_from_db()
     assert assignment.assigned_to == employee
-    assert assignment.department == other_department
-    assert assignment.location == other_location
-    assert asset.department == other_department
-    assert asset.location == other_location
+    assert assignment.department == asset.department
+    assert assignment.location == asset.location
     assert AuditLog.objects.get(action="ASSET_ASSIGNED").entity_id == str(assignment.pk)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("field", ["department", "location"])
+def test_assignment_cannot_bypass_active_asset_transfer(field, asset_factory, asset_manager,
+                                                         other_department, other_location):
+    asset = asset_factory()
+    destination = other_department if field == "department" else other_location
+
+    with pytest.raises(ValidationError, match="transfer workflow"):
+        assign_asset(asset_id=asset.pk, actor=asset_manager, **{field: destination})
+
+    asset.refresh_from_db()
+    assert getattr(asset, f"{field}_id") != destination.pk
+    assert not AssetAssignment.objects.filter(asset=asset).exists()
 
 
 @pytest.mark.django_db
@@ -118,7 +129,7 @@ def test_assignment_rejects_disposed_cross_org_and_invalid_date(
 
 @pytest.mark.django_db
 def test_assignment_audit_failure_rolls_back_assignment_and_asset_changes(
-    asset_factory, asset_manager, employee, other_department
+    asset_factory, asset_manager, employee
 ):
     asset = asset_factory()
     with patch("transfers.services.record_event", side_effect=RuntimeError("audit failed")):
@@ -127,10 +138,9 @@ def test_assignment_audit_failure_rolls_back_assignment_and_asset_changes(
                 asset_id=asset.pk,
                 actor=asset_manager,
                 assigned_to=employee,
-                department=other_department,
             )
     asset.refresh_from_db()
-    assert asset.department_id != other_department.pk
+    assert asset.department_id is not None
     assert not AssetAssignment.objects.exists()
 
 

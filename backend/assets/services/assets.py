@@ -168,6 +168,25 @@ def update_asset(*, asset_id, actor, data, ip_address=None):
                     {"asset": "The asset was not found in your organization."}
                 ) from exc
 
+            if asset.status == AssetStatus.ACTIVE:
+                placement_changes = {
+                    field_name
+                    for field_name in ("department", "location")
+                    if field_name in submitted_data
+                    and getattr(asset, f"{field_name}_id")
+                    != getattr(submitted_data[field_name], "pk", None)
+                }
+                if placement_changes:
+                    raise ValidationError(
+                        {
+                            field_name: (
+                                "Active asset placement changes must be completed through "
+                                "the approved transfer workflow."
+                            )
+                            for field_name in placement_changes
+                        }
+                    )
+
             if asset.status not in (AssetStatus.DRAFT, AssetStatus.PENDING_CAPITALIZATION):
                 accounting_changes = set(submitted_data) & ASSET_ACCOUNTING_FIELDS
                 if accounting_changes:

@@ -3,8 +3,24 @@ from django.contrib import admin
 from assurance.models import AssuranceFinding, AssuranceFindingOccurrence, AssuranceRun
 
 
+class OrganizationScopedAssuranceAdmin(admin.ModelAdmin):
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        if request.user.is_superuser:
+            return queryset
+        if not request.user.organization_id:
+            return queryset.none()
+        return queryset.filter(organization_id=request.user.organization_id)
+
+    def get_list_filter(self, request):
+        filters = super().get_list_filter(request)
+        if request.user.is_superuser:
+            return filters
+        return tuple(field for field in filters if field != "organization")
+
+
 @admin.register(AssuranceRun)
-class AssuranceRunAdmin(admin.ModelAdmin):
+class AssuranceRunAdmin(OrganizationScopedAssuranceAdmin):
     list_display = (
         "created_at",
         "organization",
@@ -35,9 +51,17 @@ class AssuranceFindingOccurrenceInline(admin.TabularInline):
     def has_add_permission(self, request, obj=None):
         return False
 
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        if request.user.is_superuser:
+            return queryset
+        if not request.user.organization_id:
+            return queryset.none()
+        return queryset.filter(organization_id=request.user.organization_id)
+
 
 @admin.register(AssuranceFinding)
-class AssuranceFindingAdmin(admin.ModelAdmin):
+class AssuranceFindingAdmin(OrganizationScopedAssuranceAdmin):
     list_display = (
         "first_detected_at",
         "organization",

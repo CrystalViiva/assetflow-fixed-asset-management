@@ -97,6 +97,13 @@ def create_run(
 
 
 def _asset_population(run):
+    """Return the deterministic evaluation population for this durable run.
+
+    The current evaluator consumes the complete scoped population to build cross-asset
+    rule context (including duplicate-tag checks), then evaluates it in one transaction.
+    A future bounded implementation must preserve a run-level snapshot and global
+    candidate identity semantics before chunking this queryset.
+    """
     assets = Asset.objects.filter(organization_id=run.organization_id)
     if run.run_type == AssuranceRunType.PHYSICAL:
         assets = expected_assets(run.verification_campaign)
@@ -312,24 +319,38 @@ def execute_run(*, run_id, actor, ip_address=None):
     organization = _organization(actor)
     with transaction.atomic():
         run = _locked_run(run_id, organization)
-        if run.status != AssuranceRunStatus.PENDING:
-            raise ValidationError({"status": "Only pending assurance runs may execute."})
-        run.status = AssuranceRunStatus.RUNNING
-        run.started_at = timezone.now()
-        run.save(update_fields=("status", "started_at", "updated_at"))
-        audit(
-            organization=organization,
-            actor=actor,
-            action="ASSURANCE_RUN_STARTED",
-            entity_type="ASSURANCE_RUN",
-            entity_id=run.pk,
-            changes={
-                "status": {"from": AssuranceRunStatus.PENDING, "to": AssuranceRunStatus.RUNNING}
-            },
-            ip_address=ip_address,
-        )
+        if run.status == AssuranceRunStatus.COMPLETED:
+            # A broker may redeliver after commit but before acknowledging the task.
+            return run
+        if run.status in (AssuranceRunStatus.FAILED, AssuranceRunStatus.CANCELLED):
+            raise ValidationError(
+                {"status": "This assurance run is terminal; create a new run to retry it."}
+            )
+        if run.status == AssuranceRunStatus.PENDING:
+            run.status = AssuranceRunStatus.RUNNING
+            run.started_at = timezone.now()
+            run.save(update_fields=("status", "started_at", "updated_at"))
+            audit(
+                organization=organization,
+                actor=actor,
+                action="ASSURANCE_RUN_STARTED",
+                entity_type="ASSURANCE_RUN",
+                entity_id=run.pk,
+                changes={
+                    "status": {
+                        "from": AssuranceRunStatus.PENDING,
+                        "to": AssuranceRunStatus.RUNNING,
+                    }
+                },
+                ip_address=ip_address,
+            )
+        elif run.status != AssuranceRunStatus.RUNNING:
+            raise ValidationError({"status": "This assurance run cannot be executed."})
 
     try:
+        # RUNNING is retryable only after acquiring this row lock. A concurrent evaluator
+        # holds it for the complete atomic evaluation; a crashed evaluator releases it and
+        # rolls back all candidate writes, allowing safe re-entry with the same run ID.
         with transaction.atomic():
             return _evaluate_locked_run(run_id, organization, actor, ip_address)
     except Exception as exc:

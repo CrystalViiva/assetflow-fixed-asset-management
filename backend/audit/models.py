@@ -3,7 +3,16 @@
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+
+
+class AuditLogQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError("Audit log events are immutable.")
+
+    def delete(self):
+        raise ValidationError("Audit log events cannot be deleted.")
 
 
 class AuditLog(models.Model):
@@ -27,6 +36,7 @@ class AuditLog(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     changes = models.JSONField(default=dict, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
+    objects = AuditLogQuerySet.as_manager()
 
     class Meta:
         ordering = ("-timestamp",)
@@ -41,3 +51,11 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.action} {self.entity_type}:{self.entity_id}"
+
+    def save(self, *args, **kwargs):
+        if self.pk and not self._state.adding and type(self).objects.filter(pk=self.pk).exists():
+            raise ValidationError("Audit log events are immutable.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Audit log events cannot be deleted.")

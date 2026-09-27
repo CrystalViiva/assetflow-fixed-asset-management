@@ -96,6 +96,8 @@ def test_capitalization_updates_asset_and_acquisition_once_with_audit(
         purchase_cost=Decimal("250000.00"),
         residual_value=Decimal("250000.00"),
     )
+    initial_department_id = asset.department_id
+    initial_location_id = asset.location_id
     acquisition = create_acquisition(
         actor=asset_manager,
         data=acquisition_data(asset),
@@ -115,6 +117,8 @@ def test_capitalization_updates_asset_and_acquisition_once_with_audit(
     assert asset.accumulated_depreciation == Decimal("0.00")
     assert asset.acquisition_date == date(2025, 1, 15)
     assert asset.capitalization_date == date(2025, 2, 1)
+    assert asset.department_id == initial_department_id
+    assert asset.location_id == initial_location_id
     assert asset.useful_life_months == category.default_useful_life_months
     assert asset.updated_by == asset_manager
     assert capitalized.status == AcquisitionStatus.CAPITALIZED

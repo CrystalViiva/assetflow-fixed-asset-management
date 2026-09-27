@@ -159,6 +159,42 @@ def test_asset_api_does_not_allow_status_or_ledger_mutation(asset_manager, categ
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    "field,payload_field",
+    [
+        ("department", "department_id"),
+        ("location", "location_id"),
+    ],
+)
+def test_active_asset_api_placement_changes_require_transfer(
+    asset_manager, asset_factory, field, payload_field
+):
+    from organizations.models import Department, Location
+
+    asset = asset_factory("AST-ACTIVE-API-PLACEMENT", status=AssetStatus.ACTIVE)
+    destination = (
+        Department.objects.create(
+            organization=asset.organization, name=f"Destination {field}", code=f"DEST-{field}"
+        )
+        if field == "department"
+        else Location.objects.create(
+            organization=asset.organization, name=f"Destination {field}", code=f"DEST-{field}"
+        )
+    )
+
+    response = authenticated_client(asset_manager).patch(
+        reverse("asset-detail", args=[asset.pk]),
+        {payload_field: str(destination.pk)},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "transfer workflow" in str(response.data["error"]["details"][field])
+    asset.refresh_from_db()
+    assert getattr(asset, f"{field}_id") != destination.pk
+
+
+@pytest.mark.django_db
 def test_asset_filters_search_ordering_and_by_tag(asset_manager, asset_factory):
     lower_cost = asset_factory(
         "AST-FILTER-01",

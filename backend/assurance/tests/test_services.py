@@ -1,8 +1,11 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from decimal import Decimal
+from threading import Barrier
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.db import close_old_connections, connections
 from django.utils import timezone
 
 from assets.models import AssetStatus
@@ -229,6 +232,88 @@ def test_failed_execution_rolls_back_findings_but_keeps_failed_run(
     assert result.failure_message == "Evaluation failed (RuntimeError)."
     assert inserted == 2
     assert not AssuranceFinding.objects.filter(organization=manager.organization).exists()
+
+
+@pytest.mark.django_db
+def test_completed_run_reexecution_returns_same_run_without_new_occurrences(manager, asset_factory):
+    asset_factory(current_book_value=Decimal("900.00"))
+    run = execute_run(
+        run_id=create_run(actor=manager, run_type=AssuranceRunType.FULL).pk,
+        actor=manager,
+    )
+    before = list(
+        run.findings.order_by("pk").values_list("pk", "occurrence_count", "last_detected_run_id")
+    )
+
+    repeated = execute_run(run_id=run.pk, actor=manager)
+
+    after = list(
+        run.findings.order_by("pk").values_list("pk", "occurrence_count", "last_detected_run_id")
+    )
+    assert repeated.pk == run.pk
+    assert repeated.status == AssuranceRunStatus.COMPLETED
+    assert after == before
+
+
+@pytest.mark.django_db
+def test_running_run_can_be_reentered_after_worker_transaction_rollback(manager, asset_factory):
+    asset_factory(current_book_value=Decimal("900.00"))
+    run = create_run(actor=manager, run_type=AssuranceRunType.FULL)
+    run.status = AssuranceRunStatus.RUNNING
+    run.started_at = timezone.now()
+    run.save(update_fields=("status", "started_at", "updated_at"))
+
+    completed = execute_run(run_id=run.pk, actor=manager)
+
+    assert completed.status == AssuranceRunStatus.COMPLETED
+    assert completed.findings.count() == 2
+    assert completed.findings.first().occurrences.count() == 1
+
+
+@pytest.mark.django_db
+def test_failed_run_is_terminal_and_retry_requires_a_new_run(monkeypatch, manager, asset_factory):
+    asset_factory(current_book_value=Decimal("900.00"))
+    run = create_run(actor=manager, run_type=AssuranceRunType.FULL)
+
+    def fail_candidates(*args, **kwargs):
+        raise RuntimeError("controlled failure")
+
+    monkeypatch.setattr("assurance.services.runs._collect_candidates", fail_candidates)
+    failed = execute_run(run_id=run.pk, actor=manager)
+
+    with pytest.raises(ValidationError, match="terminal"):
+        execute_run(run_id=run.pk, actor=manager)
+
+    assert failed.status == AssuranceRunStatus.FAILED
+    assert not AssuranceFinding.objects.filter(assurance_run=run).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_execution_attempts_create_one_occurrence(manager, asset_factory):
+    asset = asset_factory(current_book_value=Decimal("900.00"))
+    run = create_run(actor=manager, run_type=AssuranceRunType.FULL)
+    barrier = Barrier(2)
+
+    def execute_concurrently():
+        close_old_connections()
+        try:
+            from accounts.models import User
+
+            actor = User.objects.get(pk=manager.pk)
+            barrier.wait(timeout=10)
+            return execute_run(run_id=run.pk, actor=actor).status
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: execute_concurrently(), range(2)))
+
+    assert results == [AssuranceRunStatus.COMPLETED, AssuranceRunStatus.COMPLETED]
+    finding = AssuranceFinding.objects.get(
+        asset=asset, finding_type=FindingType.BOOK_VALUE_EXCEPTION
+    )
+    assert finding.occurrence_count == 1
+    assert finding.occurrences.count() == 1
 
 
 @pytest.mark.django_db

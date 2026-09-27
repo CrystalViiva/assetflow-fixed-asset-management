@@ -85,7 +85,7 @@ def assign_asset(
     notes="",
     ip_address=None,
 ):
-    """Open one custody assignment, optionally establishing current organization/location."""
+    """Open custody; active asset placement remains owned by transfer completion."""
     organization = _organization(actor)
     _same_org(assigned_to, organization, "assigned_to")
     with transaction.atomic():
@@ -96,6 +96,20 @@ def assign_asset(
         chosen_location = asset.location if location is _UNSET else location
         _same_org(chosen_department, organization, "department")
         _same_org(chosen_location, organization, "location")
+        if asset.status == AssetStatus.ACTIVE:
+            placement_changes = {}
+            if department is not _UNSET and chosen_department != asset.department:
+                placement_changes["department"] = (
+                    "Active asset department changes must be completed through the approved "
+                    "transfer workflow."
+                )
+            if location is not _UNSET and chosen_location != asset.location:
+                placement_changes["location"] = (
+                    "Active asset location changes must be completed through the approved "
+                    "transfer workflow."
+                )
+            if placement_changes:
+                raise ValidationError(placement_changes)
         assignment = AssetAssignment(
             organization=organization,
             asset=asset,

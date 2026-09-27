@@ -177,6 +177,8 @@ class AssetAdmin(OrganizationScopedAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         fields = super().get_readonly_fields(request, obj)
+        if obj and obj.status == AssetStatus.ACTIVE and not request.user.is_superuser:
+            fields = (*fields, "department", "location")
         if obj and obj.status not in (AssetStatus.DRAFT, AssetStatus.PENDING_CAPITALIZATION):
             return (*fields, *self.accounting_fields)
         return fields
