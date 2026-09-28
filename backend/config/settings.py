@@ -96,6 +96,7 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = env("TIME_ZONE", default="Africa/Lagos")
 USE_I18N = True
 USE_TZ = True
+CELERY_TIMEZONE = TIME_ZONE
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"

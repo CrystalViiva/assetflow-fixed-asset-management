@@ -102,11 +102,14 @@ class AssuranceRun(models.Model):
         related_name="assurance_runs",
     )
     stale_after_days = models.PositiveSmallIntegerField(default=365)
+    scheduled_for = models.DateField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     started_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="assurance_runs_started",
     )
     completed_by = models.ForeignKey(
@@ -140,6 +143,22 @@ class AssuranceRun(models.Model):
             ),
             models.CheckConstraint(
                 condition=(
+                    Q(scheduled_for__isnull=True, started_by__isnull=False)
+                    | Q(
+                        scheduled_for__isnull=False,
+                        run_type=AssuranceRunType.FULL,
+                        started_by__isnull=True,
+                    )
+                ),
+                name="assrun_schedule_actor_valid",
+            ),
+            models.UniqueConstraint(
+                fields=("organization", "scheduled_for"),
+                condition=Q(scheduled_for__isnull=False),
+                name="assrun_org_sched_day_uniq",
+            ),
+            models.CheckConstraint(
+                condition=(
                     Q(
                         status=AssuranceRunStatus.PENDING,
                         started_at__isnull=True,
@@ -152,11 +171,16 @@ class AssuranceRun(models.Model):
                         completed_at__isnull=True,
                         completed_by__isnull=True,
                     )
-                    | Q(
-                        status__in=(AssuranceRunStatus.COMPLETED, AssuranceRunStatus.FAILED),
-                        started_at__isnull=False,
-                        completed_at__isnull=False,
-                        completed_by__isnull=False,
+                    | (
+                        Q(
+                            status__in=(AssuranceRunStatus.COMPLETED, AssuranceRunStatus.FAILED),
+                            started_at__isnull=False,
+                            completed_at__isnull=False,
+                        )
+                        & (
+                            Q(completed_by__isnull=False)
+                            | Q(completed_by__isnull=True, scheduled_for__isnull=False)
+                        )
                     )
                     | Q(
                         status=AssuranceRunStatus.CANCELLED,
@@ -179,8 +203,15 @@ class AssuranceRun(models.Model):
     def clean(self):
         super().clean()
         errors = {}
+        if self.scheduled_for is None and self.started_by_id is None:
+            errors["started_by"] = "Manual assurance runs require a user actor."
+        if self.scheduled_for is not None:
+            if self.run_type != AssuranceRunType.FULL:
+                errors["run_type"] = "Scheduled assurance runs must be FULL runs."
+            if self.started_by_id is not None:
+                errors["started_by"] = "Scheduled assurance runs use the system actor."
         if self.started_by_id and self.started_by.organization_id != self.organization_id:
-            errors["started_by"] = "Run actor must belong to the run organization."
+            errors.setdefault("started_by", "Run actor must belong to the run organization.")
         if self.completed_by_id and self.completed_by.organization_id != self.organization_id:
             errors["completed_by"] = "Run actor must belong to the run organization."
         if (

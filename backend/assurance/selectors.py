@@ -11,6 +11,7 @@ from assurance.models import (
     FindingStatus,
     FindingType,
 )
+from organizations.models import Organization
 
 FINANCIAL_FINDING_TYPES = (
     FindingType.DISPOSAL_STATUS_MISMATCH,
@@ -20,6 +21,11 @@ FINANCIAL_FINDING_TYPES = (
 OPERATIONAL_FINDING_TYPES = tuple(
     value for value in FindingType.values if value not in FINANCIAL_FINDING_TYPES
 )
+
+
+def organizations_for_scheduled_assurance():
+    """Select active organizations eligible for the daily assurance schedule."""
+    return Organization.objects.filter(is_active=True).order_by("pk")
 
 
 def runs_for_user(organization, user):

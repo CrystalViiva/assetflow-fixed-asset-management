@@ -16,7 +16,9 @@ class AssuranceRunSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
-    started_by_email = serializers.EmailField(source="started_by.email", read_only=True)
+    started_by_email = serializers.EmailField(
+        source="started_by.email", read_only=True, allow_null=True
+    )
     completed_by_email = serializers.EmailField(
         source="completed_by.email", read_only=True, allow_null=True
     )
@@ -30,6 +32,7 @@ class AssuranceRunSerializer(serializers.ModelSerializer):
             "status",
             "verification_campaign_id",
             "stale_after_days",
+            "scheduled_for",
             "started_at",
             "completed_at",
             "started_by_email",
@@ -48,6 +51,7 @@ class AssuranceRunSerializer(serializers.ModelSerializer):
             "status",
             "started_at",
             "completed_at",
+            "scheduled_for",
             "started_by_email",
             "completed_by_email",
             "assets_evaluated",

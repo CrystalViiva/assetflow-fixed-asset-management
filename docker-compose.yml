@@ -54,5 +54,15 @@ services:
       redis:
         condition: service_healthy
 
+  beat:
+    build: .
+    command: celery -A config beat --loglevel=INFO --schedule=/tmp/celerybeat-schedule
+    environment: *backend-environment
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:

@@ -7,6 +7,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from assets.models import Asset
+from assurance.constants import DAILY_FULL_SCHEDULE_ID
 from assurance.models import (
     ACTIVE_FINDING_STATUSES,
     AssuranceFinding,
@@ -20,6 +21,7 @@ from assurance.models import (
 from assurance.rules import RULES_BY_RUN_TYPE
 from assurance.rules.context import build_context
 from assurance.services.audit import audit
+from organizations.models import Organization
 from verification.models import CampaignStatus, VerificationCampaign
 from verification.selectors import expected_assets
 
@@ -31,9 +33,19 @@ SEVERITY_RANK = {
 }
 
 
-def _organization(actor):
+def _organization(actor, organization=None):
+    organization_id = getattr(organization, "pk", organization)
+    if actor is None:
+        if organization_id is None:
+            raise ValidationError({"organization": "An organization is required for system runs."})
+        try:
+            return Organization.objects.get(pk=organization_id)
+        except Organization.DoesNotExist as exc:
+            raise ValidationError({"organization": "Organization was not found."}) from exc
     if not getattr(actor, "organization_id", None):
         raise ValidationError({"organization": "The user must belong to an organization."})
+    if organization_id is not None and actor.organization_id != organization_id:
+        raise ValidationError({"organization": "The user is outside the requested organization."})
     return actor.organization
 
 
@@ -96,6 +108,57 @@ def create_run(
             ip_address=ip_address,
         )
     return run
+
+
+def create_scheduled_run(*, organization, scheduled_for):
+    """Return the unique system-initiated FULL run for an organization and day."""
+    organization_id = getattr(organization, "pk", organization)
+    with transaction.atomic():
+        try:
+            organization = Organization.objects.select_for_update().get(
+                pk=organization_id, is_active=True
+            )
+        except Organization.DoesNotExist as exc:
+            raise ValidationError(
+                {"organization": "Only active organizations may receive scheduled runs."}
+            ) from exc
+
+        existing = AssuranceRun.objects.filter(
+            organization=organization, scheduled_for=scheduled_for
+        ).first()
+        if existing:
+            return existing, False
+
+        run = AssuranceRun(
+            organization=organization,
+            run_type=AssuranceRunType.FULL,
+            scheduled_for=scheduled_for,
+            started_by=None,
+        )
+        run.full_clean(validate_constraints=False)
+        try:
+            with transaction.atomic():
+                run.save()
+        except IntegrityError:
+            existing = AssuranceRun.objects.get(
+                organization=organization, scheduled_for=scheduled_for
+            )
+            return existing, False
+
+        audit(
+            organization=organization,
+            actor=None,
+            action="ASSURANCE_RUN_CREATED",
+            entity_type="ASSURANCE_RUN",
+            entity_id=run.pk,
+            metadata={
+                "run_type": run.run_type,
+                "schedule_id": DAILY_FULL_SCHEDULE_ID,
+                "scheduled_for": scheduled_for.isoformat(),
+                "initiated_by": "system",
+            },
+        )
+    return run, True
 
 
 def _asset_population(run):
@@ -340,9 +403,11 @@ def _mark_run_running(*, run, organization, actor, ip_address=None):
         raise ValidationError({"status": "This assurance run cannot be executed."})
 
 
-def dispatch_run(*, run_id, actor, ip_address=None):
+def dispatch_run(*, run_id, actor=None, organization=None, ip_address=None):
     """Mark a durable run as running and publish its task only after commit."""
-    organization = _organization(actor)
+    organization = _organization(actor, organization)
+    if actor is None and not organization.is_active:
+        raise ValidationError({"organization": "Inactive organizations cannot be scheduled."})
     with transaction.atomic():
         run = _locked_run(run_id, organization)
         if run.status == AssuranceRunStatus.COMPLETED:
@@ -360,8 +425,8 @@ def dispatch_run(*, run_id, actor, ip_address=None):
     return run
 
 
-def execute_run(*, run_id, actor, ip_address=None):
-    organization = _organization(actor)
+def execute_run(*, run_id, actor, organization=None, ip_address=None):
+    organization = _organization(actor, organization)
     with transaction.atomic():
         run = _locked_run(run_id, organization)
         if run.status == AssuranceRunStatus.COMPLETED:
