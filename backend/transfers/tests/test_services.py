@@ -41,8 +41,9 @@ def test_assignment_opens_custody_without_changing_active_asset_placement(
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("field", ["department", "location"])
-def test_assignment_cannot_bypass_active_asset_transfer(field, asset_factory, asset_manager,
-                                                         other_department, other_location):
+def test_assignment_cannot_bypass_active_asset_transfer(
+    field, asset_factory, asset_manager, other_department, other_location
+):
     asset = asset_factory()
     destination = other_department if field == "department" else other_location
 

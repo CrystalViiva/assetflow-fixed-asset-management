@@ -387,7 +387,7 @@ def _reconcile(verification, *, actor, ip_address=None):
                 )
             )
     if verification.observed_condition == PhysicalCondition.DAMAGED:
-            detected.append(
+        detected.append(
             (
                 ExceptionType.DAMAGED_ASSET,
                 ExceptionSeverity.HIGH,
@@ -439,9 +439,7 @@ def _reconcile(verification, *, actor, ip_address=None):
     )
     if result is None:
         result = VerificationResult.OTHER_EXCEPTION if detected else VerificationResult.VERIFIED
-    _update_verification_result(
-        verification, result=result, actor=actor, ip_address=ip_address
-    )
+    _update_verification_result(verification, result=result, actor=actor, ip_address=ip_address)
     created = []
     for exception_type, severity, description in detected:
         created.append(

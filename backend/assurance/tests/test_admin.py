@@ -48,9 +48,7 @@ def test_tenant_assurance_admins_scope_runs_findings(manager, foreign_manager, a
 
 
 @pytest.mark.django_db
-def test_superuser_assurance_admins_remain_global(
-    manager, foreign_manager, asset_factory
-):
+def test_superuser_assurance_admins_remain_global(manager, foreign_manager, asset_factory):
     asset_factory(current_book_value="900.00")
     local_run = create_run(actor=manager, run_type="FULL")
     execute_run(run_id=local_run.pk, actor=manager)

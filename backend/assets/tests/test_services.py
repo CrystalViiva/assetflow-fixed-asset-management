@@ -76,9 +76,7 @@ def test_update_asset_writes_before_after_audit_information(asset_factory, asset
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("field", ["department", "location"])
-def test_active_asset_placement_must_use_transfer_workflow(
-    field, asset_factory, asset_manager
-):
+def test_active_asset_placement_must_use_transfer_workflow(field, asset_factory, asset_manager):
     from organizations.models import Department, Location
 
     asset = asset_factory("AST-ACTIVE-PLACEMENT", status=AssetStatus.ACTIVE)

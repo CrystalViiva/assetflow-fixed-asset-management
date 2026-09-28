@@ -77,6 +77,7 @@ class UserAdmin(DjangoUserAdmin):
                 obj.is_superuser = original.is_superuser
         obj.full_clean()
         super().save_model(request, obj, form, change)
+
     add_fieldsets = (
         (None, {"classes": ("wide",), "fields": ("email", "password1", "password2", "role")}),
     )

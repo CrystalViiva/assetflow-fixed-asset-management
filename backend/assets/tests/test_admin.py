@@ -16,9 +16,7 @@ def test_active_asset_placement_is_read_only_for_tenant_admin(asset_manager, ass
     request = RequestFactory().get("/admin/assets/asset/")
     request.user = asset_manager
 
-    assert {"department", "location"}.issubset(
-        set(model_admin.get_readonly_fields(request, asset))
-    )
+    assert {"department", "location"}.issubset(set(model_admin.get_readonly_fields(request, asset)))
 
 
 @pytest.mark.django_db
