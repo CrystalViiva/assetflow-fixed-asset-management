@@ -14,7 +14,7 @@ jobs:
         env:
           POSTGRES_DB: assetflow
           POSTGRES_USER: assetflow
-          POSTGRES_PASSWORD: assetflow
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -32,11 +32,10 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      DJANGO_SECRET_KEY: ci-only-secret-key
       DEBUG: "false"
       SECURE_SSL_REDIRECT: "false"
       ALLOWED_HOSTS: localhost,127.0.0.1
-      DATABASE_URL: postgresql://assetflow:assetflow@localhost:5432/assetflow
+      DATABASE_URL: postgresql://assetflow@localhost:5432/assetflow
       CELERY_BROKER_URL: redis://localhost:6379/0
       CELERY_RESULT_BACKEND: redis://localhost:6379/1
       TIME_ZONE: Africa/Lagos
@@ -47,6 +46,9 @@ jobs:
           python-version: "3.14"
           cache: pip
           cache-dependency-path: backend/requirements.txt
+      - name: Generate CI Django secret key
+        run: |
+          echo "DJANGO_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')" >> "$GITHUB_ENV"
       - name: Install backend dependencies
         run: python -m pip install -r backend/requirements.txt
       - name: Django system checks
