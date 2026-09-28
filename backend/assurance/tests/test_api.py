@@ -1,13 +1,15 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 import pytest
 from rest_framework.test import APIClient
 
 from assurance.models import AssuranceFinding, FindingType
 from assurance.services import create_run, execute_run
+from assurance.tasks import execute_assurance_run
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_api_execute_filter_paginate_and_resolve(manager, asset_factory):
     asset_factory(current_book_value=Decimal("900.00"))
     asset_factory(current_book_value=Decimal("800.00"))
@@ -16,9 +18,13 @@ def test_api_execute_filter_paginate_and_resolve(manager, asset_factory):
     created = client.post("/api/v1/assurance/runs/", {"run_type": "FULL"}, format="json")
     assert created.status_code == 201
     run_id = created.data["id"]
-    executed = client.post(f"/api/v1/assurance/runs/{run_id}/execute/", {}, format="json")
-    assert executed.status_code == 200
-    assert executed.data["status"] == "COMPLETED"
+    with patch("assurance.tasks.execute_assurance_run.delay") as dispatch:
+        executed = client.post(f"/api/v1/assurance/runs/{run_id}/execute/", {}, format="json")
+    dispatch.assert_called_once_with(run_id)
+    assert executed.status_code == 202
+    assert executed.data["status"] == "RUNNING"
+    task_result = execute_assurance_run.run(run_id)
+    assert task_result["status"] == "COMPLETED"
 
     response = client.get(
         "/api/v1/assurance/findings/?finding_type=BOOK_VALUE_EXCEPTION&page_size=1"

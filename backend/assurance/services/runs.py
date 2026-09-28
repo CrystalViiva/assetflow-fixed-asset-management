@@ -1,5 +1,7 @@
 """Transactional assurance-run orchestration and finding deduplication."""
 
+from functools import partial
+
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -315,6 +317,49 @@ def _evaluate_locked_run(run_id, organization, actor, ip_address):
     return run
 
 
+def _mark_run_running(*, run, organization, actor, ip_address=None):
+    if run.status == AssuranceRunStatus.PENDING:
+        run.status = AssuranceRunStatus.RUNNING
+        run.started_at = timezone.now()
+        run.save(update_fields=("status", "started_at", "updated_at"))
+        audit(
+            organization=organization,
+            actor=actor,
+            action="ASSURANCE_RUN_STARTED",
+            entity_type="ASSURANCE_RUN",
+            entity_id=run.pk,
+            changes={
+                "status": {
+                    "from": AssuranceRunStatus.PENDING,
+                    "to": AssuranceRunStatus.RUNNING,
+                }
+            },
+            ip_address=ip_address,
+        )
+    elif run.status != AssuranceRunStatus.RUNNING:
+        raise ValidationError({"status": "This assurance run cannot be executed."})
+
+
+def dispatch_run(*, run_id, actor, ip_address=None):
+    """Mark a durable run as running and publish its task only after commit."""
+    organization = _organization(actor)
+    with transaction.atomic():
+        run = _locked_run(run_id, organization)
+        if run.status == AssuranceRunStatus.COMPLETED:
+            return run
+        if run.status in (AssuranceRunStatus.FAILED, AssuranceRunStatus.CANCELLED):
+            raise ValidationError(
+                {"status": "This assurance run is terminal; create a new run to retry it."}
+            )
+
+        _mark_run_running(run=run, organization=organization, actor=actor, ip_address=ip_address)
+
+        from assurance.tasks import execute_assurance_run
+
+        transaction.on_commit(partial(execute_assurance_run.delay, str(run.pk)))
+    return run
+
+
 def execute_run(*, run_id, actor, ip_address=None):
     organization = _organization(actor)
     with transaction.atomic():
@@ -326,26 +371,7 @@ def execute_run(*, run_id, actor, ip_address=None):
             raise ValidationError(
                 {"status": "This assurance run is terminal; create a new run to retry it."}
             )
-        if run.status == AssuranceRunStatus.PENDING:
-            run.status = AssuranceRunStatus.RUNNING
-            run.started_at = timezone.now()
-            run.save(update_fields=("status", "started_at", "updated_at"))
-            audit(
-                organization=organization,
-                actor=actor,
-                action="ASSURANCE_RUN_STARTED",
-                entity_type="ASSURANCE_RUN",
-                entity_id=run.pk,
-                changes={
-                    "status": {
-                        "from": AssuranceRunStatus.PENDING,
-                        "to": AssuranceRunStatus.RUNNING,
-                    }
-                },
-                ip_address=ip_address,
-            )
-        elif run.status != AssuranceRunStatus.RUNNING:
-            raise ValidationError({"status": "This assurance run cannot be executed."})
+        _mark_run_running(run=run, organization=organization, actor=actor, ip_address=ip_address)
 
     try:
         # RUNNING is retryable only after acquiring this row lock. A concurrent evaluator

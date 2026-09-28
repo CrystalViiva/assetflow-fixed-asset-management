@@ -34,7 +34,7 @@ from assurance.services import (
     accept_finding,
     cancel_run,
     create_run,
-    execute_run,
+    dispatch_run,
     reject_finding,
     resolve_finding,
     review_finding,
@@ -107,10 +107,24 @@ class AssuranceRunViewSet(
             _service_error(exc)
         return Response(self.get_serializer(run).data)
 
-    @extend_schema(parameters=_UUID_ID, request=None, responses=AssuranceRunSerializer)
+    @extend_schema(
+        parameters=_UUID_ID,
+        request=None,
+        responses={200: AssuranceRunSerializer, 202: AssuranceRunSerializer},
+    )
     @action(detail=True, methods=("post",))
     def execute(self, request, pk=None):
-        return self._transition(request, pk, execute_run)
+        self.get_object()
+        try:
+            run = dispatch_run(run_id=pk, actor=request.user, ip_address=_ip(request))
+        except DjangoValidationError as exc:
+            _service_error(exc)
+        response_status = (
+            status.HTTP_202_ACCEPTED
+            if run.status == AssuranceRunStatus.RUNNING
+            else status.HTTP_200_OK
+        )
+        return Response(self.get_serializer(run).data, status=response_status)
 
     @extend_schema(parameters=_UUID_ID, request=None, responses=AssuranceRunSerializer)
     @action(detail=True, methods=("post",))

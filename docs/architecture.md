@@ -67,9 +67,9 @@ Maintenance work orders own operational maintenance transitions and retain compl
 
 Physical verification stores observations separately from the authoritative asset register. Reconciliation creates durable, deduplicated findings and per-run occurrences without automatically correcting assets or accounting records. Verification evidence is metadata only; binary uploads are not implemented.
 
-Assurance rules are deterministic and organization-scoped. A completed run is idempotently returned on repeated execution; a `RUNNING` run can be re-entered under its row lock after an interrupted evaluation because candidate writes are atomic. A failed or cancelled run is terminal; create a new run to repeat after a recorded failure. Current evaluation materializes and locks the full scoped population in one transaction to preserve cross-asset rule context. Future bounded execution must define a consistent run snapshot and preserve global candidate identity before chunking.
+Assurance rules are deterministic and organization-scoped. The API dispatches execution to Celery after it transactionally marks the durable `AssuranceRun` as `RUNNING` and records the start audit event. The task is registered with `transaction.on_commit()`, so a rolled-back dispatch does not enqueue work. The `AssuranceRun` remains the source of execution state; Celery results contain only a run ID, status, and counts. At-least-once task delivery is safe: a completed run is idempotently returned on redelivery, while a `RUNNING` run can be re-entered under its row lock after an interrupted evaluation because candidate writes are atomic. A failed or cancelled run is terminal; create a new run to repeat after a recorded failure. Current evaluation materializes and locks the full scoped population in one transaction to preserve cross-asset rule context. Future bounded execution must define a consistent run snapshot and preserve global candidate identity before chunking.
 
-Future background dispatch should be registered with `transaction.on_commit()` after durable run/job creation. No Celery tasks or schedules are currently implemented.
+The Celery task invokes the existing assurance execution service and uses the run's stored `started_by` actor for completion or failure audit attribution. No scheduled jobs are implemented.
 
 ## Tenant and admin boundaries
 
