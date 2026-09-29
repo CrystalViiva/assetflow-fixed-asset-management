@@ -15,6 +15,7 @@ from assurance.services.runs import dispatch_run as dispatch_run_service
 from assurance.tasks import execute_assurance_run, schedule_daily_assurance
 from audit.models import AuditLog
 from config.celery import app
+from depreciation.constants import MONTHLY_DEPRECIATION_SCHEDULE_ID
 from organizations.models import Organization
 
 
@@ -210,10 +211,12 @@ def test_one_organization_failure_is_reported_and_does_not_stop_others(
     )
 
 
-def test_celery_beat_registers_only_the_daily_full_assurance_schedule():
+def test_celery_beat_retains_daily_full_assurance_schedule():
     schedule = app.conf.beat_schedule
 
-    assert list(schedule) == [DAILY_FULL_SCHEDULE_ID]
+    assert DAILY_FULL_SCHEDULE_ID in schedule
+    assert MONTHLY_DEPRECIATION_SCHEDULE_ID in schedule
+    assert len(schedule) == 2
     entry = schedule[DAILY_FULL_SCHEDULE_ID]
     assert entry["task"] == "assurance.tasks.schedule_daily_assurance"
     assert isinstance(entry["schedule"], crontab)

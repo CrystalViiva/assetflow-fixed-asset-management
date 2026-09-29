@@ -21,6 +21,17 @@ class ScheduleStatus(models.TextChoices):
     COMPLETE = "COMPLETE", "Complete"
 
 
+class DepreciationRunStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    RUNNING = "RUNNING", "Running"
+    COMPLETED = "COMPLETED", "Completed"
+    FAILED = "FAILED", "Failed"
+
+
+class DepreciationRunSource(models.TextChoices):
+    SCHEDULED = "SCHEDULED", "Scheduled"
+
+
 class AccountingPeriod(models.Model):
     """Explicit organization-scoped calendar month; periods are never created by posting."""
 
@@ -75,6 +86,13 @@ class AccountingPeriod(models.Model):
 
         return date(self.year, self.month, 1)
 
+    @property
+    def last_day(self):
+        from calendar import monthrange
+        from datetime import date
+
+        return date(self.year, self.month, monthrange(self.year, self.month)[1])
+
     def clean(self):
         super().clean()
         if self.status == PeriodStatus.OPEN and (self.closed_at or self.closed_by_id):
@@ -84,6 +102,104 @@ class AccountingPeriod(models.Model):
 
     def __str__(self):
         return f"{self.organization.code} {self.year:04d}-{self.month:02d}"
+
+
+class DepreciationRun(models.Model):
+    """Durable status and idempotency record for one scheduled calendar month."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "organizations.Organization", on_delete=models.PROTECT, related_name="depreciation_runs"
+    )
+    accounting_period = models.ForeignKey(
+        AccountingPeriod,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="depreciation_runs",
+    )
+    scheduled_for = models.DateField()
+    source = models.CharField(
+        max_length=10,
+        choices=DepreciationRunSource.choices,
+        default=DepreciationRunSource.SCHEDULED,
+    )
+    status = models.CharField(
+        max_length=10, choices=DepreciationRunStatus.choices, default=DepreciationRunStatus.PENDING
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    failed_at = models.DateTimeField(null=True, blank=True)
+    schedules_considered = models.PositiveIntegerField(default=0)
+    assets_considered = models.PositiveIntegerField(default=0)
+    entries_posted = models.PositiveIntegerField(default=0)
+    total_depreciation_posted = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    failure_class = models.CharField(max_length=100, blank=True)
+    failure_message = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-scheduled_for", "organization_id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("organization", "scheduled_for"),
+                condition=Q(source=DepreciationRunSource.SCHEDULED),
+                name="uniq_scheduled_depr_run_org_window",
+            ),
+            models.CheckConstraint(
+                condition=Q(scheduled_for__day=1), name="depr_run_month_window_first_day"
+            ),
+            models.CheckConstraint(
+                condition=Q(source__in=DepreciationRunSource.values), name="depr_run_source_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=DepreciationRunStatus.values), name="depr_run_status_valid"
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        status=DepreciationRunStatus.PENDING,
+                        started_at__isnull=True,
+                        completed_at__isnull=True,
+                        failed_at__isnull=True,
+                    )
+                    | Q(
+                        status=DepreciationRunStatus.RUNNING,
+                        started_at__isnull=False,
+                        completed_at__isnull=True,
+                        failed_at__isnull=True,
+                    )
+                    | Q(
+                        status=DepreciationRunStatus.COMPLETED,
+                        started_at__isnull=False,
+                        completed_at__isnull=False,
+                        failed_at__isnull=True,
+                    )
+                    | Q(status=DepreciationRunStatus.FAILED, failed_at__isnull=False)
+                ),
+                name="depr_run_timestamps_consistent",
+            ),
+            models.CheckConstraint(
+                condition=Q(total_depreciation_posted__gte=0),
+                name="depr_run_total_nonnegative",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.scheduled_for and self.scheduled_for.day != 1:
+            raise ValidationError({"scheduled_for": "A scheduled window must start on day one."})
+        if self.accounting_period_id and (
+            self.accounting_period.organization_id != self.organization_id
+            or self.accounting_period.first_day != self.scheduled_for
+        ):
+            raise ValidationError(
+                {"accounting_period": "The period must match the run organization and month."}
+            )
+
+    def __str__(self):
+        return f"{self.organization.code} depreciation {self.scheduled_for:%Y-%m} ({self.status})"
 
 
 class DepreciationSchedule(models.Model):
@@ -192,6 +308,8 @@ class DepreciationEntry(models.Model):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="depreciation_entries_created",
     )
 

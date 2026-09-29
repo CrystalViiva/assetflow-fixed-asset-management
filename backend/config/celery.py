@@ -8,6 +8,12 @@ from assurance.constants import (
     DAILY_FULL_SCHEDULE_ID,
     DAILY_FULL_SCHEDULE_MINUTE,
 )
+from depreciation.constants import (
+    MONTHLY_DEPRECIATION_SCHEDULE_DAY,
+    MONTHLY_DEPRECIATION_SCHEDULE_HOUR,
+    MONTHLY_DEPRECIATION_SCHEDULE_ID,
+    MONTHLY_DEPRECIATION_SCHEDULE_MINUTE,
+)
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
@@ -21,5 +27,13 @@ app.conf.beat_schedule = {
             hour=DAILY_FULL_SCHEDULE_HOUR,
             minute=DAILY_FULL_SCHEDULE_MINUTE,
         ),
-    }
+    },
+    MONTHLY_DEPRECIATION_SCHEDULE_ID: {
+        "task": "depreciation.tasks.schedule_monthly_depreciation_run",
+        "schedule": crontab(
+            day_of_month=MONTHLY_DEPRECIATION_SCHEDULE_DAY,
+            hour=MONTHLY_DEPRECIATION_SCHEDULE_HOUR,
+            minute=MONTHLY_DEPRECIATION_SCHEDULE_MINUTE,
+        ),
+    },
 }

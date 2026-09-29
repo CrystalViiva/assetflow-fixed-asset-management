@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from depreciation.models import AccountingPeriod, DepreciationEntry, DepreciationSchedule
+from depreciation.models import (
+    AccountingPeriod,
+    DepreciationEntry,
+    DepreciationRun,
+    DepreciationSchedule,
+)
 
 
 class LedgerRecordAdmin(admin.ModelAdmin):
@@ -74,3 +79,19 @@ class DepreciationEntryAdmin(LedgerRecordAdmin):
     list_filter = ("organization", "accounting_period__year", "accounting_period__month")
     search_fields = ("asset__asset_tag", "asset__name")
     ordering = ("-accounting_period__year", "-accounting_period__month", "asset__asset_tag")
+
+
+@admin.register(DepreciationRun)
+class DepreciationRunAdmin(LedgerRecordAdmin):
+    list_display = (
+        "organization",
+        "scheduled_for",
+        "accounting_period",
+        "status",
+        "entries_posted",
+        "total_depreciation_posted",
+        "created_at",
+    )
+    list_filter = ("organization", "status", "scheduled_for")
+    search_fields = ("organization__name", "organization__code", "failure_class")
+    ordering = ("-scheduled_for", "organization__code")

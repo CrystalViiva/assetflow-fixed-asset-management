@@ -24,12 +24,20 @@ from depreciation.services.engine import (
 )
 
 
-def _organization(actor):
+def _organization(actor, organization=None):
+    if actor is not None and getattr(actor, "organization_id", None):
+        if (
+            organization is not None
+            and getattr(organization, "pk", organization) != actor.organization_id
+        ):
+            raise ValidationError({"organization": "The actor is outside the target organization."})
+        return actor.organization
+    if actor is None and organization is not None:
+        return organization
     if not getattr(actor, "organization_id", None):
         raise ValidationError(
             {"organization": "The authenticated user must belong to an organization."}
         )
-    return actor.organization
 
 
 def _month_offset(value, offset):
@@ -37,6 +45,13 @@ def _month_offset(value, offset):
     year, month0 = divmod(absolute, 12)
     month = month0 + 1
     return date(year, month, min(value.day, calendar.monthrange(year, month)[1]))
+
+
+def next_period_for_schedule(schedule, posted_count=None):
+    """Return the month expected by the posting service's existing sequence rule."""
+    if posted_count is None:
+        posted_count = schedule.entries.count()
+    return _month_offset(schedule.start_date.replace(day=1), posted_count)
 
 
 def _schedule_end(start, months):
@@ -152,9 +167,9 @@ def generate_depreciation_schedule(*, asset_id, actor, ip_address=None):
     return schedule
 
 
-def post_depreciation(*, asset_id, period_id, actor, ip_address=None):
+def post_depreciation(*, asset_id, period_id, actor, organization=None, ip_address=None):
     """Post the next scheduled calendar month with ledger, balance, and audit atomicity."""
-    organization = _organization(actor)
+    organization = _organization(actor, organization)
     try:
         with transaction.atomic():
             try:
@@ -190,7 +205,7 @@ def post_depreciation(*, asset_id, period_id, actor, ip_address=None):
 
             entries = DepreciationEntry.objects.filter(schedule=schedule)
             posted_count = entries.count()
-            expected = _month_offset(schedule.start_date.replace(day=1), posted_count)
+            expected = next_period_for_schedule(schedule, posted_count)
             if period.first_day != expected:
                 raise ValidationError(
                     {"period": f"Post periods sequentially; next period is {expected:%Y-%m}."}
