@@ -67,7 +67,10 @@ export class DjangoAssetRepository implements IAssetRepository {
   private baseUrl: string;
   private authToken: string | null = null;
 
-  constructor(baseUrl: string = '/api/v1') {
+  constructor(
+    baseUrl: string =
+      import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000/api/v1',
+  ) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
