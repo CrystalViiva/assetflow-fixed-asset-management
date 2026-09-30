@@ -33,7 +33,7 @@ from verification.models import (
 from verification.services import complete_campaign, create_manual_exception
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_physical_run_reconciles_observation_without_changing_asset(
     manager,
     asset_factory,
@@ -85,7 +85,7 @@ def test_physical_run_reconciles_observation_without_changing_asset(
     )
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_physical_run_finds_missing_registered_and_unregistered_items(
     manager, asset_factory, campaign_factory, observation_factory
 ):
@@ -131,7 +131,7 @@ def test_physical_run_finds_missing_registered_and_unregistered_items(
     )
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_physical_run_detects_duplicate_tag_and_missing_evidence(
     manager, asset_factory, campaign_factory, observation_factory
 ):
@@ -165,7 +165,7 @@ def test_physical_run_detects_duplicate_tag_and_missing_evidence(
     assert findings.filter(finding_type=FindingType.MISSING_EVIDENCE).count() == 1
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_full_run_deduplicates_occurrences_and_reopens_resolved_history(manager, asset_factory):
     asset = asset_factory(current_book_value=Decimal("900.00"))
 
@@ -207,7 +207,7 @@ def test_full_run_deduplicates_occurrences_and_reopens_resolved_history(manager,
     assert first_run.assets_evaluated == 1
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_failed_execution_rolls_back_findings_but_keeps_failed_run(
     monkeypatch, manager, asset_factory
 ):
@@ -234,7 +234,7 @@ def test_failed_execution_rolls_back_findings_but_keeps_failed_run(
     assert not AssuranceFinding.objects.filter(organization=manager.organization).exists()
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_completed_run_reexecution_returns_same_run_without_new_occurrences(manager, asset_factory):
     asset_factory(current_book_value=Decimal("900.00"))
     run = execute_run(
@@ -255,7 +255,7 @@ def test_completed_run_reexecution_returns_same_run_without_new_occurrences(mana
     assert after == before
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_running_run_can_be_reentered_after_worker_transaction_rollback(manager, asset_factory):
     asset_factory(current_book_value=Decimal("900.00"))
     run = create_run(actor=manager, run_type=AssuranceRunType.FULL)
@@ -270,7 +270,7 @@ def test_running_run_can_be_reentered_after_worker_transaction_rollback(manager,
     assert completed.findings.first().occurrences.count() == 1
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_failed_run_is_terminal_and_retry_requires_a_new_run(monkeypatch, manager, asset_factory):
     asset_factory(current_book_value=Decimal("900.00"))
     run = create_run(actor=manager, run_type=AssuranceRunType.FULL)
@@ -278,7 +278,7 @@ def test_failed_run_is_terminal_and_retry_requires_a_new_run(monkeypatch, manage
     def fail_candidates(*args, **kwargs):
         raise RuntimeError("controlled failure")
 
-    monkeypatch.setattr("assurance.services.runs._collect_candidates", fail_candidates)
+    monkeypatch.setattr("assurance.services.inputs.evaluate_input", fail_candidates)
     failed = execute_run(run_id=run.pk, actor=manager)
 
     with pytest.raises(ValidationError, match="terminal"):
@@ -316,7 +316,7 @@ def test_concurrent_execution_attempts_create_one_occurrence(manager, asset_fact
     assert finding.occurrences.count() == 1
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_org_isolation_and_campaign_organization_validation(
     manager, foreign_manager, asset_factory, other_organization
 ):
@@ -326,7 +326,7 @@ def test_org_isolation_and_campaign_organization_validation(
     assert not AssuranceRun.objects.filter(organization=other_organization).exists()
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_financial_controls_flag_missing_schedule_and_book_value(manager, asset_factory):
     asset = asset_factory(current_book_value=Decimal("900.00"))
     run = create_run(actor=manager, run_type=AssuranceRunType.FINANCIAL)
@@ -343,7 +343,7 @@ def test_financial_controls_flag_missing_schedule_and_book_value(manager, asset_
     assert asset.current_book_value == Decimal("900.00")
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_finding_review_resolution_acceptance_and_rejection_are_terminal(manager, asset_factory):
     asset_factory(current_book_value=Decimal("900.00"))
     run = execute_run(
@@ -362,7 +362,7 @@ def test_finding_review_resolution_acceptance_and_rejection_are_terminal(manager
         reject_finding(finding_id=finding.pk, actor=manager, resolution_notes="No")
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_stale_record_threshold_is_explicit_run_parameter(manager, asset_factory):
     asset = asset_factory()
     type(asset).objects.filter(pk=asset.pk).update(updated_at=timezone.now() - timedelta(days=40))
@@ -373,7 +373,7 @@ def test_stale_record_threshold_is_explicit_run_parameter(manager, asset_factory
     ).exists()
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_custody_rule_compares_active_assignment_with_observed_custodian(
     manager, employee, asset_factory, campaign_factory, observation_factory
 ):
@@ -404,7 +404,7 @@ def test_custody_rule_compares_active_assignment_with_observed_custodian(
     ).exists()
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_disposed_asset_with_open_work_order_reports_lifecycle_and_workflow(manager, asset_factory):
     from maintenance.models import MaintenanceType, WorkOrder
 
@@ -430,7 +430,7 @@ def test_disposed_asset_with_open_work_order_reports_lifecycle_and_workflow(mana
     assert FindingType.OPEN_WORKFLOW in types
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_completed_disposal_must_match_asset_lifecycle(manager, accountant, asset_factory):
     from datetime import date
 
@@ -470,7 +470,7 @@ def test_completed_disposal_must_match_asset_lifecycle(manager, accountant, asse
     assert finding.observed_value == AssetStatus.ACTIVE
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_invalid_cross_organization_run_record_rejected(manager, foreign_manager):
     run = AssuranceRun(
         organization=manager.organization,
@@ -481,7 +481,7 @@ def test_invalid_cross_organization_run_record_rejected(manager, foreign_manager
         run.full_clean()
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_assurance_history_cannot_be_deleted_or_bulk_changed(manager, asset_factory):
     asset_factory(current_book_value=Decimal("900.00"))
     run = execute_run(

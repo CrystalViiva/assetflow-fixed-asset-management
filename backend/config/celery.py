@@ -21,6 +21,10 @@ app = Celery("assetflow")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
 app.conf.beat_schedule = {
+    "recover-unfinished-assurance": {
+        "task": "assurance.tasks.recover_assurance_runs",
+        "schedule": 60.0,
+    },
     DAILY_FULL_SCHEDULE_ID: {
         "task": "assurance.tasks.schedule_daily_assurance",
         "schedule": crontab(

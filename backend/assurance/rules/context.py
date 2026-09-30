@@ -42,7 +42,7 @@ class EvaluationContext:
 
 
 def build_context(*, run, assets):
-    asset_ids = [asset.pk for asset in assets]
+    asset_ids = {asset.pk for asset in assets}
     context = EvaluationContext()
     organization_id = run.organization_id
     if run.verification_campaign_id:
@@ -56,7 +56,7 @@ def build_context(*, run, assets):
     ).select_related("observed_location", "observed_department", "observed_custodian")
     if run.verification_campaign_id:
         verifications = verifications.filter(campaign_id=run.verification_campaign_id)
-    verifications = verifications.order_by("asset_id", "-verified_at", "-created_at")
+    verifications = verifications.order_by("asset_id", "-verified_at", "-created_at", "-pk")
     context.verifications = list(verifications)
     for verification in verifications:
         if verification.asset_id in asset_ids:

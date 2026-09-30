@@ -1,6 +1,7 @@
 """Transactional assurance-run orchestration and finding deduplication."""
 
 from functools import partial
+from types import SimpleNamespace
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -21,6 +22,7 @@ from assurance.models import (
 from assurance.rules import RULES_BY_RUN_TYPE
 from assurance.rules.context import build_context
 from assurance.services.audit import audit
+from assurance.services.inputs import EXECUTOR_VERSION
 from organizations.models import Organization
 from verification.models import CampaignStatus, VerificationCampaign
 from verification.selectors import expected_assets
@@ -75,6 +77,8 @@ def create_run(
         verification_campaign=verification_campaign,
         stale_after_days=stale_after_days,
         started_by=actor,
+        executor_version=EXECUTOR_VERSION,
+        scope=_scope(verification_campaign),
     )
     run.full_clean()
     with transaction.atomic():
@@ -93,6 +97,7 @@ def create_run(
                     {"verification_campaign": "Assurance runs require a completed campaign."}
                 )
             run.verification_campaign = locked_campaign
+            run.scope = _scope(locked_campaign)
         run.save()
         audit(
             organization=organization,
@@ -134,6 +139,7 @@ def create_scheduled_run(*, organization, scheduled_for):
             run_type=AssuranceRunType.FULL,
             scheduled_for=scheduled_for,
             started_by=None,
+            executor_version=EXECUTOR_VERSION,
         )
         run.full_clean(validate_constraints=False)
         try:
@@ -162,17 +168,25 @@ def create_scheduled_run(*, organization, scheduled_for):
 
 
 def _asset_population(run):
-    """Return the deterministic evaluation population for this durable run.
-
-    The current evaluator consumes the complete scoped population to build cross-asset
-    rule context (including duplicate-tag checks), then evaluates it in one transaction.
-    A future bounded implementation must preserve a run-level snapshot and global
-    candidate identity semantics before chunking this queryset.
-    """
+    """Capture population, using the run's frozen campaign predicates."""
     assets = Asset.objects.filter(organization_id=run.organization_id)
     if run.run_type == AssuranceRunType.PHYSICAL:
-        assets = expected_assets(run.verification_campaign)
-    return assets.select_related("department", "location", "depreciation_schedule").order_by("pk")
+        assets = expected_assets(scope_campaign(run))
+    return assets.select_related("department", "location").order_by("pk")
+
+
+def _scope(campaign):
+    if campaign is None:
+        return {}
+    return {
+        "scope_type": campaign.scope_type,
+        "department_id": str(campaign.department_id) if campaign.department_id else None,
+        "location_id": str(campaign.location_id) if campaign.location_id else None,
+    }
+
+
+def scope_campaign(run):
+    return SimpleNamespace(organization_id=run.organization_id, **run.scope)
 
 
 def _collect_candidates(run, assets):
@@ -264,18 +278,34 @@ def _record_candidate(*, run, actor, candidate, ip_address=None):
             first_detected_at=run.started_at,
             last_detected_at=run.started_at,
         )
-        finding.full_clean()
+        # The partial unique index arbitrates insertion races. Model validation still
+        # checks fields and tenant relations, but must not preflight that constraint.
+        finding.full_clean(validate_constraints=False)
         try:
             with transaction.atomic():
                 finding.save()
-        except IntegrityError:
+        except IntegrityError as exc:
+            if getattr(getattr(exc.__cause__, "diag", None), "constraint_name", None) != (
+                "assfinding_active_identity_uniq"
+            ):
+                raise
             # A concurrent run may have inserted the same active identity after our read.
-            finding = AssuranceFinding.objects.select_for_update(of=("self",)).get(
-                organization_id=run.organization_id,
-                identity_key=candidate.identity_key,
-                finding_type=candidate.finding_type,
-                status__in=ACTIVE_FINDING_STATUSES,
+            finding = (
+                AssuranceFinding.objects.select_for_update(of=("self",))
+                .filter(
+                    organization_id=run.organization_id,
+                    identity_key=candidate.identity_key,
+                    finding_type=candidate.finding_type,
+                    status__in=ACTIVE_FINDING_STATUSES,
+                )
+                .first()
             )
+            if finding is None:
+                # The winner may have been closed by a reviewer before this reread.
+                # Retry publication transactionally rather than losing this detection.
+                from assurance.services.execution import RetryPublication
+
+                raise RetryPublication from exc
         else:
             _add_occurrence(finding=finding, run=run, candidate=candidate)
             audit(
@@ -300,12 +330,15 @@ def _record_candidate(*, run, actor, candidate, ip_address=None):
     if not occurrence_exists:
         finding.occurrence_count += 1
         _add_occurrence(finding=finding, run=run, candidate=candidate)
-    finding.last_detected_at = run.started_at
-    finding.last_detected_run = run
+    latest = (run.started_at, run.pk) >= (finding.last_detected_at, finding.last_detected_run_id)
+    if latest:
+        finding.last_detected_at = run.started_at
+        finding.last_detected_run = run
     finding.severity = max((finding.severity, candidate.severity), key=SEVERITY_RANK.get)
-    finding.expected_value = candidate.expected_value
-    finding.observed_value = candidate.observed_value
-    finding.description = candidate.description
+    if latest:
+        finding.expected_value = candidate.expected_value
+        finding.observed_value = candidate.observed_value
+        finding.description = candidate.description
     finding.save(
         update_fields=(
             "occurrence_count",
@@ -331,60 +364,24 @@ def _record_candidate(*, run, actor, candidate, ip_address=None):
     return finding
 
 
-def _evaluate_locked_run(run_id, organization, actor, ip_address):
-    run = _locked_run(run_id, organization)
-    if run.status != AssuranceRunStatus.RUNNING:
-        raise ValidationError({"status": "Only a running assurance run can be evaluated."})
-    assets = list(_asset_population(run).select_for_update(of=("self",)))
-    candidates = _collect_candidates(run, assets)
-    findings = [
-        _record_candidate(run=run, actor=actor, candidate=item, ip_address=ip_address)
-        for item in candidates
-    ]
-    run.status = AssuranceRunStatus.COMPLETED
-    run.completed_at = timezone.now()
-    run.completed_by = actor
-    run.assets_evaluated = len(assets)
-    run.findings_generated = len(findings)
-    run.findings_open = sum(item.status in ACTIVE_FINDING_STATUSES for item in findings)
-    run.findings_resolved = sum(item.status == FindingStatus.RESOLVED for item in findings)
-    run.full_clean()
-    run.save(
-        update_fields=(
-            "status",
-            "completed_at",
-            "completed_by",
-            "assets_evaluated",
-            "findings_generated",
-            "findings_open",
-            "findings_resolved",
-            "updated_at",
-        )
-    )
-    audit(
-        organization=organization,
-        actor=actor,
-        action="ASSURANCE_RUN_COMPLETED",
-        entity_type="ASSURANCE_RUN",
-        entity_id=run.pk,
-        changes={
-            "status": {"from": AssuranceRunStatus.RUNNING, "to": AssuranceRunStatus.COMPLETED}
-        },
-        metadata={
-            "assets_evaluated": run.assets_evaluated,
-            "findings_generated": run.findings_generated,
-            "findings_open": run.findings_open,
-        },
-        ip_address=ip_address,
-    )
-    return run
-
-
 def _mark_run_running(*, run, organization, actor, ip_address=None):
     if run.status == AssuranceRunStatus.PENDING:
+        if run.executor_version == 0:
+            run.executor_version = EXECUTOR_VERSION
+            run.scope = _scope(run.verification_campaign)
+            run.execution_phase = "CAPTURE"
         run.status = AssuranceRunStatus.RUNNING
         run.started_at = timezone.now()
-        run.save(update_fields=("status", "started_at", "updated_at"))
+        run.save(
+            update_fields=(
+                "status",
+                "started_at",
+                "updated_at",
+                "executor_version",
+                "scope",
+                "execution_phase",
+            )
+        )
         audit(
             organization=organization,
             actor=actor,
@@ -417,6 +414,11 @@ def dispatch_run(*, run_id, actor=None, organization=None, ip_address=None):
                 {"status": "This assurance run is terminal; create a new run to retry it."}
             )
 
+        if run.status == "RUNNING" and run.executor_version != EXECUTOR_VERSION:
+            raise ValidationError(
+                "Legacy or incompatible RUNNING execution requires operator review."
+            )
+
         _mark_run_running(run=run, organization=organization, actor=actor, ip_address=ip_address)
 
         from assurance.tasks import execute_assurance_run
@@ -426,58 +428,15 @@ def dispatch_run(*, run_id, actor=None, organization=None, ip_address=None):
 
 
 def execute_run(*, run_id, actor, organization=None, ip_address=None):
-    organization = _organization(actor, organization)
-    with transaction.atomic():
-        run = _locked_run(run_id, organization)
-        if run.status == AssuranceRunStatus.COMPLETED:
-            # A broker may redeliver after commit but before acknowledging the task.
-            return run
-        if run.status in (AssuranceRunStatus.FAILED, AssuranceRunStatus.CANCELLED):
-            raise ValidationError(
-                {"status": "This assurance run is terminal; create a new run to retry it."}
-            )
-        _mark_run_running(run=run, organization=organization, actor=actor, ip_address=ip_address)
+    """Synchronous domain driver; each advancement owns a separate transaction."""
+    from assurance.services.execution import advance_run
 
-    try:
-        # RUNNING is retryable only after acquiring this row lock. A concurrent evaluator
-        # holds it for the complete atomic evaluation; a crashed evaluator releases it and
-        # rolls back all candidate writes, allowing safe re-entry with the same run ID.
-        with transaction.atomic():
-            return _evaluate_locked_run(run_id, organization, actor, ip_address)
-    except Exception as exc:
-        with transaction.atomic():
-            failed_run = _locked_run(run_id, organization)
-            if failed_run.status == AssuranceRunStatus.RUNNING:
-                failed_run.status = AssuranceRunStatus.FAILED
-                failed_run.completed_at = timezone.now()
-                failed_run.completed_by = actor
-                failed_run.failure_message = f"Evaluation failed ({type(exc).__name__})."
-                failed_run.full_clean()
-                failed_run.save(
-                    update_fields=(
-                        "status",
-                        "completed_at",
-                        "completed_by",
-                        "failure_message",
-                        "updated_at",
-                    )
-                )
-                audit(
-                    organization=organization,
-                    actor=actor,
-                    action="ASSURANCE_RUN_FAILED",
-                    entity_type="ASSURANCE_RUN",
-                    entity_id=failed_run.pk,
-                    changes={
-                        "status": {
-                            "from": AssuranceRunStatus.RUNNING,
-                            "to": AssuranceRunStatus.FAILED,
-                        }
-                    },
-                    metadata={"failure_type": type(exc).__name__},
-                    ip_address=ip_address,
-                )
-        return failed_run
+    while True:
+        run = advance_run(
+            run_id=run_id, actor=actor, organization=organization, ip_address=ip_address
+        )
+        if run.status != AssuranceRunStatus.RUNNING or run.next_attempt_at:
+            return run
 
 
 def cancel_run(*, run_id, actor, ip_address=None):

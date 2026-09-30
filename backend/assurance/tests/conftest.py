@@ -1,12 +1,19 @@
 from datetime import date
 from decimal import Decimal
 from itertools import count
+from unittest.mock import patch
 
 import pytest
 
 from accounts.models import User, UserRole
 from assets.models import Asset, AssetCategory, AssetCondition, AssetStatus
 from organizations.models import Department, Location, Organization
+
+
+@pytest.fixture(autouse=True)
+def no_live_continuations():
+    with patch("assurance.tasks.execute_assurance_run.apply_async"):
+        yield
 
 
 @pytest.fixture

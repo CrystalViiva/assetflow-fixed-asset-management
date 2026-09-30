@@ -12,7 +12,7 @@ from assurance.models import AssuranceFinding, AssuranceFindingOccurrence, Assur
 from assurance.services import create_run, execute_run
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_tenant_assurance_admins_scope_runs_findings(manager, foreign_manager, asset_factory):
     manager.is_staff = True
     manager.save(update_fields=("is_staff",))
@@ -47,7 +47,7 @@ def test_tenant_assurance_admins_scope_runs_findings(manager, foreign_manager, a
     assert not inline_queryset.filter(organization_id=foreign_manager.organization_id).exists()
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_superuser_assurance_admins_remain_global(manager, foreign_manager, asset_factory):
     asset_factory(current_book_value="900.00")
     local_run = create_run(actor=manager, run_type="FULL")

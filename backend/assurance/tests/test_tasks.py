@@ -7,7 +7,7 @@ from django.db import connection, transaction
 
 from assurance.models import AssuranceFinding, AssuranceRunStatus
 from assurance.services import cancel_run, create_run, dispatch_run, execute_run
-from assurance.tasks import execute_assurance_run
+from assurance.tests.helpers import execute_to_completion
 from audit.models import AuditLog
 
 
@@ -51,12 +51,12 @@ def test_dispatch_is_not_enqueued_if_surrounding_transaction_rolls_back(manager)
     enqueue.assert_not_called()
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_assurance_task_completes_run_and_returns_json_safe_counts(manager, asset_factory):
     asset_factory(current_book_value=Decimal("900.00"))
     run = create_run(actor=manager, run_type="FULL")
 
-    result = execute_assurance_run.run(str(run.pk))
+    result = execute_to_completion(str(run.pk))
 
     assert result == {
         "run_id": str(run.pk),
@@ -67,18 +67,18 @@ def test_assurance_task_completes_run_and_returns_json_safe_counts(manager, asse
     assert all(type(value) in (str, int) for value in result.values())
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_assurance_task_is_idempotent_for_completed_run(manager, asset_factory):
     asset_factory(current_book_value=Decimal("900.00"))
     run = create_run(actor=manager, run_type="FULL")
 
-    first = execute_assurance_run.run(str(run.pk))
+    first = execute_to_completion(str(run.pk))
     occurrence_counts = list(
         AssuranceFinding.objects.filter(last_detected_run=run)
         .order_by("pk")
         .values_list("occurrence_count", flat=True)
     )
-    repeated = execute_assurance_run.run(str(run.pk))
+    repeated = execute_to_completion(str(run.pk))
 
     assert repeated == first
     assert (
@@ -91,13 +91,13 @@ def test_assurance_task_is_idempotent_for_completed_run(manager, asset_factory):
     )
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("terminal_status", ("FAILED", "CANCELLED"))
 def test_assurance_task_does_not_retry_terminal_runs(terminal_status, monkeypatch, manager):
     run = create_run(actor=manager, run_type="FULL")
     if terminal_status == "FAILED":
         monkeypatch.setattr(
-            "assurance.services.runs._collect_candidates",
+            "assurance.services.inputs.capture",
             lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("controlled failure")),
         )
         run = execute_run(run_id=run.pk, actor=manager)
@@ -105,7 +105,7 @@ def test_assurance_task_does_not_retry_terminal_runs(terminal_status, monkeypatc
         run = cancel_run(run_id=run.pk, actor=manager)
 
     with pytest.raises(ValidationError, match="terminal"):
-        execute_assurance_run.run(str(run.pk))
+        execute_to_completion(str(run.pk))
 
     run.refresh_from_db()
     assert run.status == terminal_status
@@ -122,8 +122,8 @@ def test_task_uses_run_started_by_for_completion_and_failure_audit(
     def fail_candidates(*_args, **_kwargs):
         raise RuntimeError("controlled task failure")
 
-    monkeypatch.setattr("assurance.services.runs._collect_candidates", fail_candidates)
-    result = execute_assurance_run.run(str(run.pk))
+    monkeypatch.setattr("assurance.services.inputs.capture", fail_candidates)
+    result = execute_to_completion(str(run.pk))
 
     run.refresh_from_db()
     assert result["status"] == AssuranceRunStatus.FAILED
@@ -148,7 +148,7 @@ def test_dispatch_and_task_keep_runs_organization_scoped(manager, foreign_manage
             dispatch_run(run_id=run.pk, actor=foreign_manager)
         enqueue.assert_not_called()
 
-    result = execute_assurance_run.run(str(run.pk))
+    result = execute_to_completion(str(run.pk))
 
     assert result["status"] == AssuranceRunStatus.COMPLETED
     assert not AssuranceFinding.objects.filter(organization=foreign_manager.organization).exists()

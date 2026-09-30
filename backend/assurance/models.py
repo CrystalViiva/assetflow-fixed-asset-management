@@ -124,6 +124,21 @@ class AssuranceRun(models.Model):
     findings_open = models.PositiveIntegerField(default=0)
     findings_resolved = models.PositiveIntegerField(default=0)
     failure_message = models.CharField(max_length=240, blank=True)
+    # Zero identifies legacy executions; only pending legacy runs may be upgraded.
+    executor_version = models.PositiveSmallIntegerField(default=0)
+    input_schema_version = models.PositiveSmallIntegerField(default=0)
+    execution_phase = models.CharField(max_length=12, default="CAPTURE")
+    scope = models.JSONField(default=dict, blank=True)
+    captured_at = models.DateTimeField(null=True, blank=True)
+    sealed_at = models.DateTimeField(null=True, blank=True)
+    population_count = models.PositiveIntegerField(default=0)
+    subject_count = models.PositiveIntegerField(default=0)
+    unit_count = models.PositiveIntegerField(default=0)
+    units_completed = models.PositiveIntegerField(default=0)
+    work_unit_size = models.PositiveIntegerField(default=0)
+    revision = models.PositiveIntegerField(default=0)
+    retry_count = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     objects = AssuranceHistoryQuerySet.as_manager()
@@ -131,6 +146,16 @@ class AssuranceRun(models.Model):
     class Meta:
         ordering = ("-created_at",)
         constraints = [
+            models.CheckConstraint(
+                condition=Q(
+                    execution_phase__in=("LEGACY", "CAPTURE", "EVALUATE", "PUBLISH", "DONE")
+                ),
+                name="assrun_phase_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(units_completed__lte=models.F("unit_count")),
+                name="assrun_progress_valid",
+            ),
             models.CheckConstraint(
                 condition=Q(run_type__in=AssuranceRunType.values), name="assurance_run_type_valid"
             ),
@@ -230,6 +255,32 @@ class AssuranceRun(models.Model):
     def save(self, *args, **kwargs):
         if self.pk and not self._state.adding:
             previous = type(self).objects.filter(pk=self.pk).first()
+            if previous and previous.status != AssuranceRunStatus.PENDING:
+                frozen = (
+                    "organization_id",
+                    "run_type",
+                    "verification_campaign_id",
+                    "stale_after_days",
+                    "started_by_id",
+                    "started_at",
+                    "scope",
+                    "executor_version",
+                )
+                if any(getattr(previous, name) != getattr(self, name) for name in frozen):
+                    raise ValidationError("Running assurance scope and evaluator are immutable.")
+                if previous.sealed_at and any(
+                    getattr(previous, name) != getattr(self, name)
+                    for name in (
+                        "input_schema_version",
+                        "captured_at",
+                        "sealed_at",
+                        "population_count",
+                        "subject_count",
+                        "unit_count",
+                        "work_unit_size",
+                    )
+                ):
+                    raise ValidationError("Sealed assurance manifest is immutable.")
             if previous and previous.status in (
                 AssuranceRunStatus.COMPLETED,
                 AssuranceRunStatus.FAILED,
@@ -465,3 +516,11 @@ class AssuranceFindingOccurrence(models.Model):
             ):
                 raise ValidationError("Finding occurrence history is immutable.")
         super().save(*args, **kwargs)
+
+
+# Register internal execution models with Django.
+from assurance.execution_models import (  # noqa: E402, F401
+    AssuranceRunCandidate,
+    AssuranceRunInput,
+    AssuranceWorkUnit,
+)

@@ -12,7 +12,8 @@ from assurance.constants import DAILY_FULL_SCHEDULE_ID
 from assurance.models import AssuranceFinding, AssuranceRun, AssuranceRunStatus
 from assurance.serializers import AssuranceRunSerializer
 from assurance.services.runs import dispatch_run as dispatch_run_service
-from assurance.tasks import execute_assurance_run, schedule_daily_assurance
+from assurance.tasks import schedule_daily_assurance
+from assurance.tests.helpers import execute_to_completion
 from audit.models import AuditLog
 from config.celery import app
 from depreciation.constants import MONTHLY_DEPRECIATION_SCHEDULE_ID
@@ -53,7 +54,7 @@ def test_one_active_organization_gets_a_durable_scheduled_run_and_existing_dispa
     dispatch.assert_called_once_with(run_id=run.pk, actor=None, organization=manager.organization)
     enqueue.assert_called_once_with(str(run.pk))
 
-    task_result = execute_assurance_run.run(str(run.pk))
+    task_result = execute_to_completion(str(run.pk))
     run.refresh_from_db()
     assert task_result["status"] == AssuranceRunStatus.COMPLETED
     assert run.completed_by is None
@@ -139,9 +140,7 @@ def test_each_active_organization_gets_an_isolated_scheduled_run(
         other_organization.pk,
     }
 
-    results_by_org = {
-        str(run.organization_id): execute_assurance_run.run(str(run.pk)) for run in runs
-    }
+    results_by_org = {str(run.organization_id): execute_to_completion(str(run.pk)) for run in runs}
     assert results_by_org[str(manager.organization_id)]["assets_evaluated"] == 1
     assert results_by_org[str(other_organization.pk)]["assets_evaluated"] == 1
     for run in runs:
@@ -216,7 +215,7 @@ def test_celery_beat_retains_daily_full_assurance_schedule():
 
     assert DAILY_FULL_SCHEDULE_ID in schedule
     assert MONTHLY_DEPRECIATION_SCHEDULE_ID in schedule
-    assert len(schedule) == 2
+    assert len(schedule) == 3
     entry = schedule[DAILY_FULL_SCHEDULE_ID]
     assert entry["task"] == "assurance.tasks.schedule_daily_assurance"
     assert isinstance(entry["schedule"], crontab)

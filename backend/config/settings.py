@@ -125,6 +125,11 @@ CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
+# Provisional work-unit size, not a demonstrated production population limit.
+ASSURANCE_WORK_UNIT_SIZE = env.int("ASSURANCE_WORK_UNIT_SIZE", default=500)
+ASSURANCE_MAX_TRANSIENT_RETRIES = env.int("ASSURANCE_MAX_TRANSIENT_RETRIES", default=5)
+ASSURANCE_RETRY_SECONDS = env.int("ASSURANCE_RETRY_SECONDS", default=10)
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "AssetFlow API",
     "DESCRIPTION": "IAS 16-aligned fixed asset management API.",

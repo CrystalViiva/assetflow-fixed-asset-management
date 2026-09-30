@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 
 from assurance.models import AssuranceFinding, FindingType
 from assurance.services import create_run, execute_run
-from assurance.tasks import execute_assurance_run
+from assurance.tests.helpers import execute_to_completion
 
 
 @pytest.mark.django_db(transaction=True)
@@ -23,7 +23,7 @@ def test_api_execute_filter_paginate_and_resolve(manager, asset_factory):
     dispatch.assert_called_once_with(run_id)
     assert executed.status_code == 202
     assert executed.data["status"] == "RUNNING"
-    task_result = execute_assurance_run.run(run_id)
+    task_result = execute_to_completion(run_id)
     assert task_result["status"] == "COMPLETED"
 
     response = client.get(
@@ -50,7 +50,7 @@ def test_api_execute_filter_paginate_and_resolve(manager, asset_factory):
     assert summary.data["findings_resolved"] == 1
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_api_cross_organization_assets_and_runs_are_not_visible(
     manager, foreign_manager, asset_factory
 ):
@@ -64,7 +64,7 @@ def test_api_cross_organization_assets_and_runs_are_not_visible(
     assert client.get(f"/api/v1/assurance/runs/{run.pk}/").status_code == 404
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_accountant_only_sees_financial_findings(manager, accountant, asset_factory):
     asset_factory(current_book_value=Decimal("900.00"))
     run = execute_run(
@@ -84,7 +84,7 @@ def test_accountant_only_sees_financial_findings(manager, accountant, asset_fact
     }
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_employee_has_no_assurance_access(employee):
     client = APIClient()
     client.force_authenticate(employee)
@@ -95,7 +95,7 @@ def test_employee_has_no_assurance_access(employee):
     )
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 def test_department_manager_sees_findings_only_for_their_department(
     manager, department_manager, asset_factory, other_department
 ):
