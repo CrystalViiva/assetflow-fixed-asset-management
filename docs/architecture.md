@@ -76,3 +76,11 @@ Celery Beat schedules one daily `FULL` assurance orchestration at 01:00 in the c
 ## Tenant and admin boundaries
 
 API permissions, query selectors, and domain services scope reads and mutations to an organization. Django admin querysets and related account choices are also organization-scoped for non-superuser staff; superusers retain global access. Foreign keys do not by themselves guarantee same-organization relationships, so services and form validation remain responsible for those checks.
+
+## Reporting and point-in-time snapshots
+
+The `reporting` module composes explicit selectors over authoritative domain records. Live reports stay query-backed and paginated. Financial reports read the asset's persisted current book value, acquisition cost components, posted depreciation ledger, accounting periods, and completed disposal snapshots; they do not maintain or recalculate an alternate ledger.
+
+Durable snapshots have organization and report identity, request filters, an idempotency key, request-time role and department scope, request/start/as-of/completion/failure timestamps, status, schema version, row count, summary, and failure information. Generation preserves the request-time role filters; retrieval rechecks current permissions. Accountants only see assurance snapshots captured under accountant financial scope. Snapshot rows are stored separately from metadata using the report's explicit bounded column set. A request is limited to 25,000 rows. Generation runs through Celery after the request transaction commits, and a PostgreSQL repeatable-read transaction captures the complete dataset consistently. A duplicate task resumes the same snapshot; completion and row insertion commit together. A task retry replaces no completed data and cannot create a second snapshot for the same organization/idempotency key.
+
+`as_of` means the capture transaction time only. Mutable current-state records cannot be reconstructed at arbitrary historical dates unless their domain history supports it. Snapshot reads recheck the caller's current role, organization, and department scope. Export files and external analytics pipelines are separate later milestones.

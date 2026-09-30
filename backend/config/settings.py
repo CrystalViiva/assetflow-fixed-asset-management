@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "disposals.apps.DisposalsConfig",
     "verification.apps.VerificationConfig",
     "assurance.apps.AssuranceConfig",
+    "reporting.apps.ReportingConfig",
 ]
 
 MIDDLEWARE = [
