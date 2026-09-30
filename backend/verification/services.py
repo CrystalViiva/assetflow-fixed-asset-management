@@ -1,6 +1,17 @@
 """Transactional campaign, observation, reconciliation, and exception operations."""
 
+import hashlib
+import re
+import struct
+import tempfile
+import zlib
+from pathlib import PurePosixPath
+from uuid import uuid4
+
+from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files import File
+from django.core.files.storage import storages
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -11,6 +22,7 @@ from transfers.models import AssetAssignment
 from verification.models import (
     CampaignScope,
     CampaignStatus,
+    EvidenceIntegrityStatus,
     ExceptionSeverity,
     ExceptionStatus,
     ExceptionType,
@@ -848,50 +860,687 @@ def create_evidence(
     external_reference="",
     captured_at=None,
     description="",
+    uploaded_file=None,
     ip_address=None,
 ):
     organization = _organization(actor)
-    with transaction.atomic():
-        try:
-            verification = PhysicalVerification.objects.select_for_update(of=("self",)).get(
-                pk=verification_id, organization=organization
+    spool = None
+    digest = ""
+    byte_size = None
+    detected_type = content_type
+    binary_key = ""
+    stored_key = ""
+    if uploaded_file is not None:
+        if storage_key:
+            raise ValidationError({"storage_key": "Uploaded evidence uses a server storage key."})
+        spool, byte_size, digest, detected_type = _spool_evidence_upload(uploaded_file)
+        file_name = _safe_evidence_filename(uploaded_file.name)
+
+    try:
+        with transaction.atomic():
+            try:
+                verification = PhysicalVerification.objects.select_for_update(of=("self",)).get(
+                    pk=verification_id, organization=organization
+                )
+            except PhysicalVerification.DoesNotExist as exc:
+                raise ValidationError(
+                    {"verification": "Verification was not found in your organization."}
+                ) from exc
+            if exception and (
+                exception.organization_id != organization.pk
+                or exception.verification_id != verification.pk
+            ):
+                raise ValidationError(
+                    {"exception": "Exception must belong to this verification and organization."}
+                )
+            if uploaded_file is not None:
+                binary_key = (
+                    f"evidence/{organization.pk}/{uuid4().hex}/{uuid4().hex}."
+                    f"{_EVIDENCE_EXTENSIONS[detected_type]}"
+                )
+            evidence = VerificationEvidence(
+                organization=organization,
+                verification=verification,
+                exception=exception,
+                evidence_type=evidence_type,
+                file_name=file_name,
+                content_type=detected_type,
+                storage_key=storage_key,
+                external_reference=external_reference,
+                captured_at=captured_at or timezone.now(),
+                captured_by=actor,
+                description=description,
+                binary_storage_key=binary_key,
+                byte_size=None,
+                sha256="",
+                integrity_status=(
+                    EvidenceIntegrityStatus.PENDING
+                    if uploaded_file is not None
+                    else EvidenceIntegrityStatus.METADATA_ONLY
+                    if evidence_type == "NOTE"
+                    else EvidenceIntegrityStatus.LEGACY_UNVERIFIED
+                ),
             )
-        except PhysicalVerification.DoesNotExist as exc:
-            raise ValidationError(
-                {"verification": "Verification was not found in your organization."}
-            ) from exc
-        if exception and (
-            exception.organization_id != organization.pk
-            or exception.verification_id != verification.pk
-        ):
-            raise ValidationError(
-                {"exception": "Exception must belong to this verification and organization."}
+            evidence.full_clean()
+            evidence.save()
+            _audit(
+                organization=organization,
+                actor=actor,
+                action=(
+                    "VERIFICATION_EVIDENCE_UPLOAD_STARTED"
+                    if uploaded_file is not None
+                    else "VERIFICATION_EVIDENCE_ADDED"
+                ),
+                entity_type="VERIFICATION_EVIDENCE",
+                entity_id=evidence.pk,
+                metadata={
+                    "verification_id": str(verification.pk),
+                    "evidence_type": evidence.evidence_type,
+                    "integrity_status": evidence.integrity_status,
+                },
+                ip_address=ip_address,
             )
-        evidence = VerificationEvidence(
-            organization=organization,
-            verification=verification,
-            exception=exception,
-            evidence_type=evidence_type,
-            file_name=file_name,
-            content_type=content_type,
-            storage_key=storage_key,
-            external_reference=external_reference,
-            captured_at=captured_at or timezone.now(),
-            captured_by=actor,
-            description=description,
+
+        if uploaded_file is not None:
+            storage = storages["assetflow_private"]
+            try:
+                spool.seek(0)
+                stored_key = storage.save(binary_key, File(spool, name=file_name))
+                _verify_storage_object(storage, stored_key, byte_size, digest)
+                with transaction.atomic():
+                    evidence = VerificationEvidence.objects.select_for_update().get(pk=evidence.pk)
+                    evidence.binary_storage_key = stored_key
+                    evidence.byte_size = byte_size
+                    evidence.sha256 = digest
+                    evidence.uploaded_at = timezone.now()
+                    evidence.integrity_verified_at = timezone.now()
+                    evidence.integrity_status = EvidenceIntegrityStatus.VERIFIED
+                    evidence.save(
+                        update_fields=(
+                            "binary_storage_key",
+                            "byte_size",
+                            "sha256",
+                            "uploaded_at",
+                            "integrity_verified_at",
+                            "integrity_status",
+                        )
+                    )
+                    _audit(
+                        organization=organization,
+                        actor=actor,
+                        action="VERIFICATION_EVIDENCE_VERIFIED",
+                        entity_type="VERIFICATION_EVIDENCE",
+                        entity_id=evidence.pk,
+                        metadata={
+                            "verification_id": str(verification.pk),
+                            "byte_size": byte_size,
+                            "sha256": digest,
+                        },
+                        ip_address=ip_address,
+                    )
+            except Exception as exc:
+                deleted = _delete_private_object(stored_key or binary_key)
+                _fail_pending_evidence(evidence.pk, actor, ip_address, clear_key=deleted)
+                raise EvidenceStorageError("Evidence upload could not be verified.") from exc
+        return evidence
+    finally:
+        if spool is not None:
+            spool.close()
+
+
+_EVIDENCE_SIGNATURES = {
+    "application/pdf": (b"%PDF-", 5),
+    "image/jpeg": (b"\xff\xd8\xff", 3),
+    "image/png": (b"\x89PNG\r\n\x1a\n", 8),
+}
+_EVIDENCE_EXTENSIONS = {"application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png"}
+
+
+class EvidenceStorageError(Exception):
+    """Private evidence storage or read-back verification failed."""
+
+
+def _safe_evidence_filename(value):
+    name = PurePosixPath(str(value).replace("\\", "/")).name
+    name = "".join(char for char in name if ord(char) >= 32 and ord(char) != 127)
+    name = re.sub(r"[/\\]+", "_", name).strip(" .")[:255]
+    return name or "evidence"
+
+
+def _spool_evidence_upload(upload):
+    maximum = settings.EVIDENCE_MAX_UPLOAD_BYTES
+    if maximum < 1:
+        raise ValidationError("Evidence upload limit is not configured correctly.")
+    spool = tempfile.SpooledTemporaryFile(max_size=1024 * 1024, mode="w+b")
+    digest = hashlib.sha256()
+    size = 0
+    header = bytearray()
+    try:
+        for chunk in upload.chunks():
+            size += len(chunk)
+            if size > maximum:
+                raise ValidationError({"file": "Evidence exceeds the configured size limit."})
+            if len(header) < 8:
+                header.extend(chunk[: 8 - len(header)])
+            digest.update(chunk)
+            spool.write(chunk)
+        if size == 0:
+            raise ValidationError({"file": "Evidence files cannot be empty."})
+        detected = next(
+            (
+                mime
+                for mime, (signature, count) in _EVIDENCE_SIGNATURES.items()
+                if bytes(header[:count]) == signature
+            ),
+            None,
         )
-        evidence.full_clean()
-        evidence.save()
+        if detected is None:
+            raise ValidationError({"file": "Only PDF, JPEG, and PNG evidence is supported."})
+        spool.seek(0)
+        try:
+            _validate_evidence_structure(spool, detected, size)
+        except ValueError as exc:
+            raise ValidationError({"file": "Evidence file structure is invalid."}) from exc
+        spool.seek(0)
+        return spool, size, digest.hexdigest(), detected
+    except Exception:
+        spool.close()
+        raise
+
+
+def _validate_evidence_structure(spool, content_type, size):
+    if content_type == "image/png":
+        _validate_png(spool, size)
+    elif content_type == "image/jpeg":
+        _validate_jpeg(spool)
+    elif content_type == "application/pdf":
+        _validate_pdf(spool, size)
+    else:
+        raise ValueError("unsupported evidence type")
+
+
+def _read_exact(stream, size):
+    value = stream.read(size)
+    if len(value) != size:
+        raise ValueError("truncated evidence structure")
+    return value
+
+
+def _validate_png(spool, size):
+    if _read_exact(spool, 8) != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("invalid PNG signature")
+    first = True
+    seen_idat = False
+    idat_ended = False
+    seen_palette = False
+    color_type = None
+    while spool.tell() < size:
+        length, chunk_type = struct.unpack(">I4s", _read_exact(spool, 8))
+        if length > size or spool.tell() + length + 4 > size:
+            raise ValueError("invalid PNG chunk length")
+        if not re.fullmatch(rb"[A-Za-z]{4}", chunk_type):
+            raise ValueError("invalid PNG chunk name")
+        if first:
+            if chunk_type != b"IHDR" or length != 13:
+                raise ValueError("PNG IHDR must be first")
+            first = False
+        elif chunk_type == b"IHDR":
+            raise ValueError("duplicate PNG IHDR")
+
+        crc = zlib.crc32(chunk_type)
+        data_left = length
+        ihdr = bytearray()
+        while data_left:
+            part = _read_exact(spool, min(data_left, 64 * 1024))
+            crc = zlib.crc32(part, crc)
+            if chunk_type == b"IHDR":
+                ihdr.extend(part)
+            data_left -= len(part)
+        expected_crc = struct.unpack(">I", _read_exact(spool, 4))[0]
+        if crc & 0xFFFFFFFF != expected_crc:
+            raise ValueError("invalid PNG chunk checksum")
+
+        if chunk_type == b"IHDR":
+            width, height, depth, color, compression, filtering, interlace = struct.unpack(
+                ">IIBBBBB", ihdr
+            )
+            depths = {0: (1, 2, 4, 8, 16), 2: (8, 16), 3: (1, 2, 4, 8), 4: (8, 16), 6: (8, 16)}
+            if (
+                width < 1
+                or height < 1
+                or color not in depths
+                or depth not in depths[color]
+                or compression != 0
+                or filtering != 0
+                or interlace not in (0, 1)
+            ):
+                raise ValueError("invalid PNG IHDR values")
+            color_type = color
+        elif chunk_type == b"PLTE":
+            if (
+                seen_palette
+                or seen_idat
+                or color_type in (0, 4)
+                or length == 0
+                or length > 768
+                or length % 3
+            ):
+                raise ValueError("invalid PNG palette")
+            seen_palette = True
+        elif chunk_type == b"IDAT":
+            if idat_ended or length == 0 or (color_type == 3 and not seen_palette):
+                raise ValueError("invalid PNG image data ordering")
+            seen_idat = True
+        elif seen_idat and chunk_type != b"IEND":
+            idat_ended = True
+
+        critical = chunk_type[0] & 0x20 == 0
+        if critical and chunk_type not in (b"IHDR", b"PLTE", b"IDAT", b"IEND"):
+            raise ValueError("unknown critical PNG chunk")
+        if chunk_type == b"IEND":
+            if length != 0 or not seen_idat or spool.tell() != size:
+                raise ValueError("invalid PNG IEND")
+            return
+    raise ValueError("PNG is missing IEND")
+
+
+class _BufferedByteReader:
+    def __init__(self, stream):
+        self.stream = stream
+        self.buffer = b""
+        self.offset = 0
+
+    def byte(self):
+        if self.offset >= len(self.buffer):
+            self.buffer = self.stream.read(64 * 1024)
+            self.offset = 0
+            if not self.buffer:
+                raise ValueError("truncated JPEG structure")
+        value = self.buffer[self.offset]
+        self.offset += 1
+        return value
+
+    def skip(self, length):
+        while length:
+            if self.offset >= len(self.buffer):
+                self.buffer = self.stream.read(min(64 * 1024, length))
+                self.offset = 0
+                if not self.buffer:
+                    raise ValueError("truncated JPEG segment")
+            amount = min(length, len(self.buffer) - self.offset)
+            self.offset += amount
+            length -= amount
+
+    def has_more(self):
+        if self.offset < len(self.buffer):
+            return True
+        self.buffer = self.stream.read(1)
+        self.offset = 0
+        return bool(self.buffer)
+
+
+def _jpeg_entropy_marker(reader):
+    while True:
+        value = reader.byte()
+        if value != 0xFF:
+            continue
+        marker = reader.byte()
+        while marker == 0xFF:
+            marker = reader.byte()
+        if marker == 0 or 0xD0 <= marker <= 0xD7:
+            continue
+        return marker
+
+
+def _validate_jpeg(spool):
+    spool.seek(0)
+    reader = _BufferedByteReader(spool)
+    if reader.byte() != 0xFF or reader.byte() != 0xD8:
+        raise ValueError("invalid JPEG SOI")
+    has_frame = False
+    has_scan = False
+    marker = None
+    frame_markers = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}
+    while True:
+        if marker is None:
+            if reader.byte() != 0xFF:
+                raise ValueError("invalid JPEG marker framing")
+            marker = reader.byte()
+            while marker == 0xFF:
+                marker = reader.byte()
+        current = marker
+        marker = None
+        if current == 0xD9:
+            if not has_frame or not has_scan or reader.has_more():
+                raise ValueError("invalid JPEG end marker")
+            return
+        if current == 0x01:  # TEM is a standalone marker.
+            continue
+        if current in (0x00, 0xD8) or 0xD0 <= current <= 0xD7:
+            raise ValueError("unexpected standalone JPEG marker")
+        segment_length = (reader.byte() << 8) | reader.byte()
+        if segment_length < 2:
+            raise ValueError("invalid JPEG segment length")
+        payload_length = segment_length - 2
+        if current in frame_markers:
+            if payload_length < 6:
+                raise ValueError("truncated JPEG frame header")
+            precision = reader.byte()
+            height = (reader.byte() << 8) | reader.byte()
+            width = (reader.byte() << 8) | reader.byte()
+            components = reader.byte()
+            reader.skip(payload_length - 6)
+            if precision == 0 or width == 0 or height == 0 or components == 0:
+                raise ValueError("invalid JPEG frame dimensions")
+            if segment_length != 8 + 3 * components:
+                raise ValueError("invalid JPEG frame component table")
+            has_frame = True
+        elif current == 0xDA:
+            if payload_length < 4:
+                raise ValueError("truncated JPEG scan header")
+            components = reader.byte()
+            reader.skip(payload_length - 1)
+            if components == 0 or segment_length != 6 + 2 * components:
+                raise ValueError("invalid JPEG scan component table")
+            has_scan = True
+            marker = _jpeg_entropy_marker(reader)
+        else:
+            reader.skip(payload_length)
+
+
+_PDF_XREF_WINDOW_BYTES = 64 * 1024
+_PDF_MAX_OBJECT_NUMBER = 9_999_999_999
+
+
+def _pdf_line(data, position):
+    """Read one CR, LF, or CRLF terminated line from a bounded PDF buffer."""
+    end = position
+    while end < len(data) and data[end] not in (0x0A, 0x0D):
+        end += 1
+    if end == len(data):
+        raise ValueError("PDF line exceeds the validation window or is truncated")
+    next_position = end + 1
+    if data[end] == 0x0D and next_position < len(data) and data[next_position] == 0x0A:
+        next_position += 1
+    return data[position:end], next_position
+
+
+def _pdf_dictionary_end(data, position, end):
+    """Find a balanced dictionary and its top-level indirect /Root reference."""
+    while position < end and data[position] in b"\x00\t\n\x0c\r ":
+        position += 1
+    if data[position : position + 2] != b"<<":
+        raise ValueError("PDF trailer dictionary is missing")
+
+    depth = 1
+    position += 2
+    has_root = False
+    while position < end:
+        value = data[position]
+        if value == ord("%"):
+            while position < end and data[position] not in (0x0A, 0x0D):
+                position += 1
+        elif value == ord("("):
+            string_depth = 1
+            position += 1
+            while position < end and string_depth:
+                current = data[position]
+                if current == ord("\\"):
+                    position += 2
+                    continue
+                if current == ord("("):
+                    string_depth += 1
+                elif current == ord(")"):
+                    string_depth -= 1
+                position += 1
+            if string_depth:
+                raise ValueError("truncated PDF trailer string")
+            continue
+        elif value == ord("<"):
+            if data[position : position + 2] == b"<<":
+                depth += 1
+                position += 2
+                continue
+            position += 1
+            while position < end and data[position] != ord(">"):
+                position += 1
+            if position == end:
+                raise ValueError("truncated PDF trailer hex string")
+            position += 1
+            continue
+        elif value == ord(">") and data[position : position + 2] == b">>":
+            depth -= 1
+            position += 2
+            if depth == 0:
+                if not has_root:
+                    raise ValueError("PDF trailer has no indirect /Root reference")
+                return position
+            continue
+        elif depth == 1 and data.startswith(b"/Root", position):
+            after_name = position + 5
+            if after_name == end or data[after_name] in b"\x00\t\n\x0c\r ()<>/[]%":
+                reference = re.match(rb"/Root\s+[0-9]{1,10}\s+[0-9]{1,5}\s+R\b", data[position:end])
+                if reference:
+                    has_root = True
+        position += 1
+    raise ValueError("unterminated PDF trailer dictionary")
+
+
+def _validate_classic_pdf_xref(data, startxref_position, file_size):
+    """Validate a bounded classic xref table and its trailer dictionary."""
+    if startxref_position <= 0 or startxref_position >= len(data):
+        raise ValueError("PDF xref table exceeds the validation window")
+    table = data[:startxref_position]
+    if not table.startswith(b"xref") or len(table) < 5 or table[4] not in b"\x00\t\n\x0c\r ":
+        raise ValueError("PDF startxref does not point to a classic xref token")
+
+    position = 4
+    line, position = _pdf_line(table, position)
+    if line.strip(b"\x00\t\x0c "):
+        raise ValueError("classic PDF xref token must end its line")
+
+    subsection_count = 0
+    trailer_position = None
+    while position < len(table):
+        line, position = _pdf_line(table, position)
+        stripped = line.strip(b"\x00\t\x0c ")
+        if stripped == b"trailer":
+            trailer_position = position
+            break
+        header = re.fullmatch(rb"([0-9]{1,10})[\x00\t\x0c ]+([0-9]{1,10})[\x00\t\x0c ]*", line)
+        if header is None:
+            raise ValueError("invalid classic PDF xref subsection header")
+        first_object = int(header.group(1))
+        entry_count = int(header.group(2))
+        if (
+            entry_count < 1
+            or first_object + entry_count - 1 > _PDF_MAX_OBJECT_NUMBER
+            or entry_count > (len(table) - position) // 19
+        ):
+            raise ValueError("classic PDF xref subsection count is outside the validation bound")
+
+        for _ in range(entry_count):
+            entry, position = _pdf_line(table, position)
+            entry_match = re.fullmatch(
+                rb"[0-9]{10}[\x00\t\x0c ]+([0-9]{5})[\x00\t\x0c ]+([nf])[\x00\t\x0c ]*",
+                entry,
+            )
+            if entry_match is None:
+                raise ValueError("invalid or truncated classic PDF xref entry")
+            offset = int(entry[:10])
+            generation = int(entry_match.group(1))
+            if generation > 65_535 or (entry_match.group(2) == b"n" and offset >= file_size):
+                raise ValueError("classic PDF xref entry contains an invalid reference")
+        subsection_count += 1
+
+    if subsection_count == 0 or trailer_position is None:
+        raise ValueError("classic PDF xref table requires a subsection and trailer")
+    dictionary_end = _pdf_dictionary_end(table, trailer_position, len(table))
+    if table[dictionary_end:].strip(b"\x00\t\n\x0c\r "):
+        raise ValueError("unexpected content between PDF trailer and startxref")
+
+
+def _validate_pdf(spool, size):
+    spool.seek(0)
+    header = spool.read(16)
+    if not re.match(rb"%PDF-(?:1\.[0-7]|2\.0)(?:\r\n|\r|\n)", header):
+        raise ValueError("invalid PDF header")
+    if size < 32:
+        raise ValueError("truncated PDF")
+    tail_size = min(size, 64 * 1024)
+    spool.seek(size - tail_size)
+    tail = spool.read(tail_size)
+    match = re.search(rb"startxref\s+([0-9]{1,20})\s+%%EOF\s*\Z", tail)
+    if match is None:
+        raise ValueError("PDF is missing a valid trailer")
+    offset = int(match.group(1))
+    if offset >= size:
+        raise ValueError("PDF cross-reference offset is outside the file")
+    spool.seek(offset)
+    xref_window = spool.read(min(_PDF_XREF_WINDOW_BYTES, size - offset))
+    startxref_position = size - tail_size + match.start() - offset
+    if startxref_position < 0 or startxref_position >= len(xref_window):
+        raise ValueError("PDF xref table and trailer exceed the validation window")
+    # M10.6 structurally validates classic xref tables. Xref-stream PDFs are
+    # intentionally rejected until a bounded validator for that format exists.
+    _validate_classic_pdf_xref(xref_window, startxref_position, size)
+
+
+def _verify_storage_object(storage, key, expected_size, expected_digest):
+    digest = hashlib.sha256()
+    size = 0
+    with storage.open(key, "rb") as stored:
+        for chunk in iter(lambda: stored.read(1024 * 1024), b""):
+            size += len(chunk)
+            digest.update(chunk)
+    if size != expected_size or digest.hexdigest() != expected_digest:
+        raise EvidenceStorageError("Stored evidence failed its integrity check.")
+
+
+def _delete_private_object(key):
+    if not key:
+        return True
+    try:
+        storages["assetflow_private"].delete(key)
+        return True
+    except Exception:
+        # A retryable cleanup task handles failed/dead-worker uploads by their DB key.
+        return False
+
+
+def _fail_pending_evidence(evidence_id, actor, ip_address, *, clear_key):
+    with transaction.atomic():
+        evidence = VerificationEvidence.objects.select_for_update().get(pk=evidence_id)
+        if evidence.integrity_status != EvidenceIntegrityStatus.PENDING:
+            return evidence
+        if clear_key:
+            evidence.binary_storage_key = ""
+            evidence.integrity_status = EvidenceIntegrityStatus.FAILED
+            evidence.content_type = ""
+            evidence.save(update_fields=("binary_storage_key", "integrity_status", "content_type"))
         _audit(
-            organization=organization,
+            organization=evidence.organization,
             actor=actor,
-            action="VERIFICATION_EVIDENCE_ADDED",
+            action=(
+                "VERIFICATION_EVIDENCE_UPLOAD_FAILED"
+                if clear_key
+                else "VERIFICATION_EVIDENCE_UPLOAD_CLEANUP_PENDING"
+            ),
             entity_type="VERIFICATION_EVIDENCE",
             entity_id=evidence.pk,
-            metadata={
-                "verification_id": str(verification.pk),
-                "evidence_type": evidence.evidence_type,
-            },
+            metadata={"evidence_type": evidence.evidence_type},
             ip_address=ip_address,
         )
-    return evidence
+
+
+def open_verified_evidence(*, evidence, actor, ip_address=None):
+    if evidence.organization_id != getattr(actor, "organization_id", None):
+        raise ValidationError("Evidence was not found in your organization.")
+    if evidence.integrity_status != EvidenceIntegrityStatus.VERIFIED:
+        raise EvidenceIntegrityError("Evidence is not available for retrieval.")
+    storage = storages["assetflow_private"]
+    spool = tempfile.SpooledTemporaryFile(max_size=1024 * 1024, mode="w+b")
+    try:
+        digest = hashlib.sha256()
+        size = 0
+        with storage.open(evidence.binary_storage_key, "rb") as stored:
+            for chunk in iter(lambda: stored.read(1024 * 1024), b""):
+                size += len(chunk)
+                digest.update(chunk)
+                spool.write(chunk)
+        if size != evidence.byte_size or digest.hexdigest() != evidence.sha256:
+            raise EvidenceIntegrityError("Stored evidence digest mismatch.")
+        spool.seek(0)
+    except Exception as exc:
+        spool.close()
+        with transaction.atomic():
+            current = VerificationEvidence.objects.select_for_update().get(pk=evidence.pk)
+            if current.integrity_status == EvidenceIntegrityStatus.VERIFIED:
+                current.integrity_status = EvidenceIntegrityStatus.CORRUPT
+                current.save(update_fields=("integrity_status",))
+                _audit(
+                    organization=current.organization,
+                    actor=actor,
+                    action="VERIFICATION_EVIDENCE_INTEGRITY_FAILED",
+                    entity_type="VERIFICATION_EVIDENCE",
+                    entity_id=current.pk,
+                    metadata={"reason": "stored_bytes_mismatch_or_missing"},
+                    ip_address=ip_address,
+                )
+        raise EvidenceIntegrityError("Evidence failed its integrity check.") from exc
+    try:
+        _audit(
+            organization=evidence.organization,
+            actor=actor,
+            action="VERIFICATION_EVIDENCE_DOWNLOADED",
+            entity_type="VERIFICATION_EVIDENCE",
+            entity_id=evidence.pk,
+            metadata={"sha256": evidence.sha256},
+            ip_address=ip_address,
+        )
+    except Exception:
+        spool.close()
+        raise
+    return spool
+
+
+class EvidenceIntegrityError(Exception):
+    """Evidence is unavailable or its stored bytes do not match the recorded digest."""
+
+
+def cleanup_stale_evidence_uploads(*, older_than, limit=100):
+    """Mark abandoned synchronous uploads failed and retry private-object cleanup."""
+    cutoff = timezone.now() - older_than
+    ids = list(
+        VerificationEvidence.objects.filter(
+            integrity_status=EvidenceIntegrityStatus.PENDING, created_at__lt=cutoff
+        )
+        .order_by("created_at", "pk")
+        .values_list("pk", flat=True)[:limit]
+    )
+    cleaned = 0
+    for evidence_id in ids:
+        with transaction.atomic():
+            evidence = VerificationEvidence.objects.select_for_update().get(pk=evidence_id)
+            if evidence.integrity_status != EvidenceIntegrityStatus.PENDING:
+                continue
+            key = evidence.binary_storage_key
+            try:
+                if key:
+                    storages["assetflow_private"].delete(key)
+            except Exception:
+                continue
+            evidence.binary_storage_key = ""
+            evidence.integrity_status = EvidenceIntegrityStatus.FAILED
+            evidence.content_type = ""
+            evidence.save(update_fields=("binary_storage_key", "integrity_status", "content_type"))
+            _audit(
+                organization=evidence.organization,
+                actor=None,
+                action="VERIFICATION_EVIDENCE_ABANDONED_UPLOAD_CLEANED",
+                entity_type="VERIFICATION_EVIDENCE",
+                entity_id=evidence.pk,
+                metadata={},
+            )
+            cleaned += 1
+    return cleaned

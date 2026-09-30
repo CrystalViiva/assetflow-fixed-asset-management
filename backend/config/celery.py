@@ -25,6 +25,18 @@ app.conf.beat_schedule = {
         "task": "assurance.tasks.recover_assurance_runs",
         "schedule": 60.0,
     },
+    "recover-report-exports": {
+        "task": "reporting.tasks.recover_report_exports",
+        "schedule": 300.0,
+    },
+    "expire-report-exports": {
+        "task": "reporting.tasks.expire_report_exports",
+        "schedule": 3600.0,
+    },
+    "clean-stale-evidence-uploads": {
+        "task": "verification.tasks.clean_stale_evidence_uploads",
+        "schedule": 900.0,
+    },
     DAILY_FULL_SCHEDULE_ID: {
         "task": "assurance.tasks.schedule_daily_assurance",
         "schedule": crontab(

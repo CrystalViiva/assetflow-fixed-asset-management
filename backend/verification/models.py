@@ -79,7 +79,15 @@ class EvidenceType(models.TextChoices):
     DOCUMENT = "DOCUMENT", "Document"
     SCAN = "SCAN", "Scan"
     NOTE = "NOTE", "Note"
-    OTHER = "OTHER", "Other"
+
+
+class EvidenceIntegrityStatus(models.TextChoices):
+    METADATA_ONLY = "METADATA_ONLY", "Metadata only"
+    LEGACY_UNVERIFIED = "LEGACY_UNVERIFIED", "Legacy reference not verified"
+    PENDING = "PENDING", "Upload pending"
+    VERIFIED = "VERIFIED", "Stored bytes verified"
+    FAILED = "FAILED", "Upload failed"
+    CORRUPT = "CORRUPT", "Stored bytes failed integrity check"
 
 
 class VerificationCampaign(models.Model):
@@ -531,6 +539,14 @@ class VerificationException(models.Model):
         raise ValidationError("Verification exceptions cannot be deleted.")
 
 
+class VerificationEvidenceQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError("Verification evidence must be changed through domain services.")
+
+    def delete(self):
+        raise ValidationError("Verification evidence metadata cannot be deleted.")
+
+
 class VerificationEvidence(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(
@@ -557,6 +573,17 @@ class VerificationEvidence(models.Model):
     )
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    binary_storage_key = models.CharField(max_length=512, blank=True)
+    byte_size = models.PositiveBigIntegerField(null=True, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True)
+    uploaded_at = models.DateTimeField(null=True, blank=True)
+    integrity_status = models.CharField(
+        max_length=24,
+        choices=EvidenceIntegrityStatus.choices,
+        default=EvidenceIntegrityStatus.LEGACY_UNVERIFIED,
+    )
+    integrity_verified_at = models.DateTimeField(null=True, blank=True)
+    objects = VerificationEvidenceQuerySet.as_manager()
 
     class Meta:
         ordering = ("-captured_at",)
@@ -567,8 +594,45 @@ class VerificationEvidence(models.Model):
             ),
             models.CheckConstraint(
                 condition=Q(evidence_type=EvidenceType.NOTE)
-                | ~Q(storage_key="", external_reference=""),
+                | ~Q(storage_key="", external_reference="", binary_storage_key=""),
                 name="verify_evidence_reference_present",
+            ),
+            models.UniqueConstraint(
+                fields=("binary_storage_key",),
+                condition=~Q(binary_storage_key=""),
+                name="verify_evid_binary_key_uniq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        integrity_status__in=(
+                            EvidenceIntegrityStatus.VERIFIED,
+                            EvidenceIntegrityStatus.CORRUPT,
+                        ),
+                        binary_storage_key__gt="",
+                        byte_size__gt=0,
+                        sha256__regex=r"^[0-9a-f]{64}$",
+                        uploaded_at__isnull=False,
+                        integrity_verified_at__isnull=False,
+                    )
+                    | Q(
+                        integrity_status=EvidenceIntegrityStatus.PENDING,
+                        binary_storage_key__gt="",
+                        byte_size__isnull=True,
+                        sha256="",
+                    )
+                    | (
+                        Q(
+                            integrity_status__in=(
+                                EvidenceIntegrityStatus.METADATA_ONLY,
+                                EvidenceIntegrityStatus.LEGACY_UNVERIFIED,
+                                EvidenceIntegrityStatus.FAILED,
+                            )
+                        )
+                        & Q(binary_storage_key="", byte_size__isnull=True, sha256="")
+                    )
+                ),
+                name="verify_evid_integrity_valid",
             ),
         ]
         indexes = [
@@ -577,6 +641,10 @@ class VerificationEvidence(models.Model):
                 name="verify_evid_org_record_idx",
             ),
             models.Index(fields=("organization", "exception"), name="verify_evid_org_exc_idx"),
+            models.Index(
+                fields=("organization", "integrity_status", "created_at"),
+                name="verify_evid_integrity_idx",
+            ),
         ]
 
     def clean(self):
@@ -592,7 +660,7 @@ class VerificationEvidence(models.Model):
         if self.captured_by_id and self.captured_by.organization_id != self.organization_id:
             errors["captured_by"] = "User must belong to the evidence organization."
         if self.evidence_type != EvidenceType.NOTE and not (
-            self.storage_key or self.external_reference
+            self.storage_key or self.external_reference or self.binary_storage_key
         ):
             errors["storage_key"] = (
                 "Evidence metadata requires a storage key or external reference."
@@ -602,6 +670,39 @@ class VerificationEvidence(models.Model):
 
     def __str__(self):
         return f"{self.evidence_type}: {self.file_name or self.description[:40]}"
+
+    def save(self, *args, **kwargs):
+        if self.pk and not self._state.adding:
+            previous = type(self).objects.filter(pk=self.pk).first()
+            if previous:
+                mutable = {
+                    "integrity_status",
+                    "binary_storage_key",
+                    "byte_size",
+                    "sha256",
+                    "uploaded_at",
+                    "integrity_verified_at",
+                    "content_type",
+                }
+                allowed = {
+                    "PENDING": {"VERIFIED", "FAILED"},
+                    "VERIFIED": {"CORRUPT"},
+                }
+                for field in self._meta.concrete_fields:
+                    if field.name in {"id", "updated_at"}:
+                        continue
+                    if field.name in mutable and previous.integrity_status == "PENDING":
+                        continue
+                    if field.name == "integrity_status" and previous.integrity_status == "VERIFIED":
+                        continue
+                    if getattr(previous, field.attname) != getattr(self, field.attname):
+                        raise ValidationError("Verification evidence metadata is immutable.")
+                if (
+                    previous.integrity_status != self.integrity_status
+                    and self.integrity_status not in (allowed.get(previous.integrity_status, set()))
+                ):
+                    raise ValidationError("Invalid evidence integrity transition.")
+        super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Verification evidence metadata cannot be deleted.")

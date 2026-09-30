@@ -103,7 +103,8 @@ def test_campaign_verification_exception_and_evidence_api_workflow(
         format="json",
     )
     assert evidence.status_code == 201, evidence.data
-    assert evidence.data["storage_key"] == "metadata-only/asset.jpg"
+    assert "storage_key" not in evidence.data
+    assert evidence.data["integrity_status"] == "LEGACY_UNVERIFIED"
     progress = api_client.get(f"/api/v1/verification/campaigns/{campaign_id}/")
     assert progress.data["verified_asset_count"] == 1
     assert progress.data["verification_percentage"] == "100.00"

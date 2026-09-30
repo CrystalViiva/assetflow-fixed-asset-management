@@ -1,5 +1,6 @@
 """Environment-driven Django settings for AssetFlow."""
 
+import json
 from datetime import timedelta
 from pathlib import Path
 
@@ -99,6 +100,31 @@ USE_I18N = True
 USE_TZ = True
 CELERY_TIMEZONE = TIME_ZONE
 STATIC_URL = "static/"
+# Private application artifacts are never served through MEDIA_URL or Django URLs.
+PRIVATE_MEDIA_ROOT = env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private_media"))
+ASSETFLOW_PRIVATE_STORAGE_BACKEND = env(
+    "ASSETFLOW_PRIVATE_STORAGE_BACKEND", default="django.core.files.storage.FileSystemStorage"
+)
+ASSETFLOW_PRIVATE_STORAGE_OPTIONS = json.loads(
+    env(
+        "ASSETFLOW_PRIVATE_STORAGE_OPTIONS",
+        default=json.dumps({"location": PRIVATE_MEDIA_ROOT}),
+    )
+)
+if not isinstance(ASSETFLOW_PRIVATE_STORAGE_OPTIONS, dict):
+    raise environ.ImproperlyConfigured("ASSETFLOW_PRIVATE_STORAGE_OPTIONS must be a JSON object.")
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "assetflow_private": {
+        "BACKEND": ASSETFLOW_PRIVATE_STORAGE_BACKEND,
+        "OPTIONS": ASSETFLOW_PRIVATE_STORAGE_OPTIONS,
+    },
+}
+EVIDENCE_MAX_UPLOAD_BYTES = env.int("EVIDENCE_MAX_UPLOAD_BYTES", default=20 * 1024 * 1024)
+REPORT_EXPORT_MAX_BYTES = env.int("REPORT_EXPORT_MAX_BYTES", default=100 * 1024 * 1024)
+REPORT_EXPORT_RETENTION_DAYS = env.int("REPORT_EXPORT_RETENTION_DAYS", default=30)
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
 

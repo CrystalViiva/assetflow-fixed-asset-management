@@ -1,6 +1,12 @@
 from rest_framework import serializers
 
-from reporting.models import ReportSnapshot, ReportSnapshotRow, ReportType
+from reporting.models import (
+    ExportFormat,
+    ReportExport,
+    ReportSnapshot,
+    ReportSnapshotRow,
+    ReportType,
+)
 
 
 class ReportCatalogSerializer(serializers.Serializer):
@@ -67,3 +73,36 @@ class PaginatedReportSnapshotRowsSerializer(serializers.Serializer):
     next = serializers.URLField(allow_null=True)
     previous = serializers.URLField(allow_null=True)
     results = ReportSnapshotRowSerializer(many=True)
+
+
+class ReportExportRequestSerializer(serializers.Serializer):
+    source_snapshot_id = serializers.UUIDField()
+    format = serializers.ChoiceField(choices=ExportFormat.choices)
+    idempotency_key = serializers.UUIDField()
+
+
+class ReportExportSerializer(serializers.ModelSerializer):
+    source_snapshot_id = serializers.UUIDField(read_only=True)
+
+    class Meta:
+        model = ReportExport
+        fields = (
+            "id",
+            "source_snapshot_id",
+            "format",
+            "idempotency_key",
+            "schema_version",
+            "status",
+            "requested_at",
+            "started_at",
+            "completed_at",
+            "failed_at",
+            "expires_at",
+            "expired_at",
+            "row_count",
+            "byte_size",
+            "sha256",
+            "failure_class",
+            "failure_message",
+        )
+        read_only_fields = fields

@@ -206,6 +206,9 @@ class VerificationExceptionSerializer(serializers.ModelSerializer):
 
 
 class VerificationEvidenceSerializer(serializers.ModelSerializer):
+    storage_key = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    content_type = serializers.CharField(required=False, allow_blank=True)
+    file = serializers.FileField(required=False, write_only=True, allow_empty_file=False)
     organization_id = serializers.UUIDField(read_only=True)
     verification_id = serializers.PrimaryKeyRelatedField(
         source="verification", queryset=PhysicalVerification.objects.none()
@@ -234,6 +237,12 @@ class VerificationEvidenceSerializer(serializers.ModelSerializer):
             "captured_by_email",
             "description",
             "created_at",
+            "file",
+            "byte_size",
+            "sha256",
+            "uploaded_at",
+            "integrity_status",
+            "integrity_verified_at",
         )
         read_only_fields = (
             "id",
@@ -241,6 +250,11 @@ class VerificationEvidenceSerializer(serializers.ModelSerializer):
             "captured_at",
             "captured_by_email",
             "created_at",
+            "byte_size",
+            "sha256",
+            "uploaded_at",
+            "integrity_status",
+            "integrity_verified_at",
         )
 
     def get_fields(self):

@@ -1,11 +1,13 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import FileResponse
 from django.utils.dateparse import parse_date
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, status
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
@@ -37,6 +39,8 @@ from verification.serializers import (
     VerificationExceptionSerializer,
 )
 from verification.services import (
+    EvidenceIntegrityError,
+    EvidenceStorageError,
     accept_exception,
     assign_exception,
     cancel_campaign,
@@ -45,6 +49,7 @@ from verification.services import (
     create_evidence,
     create_manual_exception,
     create_verification,
+    open_verified_evidence,
     reconcile_missing_assets,
     reject_exception,
     resolve_exception,
@@ -375,6 +380,7 @@ class VerificationEvidenceViewSet(
     serializer_class = VerificationEvidenceSerializer
     permission_classes = (VerificationPermission,)
     http_method_names = ("get", "post", "head", "options")
+    parser_classes = (JSONParser, FormParser, MultiPartParser)
     filter_backends = (OrderingFilter,)
     ordering_fields = ("captured_at", "evidence_type", "created_at")
     ordering = ("-captured_at",)
@@ -404,14 +410,40 @@ class VerificationEvidenceViewSet(
         values = dict(serializer.validated_data)
         verification = values.pop("verification")
         exception = values.pop("exception", None)
+        uploaded_file = values.pop("file", None)
         try:
             evidence = create_evidence(
                 actor=request.user,
                 verification_id=verification.pk,
                 exception=exception,
+                uploaded_file=uploaded_file,
                 ip_address=_ip(request),
                 **values,
             )
         except DjangoValidationError as exc:
             _service_error(exc)
+        except EvidenceStorageError as exc:
+            error = APIException("Evidence upload could not be verified; retry the upload.")
+            error.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+            raise error from exc
         return Response(self.get_serializer(evidence).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=("get",), url_path="content")
+    def content(self, request, pk=None):
+        evidence = self.get_object()
+        try:
+            stream = open_verified_evidence(
+                evidence=evidence, actor=request.user, ip_address=_ip(request)
+            )
+        except EvidenceIntegrityError as exc:
+            error = APIException("Evidence is unavailable or failed integrity verification.")
+            error.status_code = status.HTTP_409_CONFLICT
+            raise error from exc
+        response = FileResponse(
+            stream,
+            as_attachment=True,
+            filename=evidence.file_name,
+            content_type=evidence.content_type,
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        return response

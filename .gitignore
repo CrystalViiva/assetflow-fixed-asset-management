@@ -14,3 +14,4 @@ __pycache__/
 venv/
 *.sqlite3
 *.db
+backend/private_media/

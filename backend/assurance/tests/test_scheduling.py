@@ -215,7 +215,12 @@ def test_celery_beat_retains_daily_full_assurance_schedule():
 
     assert DAILY_FULL_SCHEDULE_ID in schedule
     assert MONTHLY_DEPRECIATION_SCHEDULE_ID in schedule
-    assert len(schedule) == 3
+    assert len(schedule) == 6
+    assert schedule["recover-report-exports"]["task"] == "reporting.tasks.recover_report_exports"
+    assert schedule["expire-report-exports"]["task"] == "reporting.tasks.expire_report_exports"
+    assert schedule["clean-stale-evidence-uploads"]["task"] == (
+        "verification.tasks.clean_stale_evidence_uploads"
+    )
     entry = schedule[DAILY_FULL_SCHEDULE_ID]
     assert entry["task"] == "assurance.tasks.schedule_daily_assurance"
     assert isinstance(entry["schedule"], crontab)

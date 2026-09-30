@@ -163,3 +163,134 @@ class ReportSnapshotRow(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Snapshot rows are immutable.")
+
+
+class ExportFormat(models.TextChoices):
+    CSV = "CSV", "CSV"
+    JSON = "JSON", "JSON"
+
+
+class ExportStatus(models.TextChoices):
+    QUEUED = "QUEUED", "Queued"
+    RUNNING = "RUNNING", "Running"
+    COMPLETED = "COMPLETED", "Completed"
+    FAILED = "FAILED", "Failed"
+    EXPIRED = "EXPIRED", "Expired"
+
+
+class ReportExportQuerySet(models.QuerySet):
+    def delete(self):
+        raise ValidationError("Export job history cannot be deleted.")
+
+
+class ReportExport(models.Model):
+    """Durable artifact metadata; snapshot rows remain the export source of truth."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "organizations.Organization", on_delete=models.PROTECT, related_name="report_exports"
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="report_exports_requested"
+    )
+    source_snapshot = models.ForeignKey(
+        ReportSnapshot, on_delete=models.PROTECT, related_name="exports"
+    )
+    format = models.CharField(max_length=8, choices=ExportFormat.choices)
+    idempotency_key = models.UUIDField()
+    schema_version = models.PositiveSmallIntegerField(default=1)
+    status = models.CharField(
+        max_length=10, choices=ExportStatus.choices, default=ExportStatus.QUEUED
+    )
+    # Attempt-specific private object keys fence stale worker writes and cleanup.
+    generation_token = models.UUIDField(null=True, blank=True)
+    cleanup_storage_keys = models.JSONField(default=list, blank=True)
+    requested_at = models.DateTimeField(default=timezone.now)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    failed_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+    expired_at = models.DateTimeField(null=True, blank=True)
+    row_count = models.PositiveBigIntegerField(default=0)
+    byte_size = models.PositiveBigIntegerField(null=True, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True)
+    storage_key = models.CharField(max_length=512, blank=True)
+    failure_class = models.CharField(max_length=100, blank=True)
+    failure_message = models.CharField(max_length=500, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    objects = ReportExportQuerySet.as_manager()
+
+    class Meta:
+        ordering = ("-requested_at", "-id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("organization", "idempotency_key"), name="report_export_org_idem_uniq"
+            ),
+            models.CheckConstraint(
+                condition=Q(format__in=ExportFormat.values), name="report_export_format_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=ExportStatus.values), name="report_export_status_valid"
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        status=ExportStatus.QUEUED,
+                        started_at__isnull=True,
+                        completed_at__isnull=True,
+                        failed_at__isnull=True,
+                        expired_at__isnull=True,
+                        storage_key="",
+                        byte_size__isnull=True,
+                        sha256="",
+                    )
+                    | Q(
+                        status=ExportStatus.RUNNING,
+                        started_at__isnull=False,
+                        completed_at__isnull=True,
+                        failed_at__isnull=True,
+                        expired_at__isnull=True,
+                        storage_key="",
+                        byte_size__isnull=True,
+                        sha256="",
+                    )
+                    | Q(
+                        status=ExportStatus.COMPLETED,
+                        started_at__isnull=False,
+                        completed_at__isnull=False,
+                        failed_at__isnull=True,
+                        expired_at__isnull=True,
+                        storage_key__gt="",
+                        byte_size__gt=0,
+                        sha256__regex=r"^[0-9a-f]{64}$",
+                        failure_class="",
+                    )
+                    | Q(
+                        status=ExportStatus.FAILED,
+                        completed_at__isnull=True,
+                        failed_at__isnull=False,
+                        expired_at__isnull=True,
+                        storage_key="",
+                        byte_size__isnull=True,
+                        sha256="",
+                        failure_class__gt="",
+                    )
+                    | Q(
+                        status=ExportStatus.EXPIRED,
+                        completed_at__isnull=False,
+                        expired_at__isnull=False,
+                    )
+                ),
+                name="report_export_state_valid",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=("organization", "status", "requested_at"), name="report_exp_org_status_idx"
+            ),
+            models.Index(fields=("status", "updated_at"), name="report_exp_status_update_idx"),
+            models.Index(fields=("status", "expires_at"), name="report_exp_status_expiry_idx"),
+        ]
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Export job history cannot be deleted.")

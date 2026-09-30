@@ -1,5 +1,6 @@
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import FileResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -7,8 +8,10 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from audit.services import record_event
 from common.pagination import StandardResultsPagination
-from reporting.models import ReportSnapshot, ReportSnapshotRow, SnapshotStatus
+from reporting.exports import ExportGenerationError, open_export, request_export
+from reporting.models import ReportExport, ReportSnapshot, ReportSnapshotRow, SnapshotStatus
 from reporting.permissions import ReportingPermission
 from reporting.selectors import (
     DEFINITIONS,
@@ -24,6 +27,8 @@ from reporting.serializers import (
     PaginatedReportSnapshotRowsSerializer,
     PaginatedReportSnapshotsSerializer,
     ReportCatalogSerializer,
+    ReportExportRequestSerializer,
+    ReportExportSerializer,
     ReportSnapshotRequestSerializer,
     ReportSnapshotRowSerializer,
     ReportSnapshotSerializer,
@@ -172,3 +177,92 @@ class ReportSnapshotRowsView(ReportSnapshotDetailView):
         paginator = StandardResultsPagination()
         page = paginator.paginate_queryset(queryset, request, view=self)
         return paginator.get_paginated_response(ReportSnapshotRowSerializer(page, many=True).data)
+
+
+class ReportExportListCreateView(APIView):
+    permission_classes = (ReportingPermission,)
+    pagination_class = StandardResultsPagination
+
+    def get_queryset(self, user):
+        return ReportExport.objects.filter(
+            organization_id=user.organization_id,
+            source_snapshot__in=snapshots_for_user(user),
+        ).select_related("source_snapshot")
+
+    @extend_schema(operation_id="report_export_list", responses=ReportExportSerializer(many=True))
+    def get(self, request):
+        queryset = self.get_queryset(request.user)
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        return paginator.get_paginated_response(ReportExportSerializer(page, many=True).data)
+
+    @extend_schema(
+        operation_id="report_export_create",
+        request=ReportExportRequestSerializer,
+        responses={202: ReportExportSerializer, 200: ReportExportSerializer},
+    )
+    def post(self, request):
+        serializer = ReportExportRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            export, created = request_export(
+                user=request.user,
+                snapshot_id=serializer.validated_data["source_snapshot_id"],
+                export_format=serializer.validated_data["format"],
+                idempotency_key=serializer.validated_data["idempotency_key"],
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
+        except DjangoValidationError as exc:
+            details = exc.message_dict if hasattr(exc, "message_dict") else exc.messages
+            raise ValidationError(details) from exc
+        except DjangoPermissionDenied as exc:
+            raise PermissionDenied("Report snapshot is outside your scope.") from exc
+        return Response(
+            ReportExportSerializer(export).data,
+            status=status.HTTP_202_ACCEPTED if created else status.HTTP_200_OK,
+        )
+
+
+class ReportExportDetailView(APIView):
+    permission_classes = (ReportingPermission,)
+
+    def _get_export(self, request, export_id):
+        try:
+            return ReportExportListCreateView().get_queryset(request.user).get(pk=export_id)
+        except (ReportExport.DoesNotExist, ValueError) as exc:
+            raise PermissionDenied("Export is outside your report scope.") from exc
+
+    @extend_schema(operation_id="report_export_retrieve", responses=ReportExportSerializer)
+    def get(self, request, export_id):
+        return Response(ReportExportSerializer(self._get_export(request, export_id)).data)
+
+
+class ReportExportDownloadView(ReportExportDetailView):
+    @extend_schema(operation_id="report_export_download", responses={200: OpenApiTypes.BINARY})
+    def get(self, request, export_id):
+        export = self._get_export(request, export_id)
+        try:
+            stream = open_export(export=export)
+        except DjangoPermissionDenied, ExportGenerationError:
+            return Response({"detail": "Export is unavailable."}, status=status.HTTP_410_GONE)
+        response = FileResponse(
+            stream,
+            as_attachment=True,
+            filename=f"{export.source_snapshot.report_type}-{export.pk}.{export.format.lower()}",
+            content_type="text/csv" if export.format == "CSV" else "application/json",
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        try:
+            record_event(
+                organization=export.organization,
+                user=request.user,
+                ip_address=request.META.get("REMOTE_ADDR"),
+                action="REPORT_EXPORT_DOWNLOADED",
+                entity_type="REPORT_EXPORT",
+                entity_id=export.pk,
+                metadata={"sha256": export.sha256},
+            )
+        except Exception:
+            response.close()
+            raise
+        return response
