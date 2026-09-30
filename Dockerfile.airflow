@@ -1,0 +1,16 @@
+FROM apache/airflow:3.3.2-python3.12
+
+ARG AIRFLOW_VERSION=3.3.2
+COPY backend/requirements-airflow.txt /tmp/assetflow-airflow-requirements.txt
+RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-3.12.txt" \
+    && pip install --no-cache-dir -r /tmp/assetflow-airflow-requirements.txt \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-3.12.txt"
+
+USER root
+COPY backend/ /opt/assetflow/backend/
+COPY airflow/dags/ /opt/airflow/dags/
+RUN chown -R airflow:root /opt/assetflow /opt/airflow/dags
+USER airflow
+
+ENV PYTHONPATH="/opt/assetflow/backend:${PYTHONPATH}"

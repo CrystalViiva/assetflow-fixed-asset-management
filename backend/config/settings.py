@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "verification.apps.VerificationConfig",
     "assurance.apps.AssuranceConfig",
     "reporting.apps.ReportingConfig",
+    "analytics.apps.AnalyticsConfig",
 ]
 
 MIDDLEWARE = [
@@ -113,6 +114,20 @@ ASSETFLOW_PRIVATE_STORAGE_OPTIONS = json.loads(
 )
 if not isinstance(ASSETFLOW_PRIVATE_STORAGE_OPTIONS, dict):
     raise environ.ImproperlyConfigured("ASSETFLOW_PRIVATE_STORAGE_OPTIONS must be a JSON object.")
+ANALYTICS_MEDIA_ROOT = env(
+    "ANALYTICS_MEDIA_ROOT", default=str(ROOT_DIR / "backend" / "analytics_data")
+)
+ASSETFLOW_ANALYTICS_STORAGE_BACKEND = env(
+    "ASSETFLOW_ANALYTICS_STORAGE_BACKEND", default="django.core.files.storage.FileSystemStorage"
+)
+ASSETFLOW_ANALYTICS_STORAGE_OPTIONS = json.loads(
+    env(
+        "ASSETFLOW_ANALYTICS_STORAGE_OPTIONS",
+        default=json.dumps({"location": ANALYTICS_MEDIA_ROOT}),
+    )
+)
+if not isinstance(ASSETFLOW_ANALYTICS_STORAGE_OPTIONS, dict):
+    raise environ.ImproperlyConfigured("ASSETFLOW_ANALYTICS_STORAGE_OPTIONS must be a JSON object.")
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
@@ -120,10 +135,23 @@ STORAGES = {
         "BACKEND": ASSETFLOW_PRIVATE_STORAGE_BACKEND,
         "OPTIONS": ASSETFLOW_PRIVATE_STORAGE_OPTIONS,
     },
+    "assetflow_analytics": {
+        "BACKEND": ASSETFLOW_ANALYTICS_STORAGE_BACKEND,
+        "OPTIONS": ASSETFLOW_ANALYTICS_STORAGE_OPTIONS,
+    },
 }
 EVIDENCE_MAX_UPLOAD_BYTES = env.int("EVIDENCE_MAX_UPLOAD_BYTES", default=20 * 1024 * 1024)
 REPORT_EXPORT_MAX_BYTES = env.int("REPORT_EXPORT_MAX_BYTES", default=100 * 1024 * 1024)
 REPORT_EXPORT_RETENTION_DAYS = env.int("REPORT_EXPORT_RETENTION_DAYS", default=30)
+ANALYTICS_MAX_RECORDS_PER_RUN = env.int("ANALYTICS_MAX_RECORDS_PER_RUN", default=100_000)
+ANALYTICS_MAX_OUTPUT_BYTES = env.int("ANALYTICS_MAX_OUTPUT_BYTES", default=250 * 1024 * 1024)
+ANALYTICS_LATE_ARRIVAL_OVERLAP_HOURS = env.int("ANALYTICS_LATE_ARRIVAL_OVERLAP_HOURS", default=48)
+if (
+    ANALYTICS_MAX_RECORDS_PER_RUN <= 0
+    or ANALYTICS_MAX_OUTPUT_BYTES <= 0
+    or ANALYTICS_LATE_ARRIVAL_OVERLAP_HOURS <= 0
+):
+    raise environ.ImproperlyConfigured("Analytics extraction limits and overlap must be positive.")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"

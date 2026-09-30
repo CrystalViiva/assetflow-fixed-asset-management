@@ -15,3 +15,4 @@ venv/
 *.sqlite3
 *.db
 backend/private_media/
+backend/analytics_data/

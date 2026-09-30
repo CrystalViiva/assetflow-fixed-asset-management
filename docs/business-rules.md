@@ -1,5 +1,10 @@
 # Asset master-data rules
 
+Analytics exports consume completed, organization-scoped report snapshots. They
+do not create accounting entries, alter asset lifecycle state, or imply that
+mutable asset state can be reconstructed for an arbitrary historical date. See
+[the analytics extraction contract](analytics.md).
+
 This is an **IAS 16-aligned asset data foundation**, not a claim of full IAS 16 or IFRS compliance.
 
 ## Categories

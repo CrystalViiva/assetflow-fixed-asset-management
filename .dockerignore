@@ -13,3 +13,5 @@ coverage/
 **/.pytest_cache/
 **/.ruff_cache/
 *.sqlite3
+backend/private_media/
+backend/analytics_data/
