@@ -133,10 +133,10 @@ container that runs Django migrations; Airflow initializes only its separate
 metadata database. The DAG is paused when created and runs daily at 03:00 in
 `Africa/Lagos` after it is enabled in the Airflow UI.
 
-Start the optional stack with:
+Start the optional Airflow and Spark development stack with:
 
 ```powershell
-docker compose --profile airflow up --build
+docker compose --profile airflow --profile analytics up --build
 ```
 
 Airflow is available at `http://localhost:8080`; its development login password
@@ -160,7 +160,117 @@ ordinary delayed completion; very old late completions require a full refresh.
 Analytics state and outputs have no public download API. No historical
 reconstruction is claimed for mutable fields.
 
-M10.8 can consume contract-v1 JSONL with an upsert key of organization, dataset,
-and logical record ID. It may add a Spark reader and analytical transformations
-in that later milestone; no Spark, anomaly detection, or AI functionality is
-included here.
+## M10.8 PySpark curated processing
+
+M10.8 adds deterministic Spark processing over successfully published M10.7
+contract-v1 JSONL. Spark does not query operational PostgreSQL. A short Django
+management command selects the latest non-empty successful v1 extraction
+publication for each report type and organization, validates the publication
+metadata, and writes a bounded immutable input manifest into the shared analytics
+storage. A tenant manifest is limited to 2 MiB and one DAG run is limited to
+10,000 tenants; exceeding a limit fails before Spark starts. Spark streams the
+manifest's report files, verifies their digest and
+size, validates every envelope and frozen M10.4 payload schema, and writes
+attempt-specific Parquet outputs. A second short Django command verifies the
+Parquet manifest and file hashes, then creates the consumer-visible publication
+row. Django/PostgreSQL therefore remain authoritative for publication state;
+unreferenced staging files are not successful outputs.
+
+The curated contract is version 1, with six datasets:
+
+| Dataset | Meaning |
+| --- | --- |
+| `asset_financial_position` | Current asset-register observation enriched by a one-to-one acquisition join on tenant plus asset tag. Financial balances are authoritative values from the asset report. |
+| `depreciation_analytics` | Depreciation ledger entries with period, amount, and source-snapshot context. Spark aggregates posted values; it does not recalculate depreciation. |
+| `maintenance_analytics` | Work-order state, maintenance records, and cost records as distinct event kinds. Cost rows are not joined to work orders, avoiding unsupported cardinality assumptions. |
+| `asset_lifecycle_events` | Normalized event observations from supported event reports plus allowlisted audit entity references. Audit user identities and evidence metadata are excluded. |
+| `assurance_analytics` | Finding observations and occurrence history as separate row kinds, preserving their stable source IDs. |
+| `executive_asset_summary` | One organization-level aggregate of asset balances, depreciation entries, maintenance costs, disposals, and current assurance findings. |
+
+All output schemas and decimal precisions are frozen in
+`backend/analytics/curated_contracts.py`; schema changes require an explicit
+contract/transform version change. Spark enforces envelope version, dataset,
+organization, stable logical IDs, exact v1 fields, snapshot counts, and duplicate
+IDs. Invalid or overflowing monetary strings fail the whole run; they are never
+coerced through binary floating point. Money is represented as Spark
+`DecimalType(28,2)`, and quantities as `DecimalType(18,6)`. The executive
+aggregate is checked for decimal overflow before publication.
+
+The output is Parquet, partitioned by tenant-specific attempt path under
+`curated/stg/o<organization-uuid-hex>/a<attempt-uuid-hex>/` and separated by
+curated dataset. Every row also carries `organization_id`; stable source logical
+IDs are retained where the dataset represents source records. Each small output
+manifest records contract and transform versions, tenant/run/attempt identity,
+source manifest digest, row counts, schema, and every Parquet file's size and
+SHA-256. This is a manifest-based publication boundary, not an ACID table
+format. Consumers must read only files named by a successful Django
+`CuratedPublication` row.
+
+The deterministic processing key hashes the tenant, supported contract and
+transform versions, and sorted immutable source-publication identities. A
+unique database constraint makes repeat submissions idempotent. Each retry
+claims the same run with a new fencing token; a tenant-row lock also makes a
+newer source-set claim supersede any older still-running tenant attempt. Spark
+writes into that token's directory. Publication rechecks the token inside a
+short transaction after file verification outside locks. Stale attempts cannot
+publish. Failure before
+the manifest or during file verification cannot create a publication row; a
+failure after staging can leave orphaned files that consumers ignore. In a
+deployment, storage lifecycle cleanup should remove old unreferenced attempt
+directories.
+
+Each M10.4 `ReportSnapshot` contains the complete result of its report query;
+the latest successful non-empty M10.7 publication therefore supplies the latest
+complete report snapshot, including ledger/history rows present in that report.
+The 48-hour extraction overlap helps delayed snapshot publication reach that
+latest selection. Rows repeated in a defensive multi-publication input are
+deduplicated by stable `logical_record_id`; a repeated identity with different
+payload or source metadata fails quality validation. For mutable report rows,
+transformations select the latest observation per stable source row ID by
+source-generated timestamp, snapshot UUID, and ordinal. Current-state outputs
+are observations from their selected snapshots, not historical reconstructions.
+Event/history outputs
+retain their domain event timestamp plus the snapshot capture time. Repeated
+source snapshots do not imply that mutable state can be reconstructed at
+arbitrary past times. Acquisition enrichment uses only the
+tenant-scoped asset tag, and cardinality is checked before joining. Summary
+aggregations are performed separately at organization grain before combining;
+the pipeline does not build cross-tenant aggregates or duplicate accounting
+rules. `executive_asset_summary.asset_register_as_of` labels the asset-balance
+snapshot only. Other aggregate inputs use their own latest available report
+snapshots, whose capture times can differ; the summary is not a synchronized
+cross-dataset point-in-time reconstruction.
+
+## M10.8 runtime and local development
+
+PySpark 4.0.1 runs in an isolated Python 3.12 / Java 17 Airflow submitter image
+and Spark 4.0.1 development master/worker containers. The Django application
+requirements remain free of Spark dependencies. The Airflow submitter reads and
+writes the shared local analytics volume; this local filesystem boundary is
+intentional for development and must become a secured shared object-storage
+boundary before deployment across hosts. Spark workers also mount the local
+volume. The optional Compose stack is development-only, with an isolated
+Airflow metadata database. Django web migrations do not depend on Spark or
+Airflow.
+
+Start both optional profiles with:
+
+```powershell
+docker compose --profile airflow --profile analytics up --build
+```
+
+Airflow creates the DAG paused. After enabling it, one daily DAG run extracts
+snapshots, stages one fenced processing item per organization, submits each
+item to Spark, and asks Django to verify/publish each successful output.
+Airflow retries tasks; M10.7 extraction and M10.8 deterministic processing
+identities make retries safe. Spark execution writes no transactional domain
+tables. Development worker resources, local-volume sharing, object retention,
+production authentication, and multi-node storage behavior have not been
+production-validated.
+
+Spark transformation tests live under `spark/tests`; they use a local Spark
+session and validate JSONL ingestion, tenant constraints, decimal schemas,
+curated results, and Parquet read-back. Django/PostgreSQL publication tests
+remain under `backend/analytics/tests`. This deterministic analytics foundation
+is suitable for later BI consumers. M10.8 does not include predictive,
+anomaly-detection, AI, or automated accounting behavior.

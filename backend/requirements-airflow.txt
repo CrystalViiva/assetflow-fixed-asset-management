@@ -6,3 +6,5 @@ drf-spectacular>=0.28,<1.0
 djangorestframework-simplejwt>=5.5,<6.0
 psycopg[binary]>=3.2,<4.0
 celery[redis]>=5.5,<6.0
+apache-airflow-providers-apache-spark[pyspark]==6.3.2
+pyspark==4.0.1

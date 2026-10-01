@@ -202,3 +202,98 @@ class AnalyticsPublication(models.Model):
                 fields=("organization", "dataset", "published_at"), name="analytics_pub_tenant_idx"
             )
         ]
+
+
+class CuratedRunStatus(models.TextChoices):
+    RUNNING = "RUNNING", "Running"
+    FAILED = "FAILED", "Failed"
+    COMPLETED = "COMPLETED", "Completed"
+
+
+class CuratedProcessingRun(models.Model):
+    """Fenced transformation attempt for one tenant and immutable source set."""
+
+    organization = models.ForeignKey(
+        "organizations.Organization", on_delete=models.PROTECT, related_name="curated_runs"
+    )
+    processing_key = models.CharField(max_length=64)
+    contract_version = models.PositiveSmallIntegerField()
+    transform_version = models.PositiveSmallIntegerField()
+    source_publications = models.JSONField()
+    status = models.CharField(max_length=12, choices=CuratedRunStatus.choices)
+    attempt_token = models.UUIDField(default=uuid.uuid4)
+    attempt_count = models.PositiveIntegerField(default=1)
+    input_manifest_key = models.CharField(max_length=512, blank=True)
+    started_at = models.DateTimeField(default=timezone.now)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    failure_class = models.CharField(max_length=100, blank=True)
+    failure_message = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("organization", "processing_key"), name="curated_run_org_key_uniq"
+            ),
+            models.CheckConstraint(condition=Q(contract_version=1), name="curated_run_contract_v1"),
+            models.CheckConstraint(
+                condition=Q(transform_version=1), name="curated_run_transform_v1"
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=CuratedRunStatus.values), name="curated_run_status_valid"
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(status=CuratedRunStatus.RUNNING, finished_at__isnull=True)
+                    | Q(
+                        status=CuratedRunStatus.FAILED,
+                        finished_at__isnull=False,
+                        failure_class__gt="",
+                    )
+                    | Q(
+                        status=CuratedRunStatus.COMPLETED,
+                        finished_at__isnull=False,
+                        failure_class="",
+                        failure_message="",
+                    )
+                ),
+                name="curated_run_state_consistent",
+            ),
+            models.CheckConstraint(
+                condition=Q(processing_key__regex=r"^[0-9a-f]{64}$"),
+                name="curated_run_key_sha256",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("organization", "status"), name="curated_run_org_status_idx"),
+            models.Index(fields=("started_at", "status"), name="curated_run_started_idx"),
+        ]
+
+
+class CuratedPublication(models.Model):
+    """Consumer-visible pointer to a fully validated set of tenant Parquet outputs."""
+
+    run = models.OneToOneField(
+        CuratedProcessingRun, on_delete=models.PROTECT, related_name="publication"
+    )
+    organization = models.ForeignKey(
+        "organizations.Organization", on_delete=models.PROTECT, related_name="curated_publications"
+    )
+    manifest_key = models.CharField(max_length=512)
+    manifest_sha256 = models.CharField(max_length=64)
+    manifest_byte_size = models.PositiveBigIntegerField()
+    datasets = models.JSONField()
+    published_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("organization", "run"), name="curated_pub_org_run_uniq"
+            ),
+            models.CheckConstraint(
+                condition=Q(manifest_key__gt=""), name="curated_pub_manifest_key_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(manifest_sha256__regex=r"^[0-9a-f]{64}$"),
+                name="curated_pub_manifest_hash_valid",
+            ),
+        ]

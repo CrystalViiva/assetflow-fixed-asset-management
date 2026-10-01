@@ -1,0 +1,2 @@
+# Separate PySpark runtime; Django's Python 3.14 environment remains unchanged.
+pyspark==4.0.1
