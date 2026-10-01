@@ -205,11 +205,11 @@ def test_deterministic_input_key_and_attempt_fence(manager, analytics_storage):
 
 def test_newer_tenant_source_set_fences_an_older_inflight_run(manager, analytics_storage):
     first = _source(manager, analytics_storage)
-    second = _source(manager, analytics_storage)
     old, old_token = _claim_processing_run(
         organization_id=str(manager.organization_id),
         sources=[_source_descriptor_for_test(first)],
     )
+    second = _source(manager, analytics_storage)
     newer, _ = _claim_processing_run(
         organization_id=str(manager.organization_id),
         sources=[_source_descriptor_for_test(second)],
@@ -219,6 +219,30 @@ def test_newer_tenant_source_set_fences_an_older_inflight_run(manager, analytics
     assert newer.status == CuratedRunStatus.RUNNING
     with pytest.raises(StaleCuratedAttempt):
         publish_curated_run(run_id=old.pk, attempt_token=old_token)
+
+
+def test_delayed_old_source_selection_cannot_supersede_newer_claim(manager, analytics_storage):
+    older_publication = _source(manager, analytics_storage)
+    newer_publication = _source(manager, analytics_storage)
+    AnalyticsPublication.objects.filter(pk=older_publication.pk).update(
+        published_at=newer_publication.published_at - timedelta(seconds=1)
+    )
+    older_sources = [_source_descriptor_for_test(older_publication)]
+    newer_sources = [_source_descriptor_for_test(newer_publication)]
+
+    newer_run, newer_token = _claim_processing_run(
+        organization_id=str(manager.organization_id), sources=newer_sources
+    )
+    with pytest.raises(StaleCuratedAttempt, match="no longer the latest"):
+        _claim_processing_run(organization_id=str(manager.organization_id), sources=older_sources)
+
+    newer_run.refresh_from_db()
+    assert newer_run.status == CuratedRunStatus.RUNNING
+    assert newer_run.attempt_token == newer_token
+    assert not CuratedProcessingRun.objects.filter(
+        organization_id=manager.organization_id,
+        source_publications=older_sources,
+    ).exists()
 
 
 def test_publish_is_attempt_fenced_idempotent_and_manifest_verified(manager, analytics_storage):

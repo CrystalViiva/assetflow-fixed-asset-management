@@ -64,13 +64,16 @@ def _absolute_path(storage, key):
     return path
 
 
-def _latest_source_publications():
+def _latest_source_publications(*, organization_id=None):
     """Select each tenant/dataset's latest non-empty successful v1 publication."""
     ordering = ("organization_id", "dataset", "-published_at", "-pk")
+    publications = AnalyticsPublication.objects.select_related("run").filter(
+        run__status=AnalyticsRunStatus.COMPLETED
+    )
+    if organization_id is not None:
+        publications = publications.filter(organization_id=organization_id)
     latest = (
-        AnalyticsPublication.objects.select_related("run")
-        .filter(run__status=AnalyticsRunStatus.COMPLETED)
-        .order_by(*ordering)
+        publications.order_by(*ordering)
         .distinct("organization_id", "dataset")
         .iterator(chunk_size=1000)
     )
@@ -80,12 +83,7 @@ def _latest_source_publications():
                 f"Latest published input for {publication.dataset} uses unsupported contract."
             )
     rows = (
-        AnalyticsPublication.objects.select_related("run")
-        .filter(
-            run__status=AnalyticsRunStatus.COMPLETED,
-            contract_version=CONTRACT_VERSION,
-            row_count__gt=0,
-        )
+        publications.filter(contract_version=CONTRACT_VERSION, row_count__gt=0)
         .order_by(*ordering)
         .distinct("organization_id", "dataset")
         .iterator(chunk_size=1000)
@@ -151,6 +149,18 @@ def _claim_processing_run(*, organization_id, sources):
     with transaction.atomic():
         # Serialize claims for a tenant even when the source publication set changes.
         Organization.objects.select_for_update().get(pk=organization_id)
+        latest = _latest_source_publications(organization_id=organization_id).get(
+            str(organization_id), {}
+        )
+        latest_sources = [
+            _source_descriptor(publication)
+            for dataset in sorted(latest)
+            for publication in latest[dataset]
+        ]
+        if sources != latest_sources:
+            raise StaleCuratedAttempt(
+                "The selected source publications are no longer the latest committed set."
+            )
         CuratedProcessingRun.objects.filter(
             organization_id=organization_id,
             status=CuratedRunStatus.RUNNING,
