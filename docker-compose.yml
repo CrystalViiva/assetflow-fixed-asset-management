@@ -44,7 +44,10 @@ services:
       - "8000:8000"
     volumes:
       - assetflow_analytics_data:/srv/assetflow/analytics
+      - assetflow_private_data:/app/backend/private_media
     depends_on:
+      analytics-volume-init:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -56,7 +59,10 @@ services:
     environment: *backend-environment
     volumes:
       - assetflow_analytics_data:/srv/assetflow/analytics
+      - assetflow_private_data:/app/backend/private_media
     depends_on:
+      analytics-volume-init:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -69,6 +75,8 @@ services:
     volumes:
       - assetflow_analytics_data:/srv/assetflow/analytics
     depends_on:
+      analytics-volume-init:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:
@@ -89,12 +97,20 @@ services:
       timeout: 5s
       retries: 10
 
+  analytics-volume-init:
+    image: alpine:3.22
+    user: "0:0"
+    command: ["sh", "-c", "chgrp 20000 /srv/assetflow/analytics && chmod 2770 /srv/assetflow/analytics"]
+    volumes:
+      - assetflow_analytics_data:/srv/assetflow/analytics
+    restart: "no"
+
   airflow-dev:
     build:
       context: .
       dockerfile: Dockerfile.airflow
     profiles: [airflow, analytics]
-    command: airflow standalone
+    command: ["/bin/bash", "-c", "umask 0002; exec airflow standalone"]
     environment:
       <<: *backend-environment
       ANALYTICS_MEDIA_ROOT: /srv/assetflow/analytics
@@ -108,11 +124,15 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - assetflow_analytics_data:/srv/assetflow/analytics
+    group_add:
+      - "20000"
     depends_on:
       airflow-db:
         condition: service_healthy
       db:
         condition: service_healthy
+      analytics-volume-init:
+        condition: service_completed_successfully
 
   spark-master:
     image: apache/spark:4.0.1
@@ -122,7 +142,7 @@ services:
       - "127.0.0.1:7077:7077"
       - "127.0.0.1:8081:8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/ >/dev/null"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/7077'"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -131,13 +151,17 @@ services:
     image: apache/spark:4.0.1
     profiles: [analytics]
     command:
-      ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+      ["bash", "-lc", "umask 0002; exec /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"]
     environment:
       SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-2}
       SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-2G}
     volumes:
       - assetflow_analytics_data:/srv/assetflow/analytics
+    group_add:
+      - "20000"
     depends_on:
+      analytics-volume-init:
+        condition: service_completed_successfully
       spark-master:
         condition: service_healthy
 
@@ -145,3 +169,4 @@ volumes:
   postgres_data:
   airflow_metadata_data:
   assetflow_analytics_data:
+  assetflow_private_data:

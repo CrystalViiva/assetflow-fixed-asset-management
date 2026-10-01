@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from urllib.parse import quote
 
 import pytest
@@ -64,6 +65,7 @@ def test_real_worker_interruption(phase, manager, asset_factory, settings):
     )
     proc = subprocess.Popen(
         [sys.executable, "-B", "-c", WORKER],
+        cwd=Path(__file__).resolve().parents[2],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -74,7 +76,17 @@ def test_real_worker_interruption(phase, manager, asset_factory, settings):
         with ThreadPoolExecutor(1) as pool:
             ready = pool.submit(proc.stdout.readline)
             try:
-                assert ready.result(timeout=30).strip() == "TRANSACTION_READY"
+                line = ready.result(timeout=30).strip()
+                if line != "TRANSACTION_READY":
+                    try:
+                        stdout, stderr = proc.communicate(timeout=1)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        stdout, stderr = proc.communicate(timeout=15)
+                    pytest.fail(
+                        "Worker exited before reaching the interruption point "
+                        f"(stdout={stdout[-1000:]!r}, stderr={stderr[-4000:]!r})"
+                    )
             finally:
                 proc.kill()
     finally:

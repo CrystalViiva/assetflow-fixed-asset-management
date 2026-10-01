@@ -92,3 +92,61 @@ Local uploads and export artifacts use the dedicated `assetflow_private` alias, 
 M10.7 adds a separate analytics boundary. Airflow schedules extraction of completed M10.4 `ReportSnapshot` rows through the Django `extract_analytics_snapshots` management command. Django/PostgreSQL remain authoritative for transactional domain state, snapshots, evidence metadata, and export jobs. Celery remains responsible for operational Django background jobs. Airflow contains no domain SQL or state mutation logic; it only retries higher-level snapshot extraction. The analytics app writes its own run, publication, and organization/report-type checkpoint records.
 
 Each output is versioned contract-v1 JSONL, contains an organization ID and stable snapshot/row identity, and is written through a separate non-public `assetflow_analytics` storage alias. Extraction validates payloads against the frozen M10.4 schema registry and preserves captured Decimal values as strings. Checkpoints use `(generated_at, snapshot UUID, row ordinal)` with a 48-hour late-arrival overlap; publication metadata and watermark advancement commit atomically after attempt-specific output read-back verification. A full-refresh command can replay all completed snapshots. Mutable domain rows in report snapshots remain point-in-time observations rather than reconstructed history. See [analytics extraction and orchestration](analytics.md) for the contract and failure behavior.
+
+## End-to-end data platform
+
+```text
+Client -> Django/DRF -> services/selectors -> PostgreSQL
+                         |                    |
+                         +-> Celery/Redis <----+
+                               |
+                  report snapshots and exports
+                               |
+              contract-v1 JSONL extraction (Django)
+                               |
+                  Airflow orchestration only
+                               |
+              PySpark transforms published inputs
+                               |
+          validated Parquet + Django publication metadata
+```
+
+Django owns transactional state and durable publication metadata. Celery runs
+operational Django jobs. Airflow schedules and retries analytics work, while
+Spark consumes only successfully published M10.7 files. The development Compose
+stack persists private evidence/exports separately from analytics artifacts and
+uses a shared group for the local analytics volume. It is not a production
+deployment recipe: shared object storage, backup/restore, production secrets,
+high availability, and operational monitoring still require deployment-specific
+design and validation.
+
+When upgrading an existing development Compose installation, copy any evidence
+or export files from the old web container's writable layer into the new private
+named volume before recreating that container; Docker does not migrate that
+container-layer data automatically.
+
+## Runtime and validation status
+
+| Component | Repository runtime | Dependency/runtime boundary |
+| --- | --- | --- |
+| Django API and Celery | Python 3.14 container; Django `>=5.2,<5.3`; DRF `>=3.16,<4`; Celery `>=5.5,<6` | Backend requirements intentionally contain no Spark/Airflow packages. |
+| Database and broker | PostgreSQL 17; Redis 7 | Compose development tags; production patch versions and managed-service behavior are not pinned here. |
+| Airflow | Apache Airflow 3.3.2 on Python 3.12 and Java 17 | Separate image with Airflow constraints and Spark provider. |
+| Spark | PySpark/Spark 4.0.1 on Python 3.12 and Java 17 | Separate runtime; the developer's Python 3.14 environment is not used for Spark. |
+| Containers | Docker Engine 29.6.2 and Docker Compose 5.3.1 in the validation environment | Linux containers, Compose profiles, and `service_completed_successfully` dependencies are assumed; versions are not pinned by the repository. |
+
+The regular CI workflow runs PostgreSQL-backed Django tests, checks, migration
+drift, and Ruff. It does not execute the Airflow or Spark containers. The
+repository includes local SparkSession/Parquet tests, but these have not been
+executed in the current environment. One Docker build attempt stalled at 3.15 MB
+of a 501.99 MB Airflow image layer after about 153 seconds; real Airflow parsing,
+Spark execution, Parquet read-back, and the cross-container smoke path therefore
+remain unvalidated. Treat the code and tests as implemented, the Django suite as
+locally validated, and Airflow/Spark runtime behavior as not yet locally
+validated. No production-scale or production-availability claim is made.
+
+The public `/api/v1/health/` endpoint is a process liveness response; it does
+not probe PostgreSQL or Redis and should not be used as a readiness check. The
+development Compose file gates initial service startup on database/broker health,
+but the repository does not provide runtime readiness monitoring or request
+correlation IDs. Production deployment still needs those operational decisions.

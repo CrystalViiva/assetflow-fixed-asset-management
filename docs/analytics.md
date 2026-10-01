@@ -251,7 +251,13 @@ intentional for development and must become a secured shared object-storage
 boundary before deployment across hosts. Spark workers also mount the local
 volume. The optional Compose stack is development-only, with an isolated
 Airflow metadata database. Django web migrations do not depend on Spark or
-Airflow.
+Airflow. Django and Celery run as a non-root application UID. The private
+evidence/export volume is mounted only into the Django web and worker services;
+it is not mounted into Airflow or Spark. The analytics volume uses a dedicated
+shared GID so the Airflow submitter, Django application, and Spark worker can
+read and write their attempt-specific paths without running as root. The
+development Airflow and Spark worker processes use a group-writable umask for
+new shared output paths.
 
 Start both optional profiles with:
 
@@ -268,9 +274,17 @@ tables. Development worker resources, local-volume sharing, object retention,
 production authentication, and multi-node storage behavior have not been
 production-validated.
 
+Spark currently coalesces each curated output to at most four data partitions
+per organization and dataset. This bounds per-job fan-out but can still create
+many small Parquet files across a large tenant population; file sizing and
+consolidation have not been benchmarked and need deployment-specific tuning.
+
 Spark transformation tests live under `spark/tests`; they use a local Spark
-session and validate JSONL ingestion, tenant constraints, decimal schemas,
-curated results, and Parquet read-back. Django/PostgreSQL publication tests
-remain under `backend/analytics/tests`. This deterministic analytics foundation
-is suitable for later BI consumers. M10.8 does not include predictive,
-anomaly-detection, AI, or automated accounting behavior.
+session and cover JSONL ingestion, tenant constraints, decimal schemas, curated
+results, and Parquet read-back. The current environment did not execute these
+tests because its Python 3.14 host has no compatible Spark runtime available and
+the isolated container image transfer stalled; CI currently does not run this
+separate Spark suite. Django/PostgreSQL publication tests remain under
+`backend/analytics/tests`. This deterministic analytics foundation is suitable
+for later BI consumers. M10.8 does not include predictive, anomaly-detection,
+AI, or automated accounting behavior.
