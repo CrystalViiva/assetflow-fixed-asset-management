@@ -8,13 +8,16 @@ import React, { useState, useEffect } from 'react';
 import { Asset } from '../types';
 import { assetRepository } from '../services/assetRepository';
 import { formatNaira } from '../services/depreciationCalculator';
+import { dataSource } from '../services/config';
+import { BackendAcquisitions } from './BackendAcquisitions';
 
 interface AcquisitionsViewProps {
   onNavigate: (route: string) => void;
   onSelectAsset: (assetId: string) => void;
 }
 
-export const AcquisitionsView: React.FC<AcquisitionsViewProps> = ({ onNavigate, onSelectAsset }) => {
+export const AcquisitionsView: React.FC<AcquisitionsViewProps> = props => dataSource === 'django' ? <BackendAcquisitions {...props} /> : <MockAcquisitionsView {...props} />;
+const MockAcquisitionsView: React.FC<AcquisitionsViewProps> = ({ onNavigate, onSelectAsset }) => {
   const [assets, setAssets] = useState<Asset[]>([]);
 
   useEffect(() => {

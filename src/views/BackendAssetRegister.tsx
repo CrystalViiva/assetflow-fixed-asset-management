@@ -3,11 +3,15 @@ import { useAssets } from '../services/assetQueries';
 import { AssetQuery, defaultAssetQuery } from '../services/djangoApiBridge';
 import { assetStatuses, formatDecimal } from '../services/assetDtos';
 import { EmptyState, ErrorState, LoadingState } from '../components/common/AsyncState';
+import { ReferenceSelect } from '../components/common/ReferenceSelect';
+import { useAuth } from '../auth/AuthProvider';
+import { canManageAssets } from '../services/acquisitionQueries';
 
 export function updateAssetFilters(query: AssetQuery, update: Partial<AssetQuery>): AssetQuery {
   return { ...query, ...update, page: 1 };
 }
 export function BackendAssetRegister({ onSelectAsset, globalSearch }: { onSelectAsset: (id: string) => void; globalSearch: string }) {
+  const { role } = useAuth();
   const [query, setQuery] = useState<AssetQuery>({ ...defaultAssetQuery, search: globalSearch });
   const [lastGlobalSearch, setLastGlobalSearch] = useState(globalSearch);
   // Synchronize before rendering children: never request/render the old page with a new search.
@@ -20,7 +24,8 @@ export function BackendAssetRegister({ onSelectAsset, globalSearch }: { onSelect
   const inputClass = 'block mt-1 w-full rounded-md border border-slate-300 p-2 bg-white text-sm';
   return <section className="p-4 md:p-6 space-y-4">
     <div className="flex items-center justify-between gap-4"><div><h1 className="text-2xl font-bold">Asset Register</h1>
-      <p className="text-sm text-slate-500 mt-1">Django API · Read-only asset records</p></div>
+      <p className="text-sm text-slate-500 mt-1">Django API · Asset records</p></div>
+      {canManageAssets(role) && <a className="bg-[#00288e] text-white rounded-lg px-4 py-2 text-sm" href="#asset-create">Register new asset</a>}
       <button className="border rounded-lg px-4 py-2 text-sm bg-white disabled:opacity-50" disabled={result.isFetching} onClick={() => void result.refetch()}>Refresh</button></div>
     <div className="bg-white rounded-xl border p-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <label className="text-sm font-medium sm:col-span-2">Search assets<input className={inputClass} value={query.search} onChange={e => change({ search: e.target.value })} placeholder="Tag, name, serial, model, manufacturer, description" /></label>
@@ -30,9 +35,9 @@ export function BackendAssetRegister({ onSelectAsset, globalSearch }: { onSelect
         <option value="name">Name (ascending)</option><option value="-name">Name (descending)</option>
         <option value="-acquisitionDate">Acquisition date (newest)</option><option value="-purchaseCost">Purchase cost (highest)</option><option value="-bookValue">Book value (highest)</option>
       </select></label>
-      {(['category', 'department', 'location'] as const).map(field => <label key={field} className="text-sm font-medium capitalize">{field} (exact name or UUID)<input className={inputClass} value={query[field]} onChange={e => change({ [field]: e.target.value })} /></label>)}
+      {(['category', 'department', 'location'] as const).map(field => <ReferenceSelect key={field} kind={field === 'category' ? 'categories' : field === 'department' ? 'departments' : 'locations'} label={field[0].toUpperCase()+field.slice(1)} value={query[field]} onChange={value => change({ [field]:value })} />)}
       <label className="text-sm font-medium">Rows per page<select className={inputClass} value={query.pageSize} onChange={e => change({ pageSize: Number(e.target.value) })}>{[10,25,50,100].map(size => <option key={size}>{size}</option>)}</select></label>
-      <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-4">Filters run on the server. Custody, warranty, cost-range and audit quick filters are not available in F1. Amounts use the organization's accounting currency; the asset API does not expose its code.</p>
+      <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-4">Filters run on the server. Custody, warranty, cost-range and audit quick filters are not available in Django mode. Amounts use the organization's accounting currency; the asset API does not expose its code.</p>
     </div>
     <div className="bg-white rounded-xl border overflow-hidden" aria-busy={result.isFetching}>
       {result.isPending ? <LoadingState /> : result.isError ? <ErrorState error={result.error} retry={() => void result.refetch()} /> : <>

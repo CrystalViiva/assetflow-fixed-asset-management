@@ -10,8 +10,11 @@ import React, { useState, useMemo } from 'react';
 import { Asset, AssetCategory, Department, LocationHub } from '../types';
 import { assetRepository } from '../services/assetRepository';
 import { formatNaira, calculateStraightLine } from '../services/depreciationCalculator';
+import { dataSource } from '../services/config';
+import { BackendAssetCreate } from './BackendAssetCreate';
 
 interface AssetCreateViewProps {
+  resumeAssetId?: string;
   categories: AssetCategory[];
   departments: Department[];
   locations: LocationHub[];
@@ -19,7 +22,11 @@ interface AssetCreateViewProps {
   onAssetCreated: (asset: Asset) => void;
 }
 
-export const AssetCreateView: React.FC<AssetCreateViewProps> = ({
+export const AssetCreateView: React.FC<AssetCreateViewProps> = props => dataSource === 'django'
+  ? <BackendAssetCreate key={props.resumeAssetId || 'new'} onNavigate={props.onNavigate} resumeAssetId={props.resumeAssetId} />
+  : <MockAssetCreateView {...props} />;
+
+const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
   categories,
   departments,
   locations,

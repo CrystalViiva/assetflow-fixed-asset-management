@@ -6,7 +6,7 @@ AssetFlow is a fixed asset management system that implements selected asset-acco
 
 - Milestones 1-9 and M10.1-M10.8 are implemented: backend foundation, asset/accounting workflows, deterministic assurance, Celery-backed assurance execution, daily assurance orchestration, scheduled monthly depreciation, organization-scoped reporting snapshots, scalable assurance execution, private verification evidence, durable CSV/JSON exports, Airflow-orchestrated analytics extraction, and PySpark curated analytics processing.
 - The backend uses Django 5.2, Django REST Framework, PostgreSQL, psycopg3, JWT authentication, drf-spectacular/OpenAPI, and Celery/Redis workers with Beat orchestration.
-- F1 connects the preserved React 19/TypeScript/Vite/Tailwind frontend to Django JWT authentication, Asset Register and Asset Detail Overview. Explicit mock mode remains available; other Django-mode screens show integration pending. See [the F1 frontend guide](docs/frontend-f1.md) for configuration, contracts, security tradeoffs and validation.
+- F1 and F2 connect the preserved React 19/TypeScript/Vite/Tailwind frontend to Django JWT authentication, Asset Register/Detail, reference data, asset creation, acquisition and capitalization. Explicit mock mode remains available; unintegrated Django-mode screens show integration pending. See [the F2 frontend guide](docs/frontend-f2.md) for integrated workflow, configuration and validation, and [the F1 guide](docs/frontend-f1.md) for authentication and transport details.
 - PostgreSQL is required through `DATABASE_URL`; there is no implicit SQLite fallback.
 - Reducing balance, units of production, sum-of-years-digits depreciation calculations, impairment, and AI/anomaly analytics are not implemented.
 

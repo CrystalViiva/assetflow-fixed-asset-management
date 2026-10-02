@@ -21,7 +21,7 @@ describe('asset DTO boundary', () => {
       .toEqual({ id:assetDto.id,name:'Operations',code:'OPS' });
   });
   it.each(['status','condition','depreciation_method'] as const)('rejects an unknown %s enum', field => {
-    expect(() => mapAssetDto({ ...assetDto,[field]:'FUTURE' })).toThrow('unsupported asset response');
+    expect(() => mapAssetDto({ ...assetDto,[field]:'FUTURE' })).toThrow('expected AssetFlow format');
   });
   it.each(['DRAFT','PENDING_CAPITALIZATION'])('supports the backend-only lifecycle state %s', status => {
     expect(mapAssetDto({ ...assetDto,status }).status).toBe(status);

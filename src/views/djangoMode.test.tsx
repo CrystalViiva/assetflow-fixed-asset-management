@@ -10,6 +10,19 @@ import { apiClient } from '../services/runtime';
 import { MockAssetRepository } from '../services/assetRepository';
 import { assetDto, identity, json } from '../test/fixtures';
 
+const emptyPage = { count:0,next:null,previous:null,results:[] };
+const categoryPage = { count:1,next:null,previous:null,results:[{ id:assetDto.category_id,organization_id:assetDto.organization_id,
+  organization_name:'Test Organization',name:'Equipment',code:'EQ',is_active:true,description:'',default_useful_life_months:120,
+  default_depreciation_method:'SLM',capitalization_threshold:'0.00',created_at:'2026-01-01T00:00:00Z',updated_at:'2026-01-01T00:00:00Z' }] };
+function backendData(fetcher: ReturnType<typeof vi.fn<typeof fetch>>, assetResponse: (url: string) => Response | Promise<Response>) {
+  fetcher.mockImplementation(async input => {
+    const url = String(input);
+    if (url.includes('/assets/categories/')) return json(categoryPage);
+    if (url.includes('/departments/') || url.includes('/locations/') || url.includes('/assets/acquisitions/')) return json(emptyPage);
+    return assetResponse(url);
+  });
+}
+
 afterEach(() => { vi.unstubAllGlobals(); window.location.hash = ''; });
 async function renderRealApp() {
   const client = new QueryClient({ defaultOptions:{ queries:{ retry:false } } });
@@ -17,7 +30,7 @@ async function renderRealApp() {
   const fetcher = vi.fn<typeof fetch>(); vi.stubGlobal('fetch',fetcher);
   await session.initialize(); fetcher.mockResolvedValueOnce(json({ access:'test-access',refresh:'test-refresh' })).mockResolvedValueOnce(json(identity));
   await session.login(identity.email,'test-password'); fetcher.mockReset();
-  fetcher.mockResolvedValue(json({ count:1,next:null,previous:null,results:[assetDto] }));
+  backendData(fetcher, () => json({ count:1,next:null,previous:null,results:[assetDto] }));
   vi.spyOn(window,'scrollTo').mockImplementation(() => {});
   render(<QueryClientProvider client={client}><AuthProvider value={session}><AuthenticatedApplication /></AuthProvider></QueryClientProvider>);
   return { session,client,fetcher };
@@ -37,7 +50,7 @@ it('real-mode unintegrated routes render pending instead of demo screens', async
   expect(screen.queryByText('Office generator')).toBeNull();
 });
 it('real-mode asset UUID opens only the real detail overview', async () => {
-  const c = await renderRealApp(); await screen.findByText('Office generator'); c.fetcher.mockResolvedValue(json(assetDto));
+  const c = await renderRealApp(); await screen.findByText('Office generator'); backendData(c.fetcher, () => json(assetDto));
   fireEvent.click(screen.getByRole('button',{ name:'REAL-001' }));
   expect(await screen.findByRole('heading',{ name:'REAL-001 — Office generator' })).toBeTruthy();
   expect(window.location.hash).toBe(`#asset-detail/${assetDto.id}`);

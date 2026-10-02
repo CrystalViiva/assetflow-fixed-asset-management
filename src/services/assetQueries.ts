@@ -16,7 +16,7 @@ export function useAsset(id: string) {
   return useQuery({ queryKey: [...assetKeys.scope(user?.id, generation), 'detail', id],
     queryFn: ({ signal }) => djangoRepository.getAssetById(id, signal), enabled: !!user });
 }
-// F1 is read-only. Future successful mutations invalidate the owning user's asset scope.
+// Scoped invalidation keeps successful writes from disturbing other users' cache entries.
 export function invalidateAssets(userId: number, generation: number) {
   return queryClient.invalidateQueries({ queryKey: assetKeys.scope(userId, generation) });
 }

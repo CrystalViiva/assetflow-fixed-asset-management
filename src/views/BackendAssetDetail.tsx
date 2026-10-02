@@ -1,6 +1,7 @@
 import { useAsset } from '../services/assetQueries';
 import { formatDecimal } from '../services/assetDtos';
 import { ErrorState, LoadingState } from '../components/common/AsyncState';
+import { AssetAcquisitionPanel } from './BackendAcquisitions';
 
 export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; onNavigate: (route: string) => void }) {
   const result = useAsset(assetId);
@@ -31,5 +32,6 @@ export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; o
       <p className="text-xs text-slate-500 mt-2">Values are supplied by Django. Currency is not included in this API contract. Missing fields are shown as —.</p>
       <dl className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">{fields.map(([label,value]) => <div key={label}><dt className="text-xs font-medium text-slate-500">{label}</dt><dd className="mt-1 text-sm break-words">{value === null || value === undefined || value === '' ? '—' : value}</dd></div>)}</dl>
     </div>
+    <AssetAcquisitionPanel assetId={asset.id} onNavigate={onNavigate} />
   </section>;
 }

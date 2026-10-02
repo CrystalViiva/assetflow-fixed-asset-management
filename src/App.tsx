@@ -52,6 +52,7 @@ export default function App() {
   // Navigation State (hash-supported)
   const [currentRoute, setCurrentRoute] = useState<string>(dataSource === 'django' ? 'all-assets' : 'dashboard');
   const [selectedAssetId, setSelectedAssetId] = useState<string>(dataSource === 'django' ? '' : 'AST-000002');
+  const [creationAssetId, setCreationAssetId] = useState<string | undefined>();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [globalSearch, setGlobalSearch] = useState<string>('');
 
@@ -121,7 +122,11 @@ export default function App() {
           const id = hash.replace('asset-detail/', '');
           setSelectedAssetId(id);
           setCurrentRoute('asset-detail');
+        } else if (hash.startsWith('asset-create/')) {
+          setCreationAssetId(hash.slice('asset-create/'.length));
+          setCurrentRoute('asset-create');
         } else {
+          if (hash === 'asset-create') setCreationAssetId(undefined);
           setCurrentRoute(hash);
         }
       }
@@ -135,7 +140,11 @@ export default function App() {
   }, []);
 
   const navigateTo = (route: string) => {
-    setCurrentRoute(route);
+    if (route.startsWith('asset-detail/')) {
+      setSelectedAssetId(route.slice('asset-detail/'.length)); setCurrentRoute('asset-detail');
+    } else if (route.startsWith('asset-create/')) {
+      setCreationAssetId(route.slice('asset-create/'.length)); setCurrentRoute('asset-create');
+    } else { if (route === 'asset-create') setCreationAssetId(undefined); setCurrentRoute(route); }
     window.location.hash = route;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -230,7 +239,7 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
-    if (dataSource === 'django' && !['all-assets', 'asset-detail'].includes(currentRoute)) return <IntegrationPending />;
+    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
         return (
@@ -273,6 +282,7 @@ export default function App() {
       case 'asset-create':
         return (
           <AssetCreateView
+            resumeAssetId={creationAssetId}
             categories={categories}
             departments={departments}
             locations={locations}

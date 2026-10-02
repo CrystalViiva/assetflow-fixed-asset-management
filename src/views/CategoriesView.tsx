@@ -8,12 +8,15 @@ import React, { useState, useEffect } from 'react';
 import { AssetCategory } from '../types';
 import { assetRepository } from '../services/assetRepository';
 import { formatNaira } from '../services/depreciationCalculator';
+import { dataSource } from '../services/config';
+import { BackendCategories } from './BackendCategories';
 
 interface CategoriesViewProps {
   onNavigate: (route: string) => void;
 }
 
-export const CategoriesView: React.FC<CategoriesViewProps> = ({ onNavigate }) => {
+export const CategoriesView: React.FC<CategoriesViewProps> = props => dataSource === 'django' ? <BackendCategories /> : <MockCategoriesView {...props} />;
+const MockCategoriesView: React.FC<CategoriesViewProps> = ({ onNavigate }) => {
   const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [loading, setLoading] = useState(true);
 

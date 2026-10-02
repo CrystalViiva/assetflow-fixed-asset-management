@@ -11,5 +11,6 @@ export function useAuth() {
   const value = useContext(AuthContext);
   const snapshot = useSyncExternalStore(value.subscribe, value.getSnapshot, value.getSnapshot);
   return { ...snapshot, authenticated: snapshot.user !== null, role: snapshot.user?.role ?? null,
-    login: value.login, logout: value.logout, generation: value.generation };
+    login: value.login, logout: value.logout, generation: value.generation,
+    isCurrent: (generation: number) => value.generation === generation && value.getSnapshot().user !== null };
 }

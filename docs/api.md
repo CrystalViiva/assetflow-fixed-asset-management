@@ -36,6 +36,7 @@ List endpoints use DRF page-number pagination with a default page size of 25 and
 - `GET /api/v1/assets/by-tag/{asset_tag}/` retrieve an asset by its organization-scoped tag.
 - `GET/POST /api/v1/assets/categories/` list or create categories.
 - `GET/PATCH/PUT /api/v1/assets/categories/{id}/` retrieve or update a category. Physical deletion is not exposed.
+- `GET /api/v1/departments/` and `GET /api/v1/locations/` return organization-scoped, paginated reference choices (`id`, `organization_id`, `name`, `code`, `is_active`). These lookup routes are read-only and require an authenticated organization member.
 
 Asset lists accept `status`, `category` (UUID) or the frontend-compatible `category__name`, `department` or `department__name`, `location` or `location__name`, `manufacturer`, `acquisition_date_after`, `acquisition_date_before`, `search`, and `ordering`. Search checks tag, name, serial/model number, manufacturer, and description. Ordering is limited to explicitly supported fields.
 

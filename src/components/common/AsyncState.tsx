@@ -13,6 +13,6 @@ export function EmptyState() {
 }
 export function IntegrationPending() {
   return <div className="m-6 p-8 rounded-xl border bg-white"><h1 className="text-xl font-bold">Integration pending</h1>
-    <p className="mt-2 text-slate-600">Django mode currently connects the Asset Register and Asset Detail Overview. This screen will be connected in a later milestone.</p>
+    <p className="mt-2 text-slate-600">Django mode connects the Asset Register, Asset Detail, asset creation, acquisition/capitalization, categories and acquisitions ledger. This screen will be connected in a later milestone.</p>
     <a className="inline-block mt-4 text-[#00288e] underline" href="#all-assets">Open Asset Register</a></div>;
 }
