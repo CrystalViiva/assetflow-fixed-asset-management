@@ -21,6 +21,7 @@ import {
   UserProfile,
 } from '../types';
 import { calculateStraightLine } from './depreciationCalculator';
+import { dataSource } from './config';
 
 export interface AssetFilterParams {
   search?: string;
@@ -105,6 +106,7 @@ const STORAGE_KEY_PREFIX = 'assetflow_storage_';
  */
 export class MockAssetRepository implements IAssetRepository {
   private getStorage<T>(key: string, defaultVal: T): T {
+    if (dataSource !== 'mock') throw new Error('Mock data is unavailable in Django mode.');
     try {
       const data = localStorage.getItem(STORAGE_KEY_PREFIX + key);
       return data ? JSON.parse(data) : defaultVal;
@@ -114,6 +116,7 @@ export class MockAssetRepository implements IAssetRepository {
   }
 
   private setStorage<T>(key: string, value: T): void {
+    if (dataSource !== 'mock') throw new Error('Mock data is unavailable in Django mode.');
     try {
       localStorage.setItem(STORAGE_KEY_PREFIX + key, JSON.stringify(value));
     } catch (e) {
@@ -716,6 +719,7 @@ export class MockAssetRepository implements IAssetRepository {
   }
 
   async getUsers(): Promise<UserProfile[]> {
+    if (dataSource !== 'mock') throw new Error('Mock data is unavailable in Django mode.');
     return DEFAULT_USERS;
   }
 
@@ -815,6 +819,7 @@ export class MockAssetRepository implements IAssetRepository {
   }
 
   async resetToDefaultData(): Promise<void> {
+    if (dataSource !== 'mock') throw new Error('Mock data is unavailable in Django mode.');
     localStorage.removeItem(STORAGE_KEY_PREFIX + 'assets');
     localStorage.removeItem(STORAGE_KEY_PREFIX + 'transfers');
     localStorage.removeItem(STORAGE_KEY_PREFIX + 'maintenance');

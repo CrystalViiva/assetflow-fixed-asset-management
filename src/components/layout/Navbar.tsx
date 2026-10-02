@@ -7,6 +7,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { AssetFlowLogo } from '../common/AssetFlowLogo';
+import { dataSource } from '../../services/config';
+import { useAuth } from '../../auth/AuthProvider';
 
 interface NavbarProps {
   onNavigate: (route: string) => void;
@@ -15,7 +17,20 @@ interface NavbarProps {
   setGlobalSearch: (s: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
+export const Navbar: React.FC<NavbarProps> = (props) => dataSource === 'django' ? <AuthenticatedNavbar {...props} /> : <MockNavbar {...props} />;
+
+function AuthenticatedNavbar({ onNavigate, globalSearch, setGlobalSearch }: NavbarProps) {
+  const { user, role, logout } = useAuth();
+  return <header className="fixed top-0 left-0 right-0 h-12 bg-white z-50 flex items-center justify-between gap-3 px-4 border-b border-slate-200">
+    <button onClick={() => onNavigate('all-assets')} className="flex items-center gap-2 font-bold text-[#00288e]"><AssetFlowLogo className="w-7 h-7" />AssetFlow</button>
+    <span className="hidden lg:inline text-xs text-blue-700">Django API</span>
+    <input aria-label="Global asset search" className="rounded border bg-slate-50 p-1.5 text-sm min-w-0 max-w-md flex-1" placeholder="Search assets" value={globalSearch} onChange={e => { setGlobalSearch(e.target.value); onNavigate('all-assets'); }} />
+    <div className="hidden md:block text-right text-xs"><div>{user?.email}</div><div className="text-slate-500">{role?.replaceAll('_', ' ')}</div></div>
+    <button onClick={logout} className="border rounded px-3 py-1.5 text-sm">Sign out</button>
+  </header>;
+}
+
+const MockNavbar: React.FC<NavbarProps> = ({
   onNavigate,
   onOpenQuickAction,
   globalSearch,
@@ -78,7 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <div className="hidden xl:flex items-center gap-1.5 pl-2 border-l border-slate-200">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-          <span className="text-[11px] text-[#444653] font-medium">Production (Lagos HQ)</span>
+          <span className="text-[11px] text-[#444653] font-medium">Mock demo · Local data</span>
         </div>
       </div>
 

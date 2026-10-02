@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { dataSource } from '../../services/config';
 
 interface SidebarProps {
   currentRoute: string;
@@ -49,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 : 'text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e]'
             }`}
           >
-            <span className="material-symbols-outlined text-[18px]">grid_view</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">grid_view</span>
             {!isCollapsed && <span>Dashboard</span>}
           </button>
         </div>
@@ -70,10 +71,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center justify-between px-2.5 py-1.5 text-[13px] text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e] rounded transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">inventory_2</span>
                     <span>Assets</span>
                   </div>
-                  <span className="material-symbols-outlined text-[16px] text-slate-400">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-slate-400">
                     {assetsOpen ? 'expand_less' : 'expand_more'}
                   </span>
                 </button>
@@ -90,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }`}
                     >
                       <span>All Assets</span>
-                      <span
+                      {dataSource === 'mock' && <span
                         className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                           isActive('all-assets')
                             ? 'bg-blue-800 text-white'
@@ -98,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         1,284
-                      </span>
+                      </span>}
                     </button>
 
                     <button
@@ -132,9 +133,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }`}
                     >
                       <span>Transfers</span>
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#ffdad6] text-[#93000a]">
+                      {dataSource === 'mock' && <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#ffdad6] text-[#93000a]">
                         4 pending
-                      </span>
+                      </span>}
                     </button>
 
                     <button
@@ -158,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   isActive('all-assets') ? 'bg-[#00288e] text-white' : 'text-slate-600 hover:bg-[#eff4ff]'
                 }`}
               >
-                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">inventory_2</span>
               </button>
             )}
 
@@ -172,7 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e]'
               }`}
             >
-              <span className="material-symbols-outlined text-[18px]">calculate</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">calculate</span>
               {!isCollapsed && <span>Depreciation</span>}
             </button>
 
@@ -187,10 +188,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[18px]">build</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">build</span>
                 {!isCollapsed && <span>Maintenance</span>}
               </div>
-              {!isCollapsed && (
+              {!isCollapsed && dataSource === 'mock' && (
                 <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#ffdad6] text-[#93000a]">
                   2 overdue
                 </span>
@@ -207,7 +208,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e]'
               }`}
             >
-              <span className="material-symbols-outlined text-[18px]">archive</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">archive</span>
               {!isCollapsed && <span>Disposals</span>}
             </button>
           </div>
@@ -230,7 +231,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e]'
               }`}
             >
-              <span className="material-symbols-outlined text-[18px]">bar_chart</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">bar_chart</span>
               {!isCollapsed && <span>Reports</span>}
             </button>
 
@@ -243,7 +244,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e]'
               }`}
             >
-              <span className="material-symbols-outlined text-[18px]">verified_user</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">verified_user</span>
               {!isCollapsed && <span>Audit Log</span>}
             </button>
           </div>
@@ -264,10 +265,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className="w-full flex items-center justify-between px-2.5 py-1.5 text-[13px] text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e] rounded transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="material-symbols-outlined text-[18px]">apartment</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">apartment</span>
                     <span>Organization</span>
                   </div>
-                  <span className="material-symbols-outlined text-[16px] text-slate-400">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-slate-400">
                     {orgOpen ? 'expand_less' : 'expand_more'}
                   </span>
                 </button>
@@ -315,7 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 title="Organization"
                 className="w-full flex items-center justify-center p-2 rounded text-slate-600 hover:bg-[#eff4ff]"
               >
-                <span className="material-symbols-outlined text-[18px]">apartment</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">apartment</span>
               </button>
             )}
 
@@ -328,7 +329,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e]'
               }`}
             >
-              <span className="material-symbols-outlined text-[18px]">tune</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">tune</span>
               {!isCollapsed && <span>Settings</span>}
             </button>
           </div>
@@ -340,12 +341,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-2 bg-[#eff4ff]/80 border-t border-slate-200">
           <div className="flex items-center justify-between px-2 py-1 rounded bg-white text-[11px] mb-1 border border-slate-200/60 shadow-2xs">
             <span className="text-slate-500 font-medium">Period:</span>
-            <span className="text-emerald-700 font-bold">FY 2025 - Q1 Active</span>
+            <span className="text-emerald-700 font-bold">{dataSource === 'django' ? 'Integration pending' : 'FY 2025 - Q1 Active'}</span>
           </div>
 
           <div className="flex items-center justify-between px-2 py-1 rounded bg-white text-[11px] mb-2 border border-slate-200/60 shadow-2xs">
             <span className="text-slate-500 font-medium">Base Currency:</span>
-            <span className="font-mono font-bold text-slate-900">NGN (₦)</span>
+            <span className="font-mono font-bold text-slate-900">{dataSource === 'django' ? 'Not provided by API' : 'NGN (₦)'}</span>
           </div>
 
           <button
@@ -353,7 +354,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-full flex items-center justify-center gap-1.5 py-1 text-[11px] text-slate-600 hover:bg-slate-200/60 rounded transition-colors"
             title="Collapse navigation panel"
           >
-            <span className="material-symbols-outlined text-[16px]">keyboard_double_arrow_left</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">keyboard_double_arrow_left</span>
             <span className="font-semibold">Collapse Sidebar</span>
           </button>
         </div>
@@ -364,7 +365,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="p-1.5 text-slate-500 hover:bg-slate-100 rounded"
             title="Expand Sidebar"
           >
-            <span className="material-symbols-outlined text-[18px]">keyboard_double_arrow_right</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">keyboard_double_arrow_right</span>
           </button>
         </div>
       )}

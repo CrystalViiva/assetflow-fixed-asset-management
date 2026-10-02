@@ -11,6 +11,9 @@ import { Asset, MaintenanceRecord, Transfer, AuditLogEntry, DepreciationSchedule
 import { assetRepository } from '../services/assetRepository';
 import { formatNaira, generateDepreciationSchedule } from '../services/depreciationCalculator';
 
+import { dataSource } from '../services/config';
+import { BackendAssetDetail } from './BackendAssetDetail';
+
 interface AssetDetailViewProps {
   assetId: string;
   onNavigate: (route: string) => void;
@@ -20,7 +23,11 @@ interface AssetDetailViewProps {
   onTriggerDisposal: (asset: Asset) => void;
 }
 
-export const AssetDetailView: React.FC<AssetDetailViewProps> = ({
+export const AssetDetailView: React.FC<AssetDetailViewProps> = (props) => dataSource === 'django'
+  ? <BackendAssetDetail assetId={props.assetId} onNavigate={props.onNavigate} />
+  : <MockAssetDetailView {...props} />;
+
+const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
   assetId,
   onNavigate,
   onTriggerPrintBarcode,

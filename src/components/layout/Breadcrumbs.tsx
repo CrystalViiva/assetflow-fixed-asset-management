@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { dataSource } from '../../services/config';
 
 interface BreadcrumbsProps {
   currentRoute: string;
@@ -82,14 +83,14 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentRoute, subTitle
           onClick={() => onNavigate('locations')}
           className="hover:text-slate-800 cursor-pointer transition-colors"
         >
-          Lagos Corporate Facility
+          {dataSource === 'django' ? 'AssetFlow workspace' : 'Lagos Corporate Facility'}
         </span>
         <span className="text-slate-300">/</span>
         <span
           onClick={() => onNavigate('dashboard')}
           className="hover:text-slate-800 cursor-pointer transition-colors"
         >
-          Treasury & Asset Accounting
+          {dataSource === 'django' ? 'Asset management' : 'Treasury & Asset Accounting'}
         </span>
         <span className="text-slate-300">/</span>
         <span className="text-slate-900 font-semibold">{getRouteLabel()}</span>

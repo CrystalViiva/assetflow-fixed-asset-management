@@ -9,6 +9,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Asset, AssetCategory, Department, LocationHub } from '../types';
 import { assetRepository, AssetFilterParams } from '../services/assetRepository';
 import { formatNaira } from '../services/depreciationCalculator';
+import { dataSource } from '../services/config';
+import { BackendAssetRegister } from './BackendAssetRegister';
 
 interface AssetRegisterViewProps {
   onNavigate: (route: string) => void;
@@ -18,7 +20,11 @@ interface AssetRegisterViewProps {
   globalSearch: string;
 }
 
-export const AssetRegisterView: React.FC<AssetRegisterViewProps> = ({
+export const AssetRegisterView: React.FC<AssetRegisterViewProps> = (props) => dataSource === 'django'
+  ? <BackendAssetRegister onSelectAsset={props.onSelectAsset} globalSearch={props.globalSearch} />
+  : <MockAssetRegisterView {...props} />;
+
+const MockAssetRegisterView: React.FC<AssetRegisterViewProps> = ({
   onNavigate,
   onSelectAsset,
   onOpenQuickAction,

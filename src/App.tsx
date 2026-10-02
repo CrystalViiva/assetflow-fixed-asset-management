@@ -38,6 +38,8 @@ import { DisposeAssetModal } from './components/modals/DisposeAssetModal';
 // Types & Services
 import { Asset, AssetCategory, Department, LocationHub, Transfer, MaintenanceRecord, DisposalRecord } from './types';
 import { assetRepository } from './services/assetRepository';
+import { dataSource } from './services/config';
+import { IntegrationPending } from './components/common/AsyncState';
 
 interface ToastNotification {
   id: string;
@@ -48,8 +50,8 @@ interface ToastNotification {
 
 export default function App() {
   // Navigation State (hash-supported)
-  const [currentRoute, setCurrentRoute] = useState<string>('dashboard');
-  const [selectedAssetId, setSelectedAssetId] = useState<string>('AST-000002');
+  const [currentRoute, setCurrentRoute] = useState<string>(dataSource === 'django' ? 'all-assets' : 'dashboard');
+  const [selectedAssetId, setSelectedAssetId] = useState<string>(dataSource === 'django' ? '' : 'AST-000002');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [globalSearch, setGlobalSearch] = useState<string>('');
 
@@ -89,6 +91,7 @@ export default function App() {
 
   // Load initial data
   const loadMasterData = useCallback(async () => {
+    if (dataSource === 'django') return;
     try {
       const [assetListRes, catList, deptList, locList] = await Promise.all([
         assetRepository.getAssets({ pageSize: 100 }),
@@ -146,6 +149,7 @@ export default function App() {
 
   // Quick Action Handler (from Navbar or Views)
   const handleOpenQuickAction = (action: string) => {
+    if (dataSource === 'django') return;
     const targetAsset = assets.find((a) => a.id === selectedAssetId) || assets[0] || null;
     if (action === 'transfer') {
       setSelectedTransferAsset(targetAsset);
@@ -226,6 +230,7 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
+    if (dataSource === 'django' && !['all-assets', 'asset-detail'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
         return (
