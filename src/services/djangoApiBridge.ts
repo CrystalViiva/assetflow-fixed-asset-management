@@ -38,6 +38,18 @@ export class DjangoAssetRepository implements AssetReader {
     const body = await this.api.request('/assets/', { query: params, signal });
     return mapAssetPage(parsePageDto(body, parseAssetDto), query.page, params.page_size);
   }
+  async getAllAssets(query: Omit<AssetQuery, 'page'>, signal?: AbortSignal): Promise<AssetPage> {
+    const rows: AssetRecord[] = []; const seen = new Set<string>(); let total: number | undefined; let page = 1; let last: AssetPage | undefined;
+    do {
+      last = await this.getAssets({ ...query, page }, signal);
+      if (total === undefined) total = last.total;
+      if (last.total !== total || rows.length + last.data.length > total || (!last.data.length && last.hasNext)) throw new ApiError('contract', 'Asset pagination changed unexpectedly. Reload the page.');
+      for (const asset of last.data) { if (seen.has(asset.id)) throw new ApiError('contract', 'Asset pagination returned duplicates. Reload the page.'); seen.add(asset.id); rows.push(asset); }
+      page += 1;
+    } while (last.hasNext);
+    if (rows.length !== total) throw new ApiError('contract', 'Asset data is incomplete. Reload the page.');
+    return { ...last, data:rows, page:1, totalPages:Math.max(1,Math.ceil(total / last.pageSize)), hasNext:false, hasPrevious:false };
+  }
   async getAssetById(id: string, signal?: AbortSignal): Promise<AssetRecord> {
     if (!uuidPattern.test(id)) throw new ApiError('not-found', 'The requested asset ID is not a valid UUID.', 404);
     return mapAssetDto(parseAssetDto(await this.api.request(`/assets/${id}/`, { signal })));

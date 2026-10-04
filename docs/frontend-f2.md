@@ -6,7 +6,7 @@ F2 extends the F1 browser to Django workflow for reference lookups, Asset Regist
 
 Set `VITE_DATA_SOURCE=mock` to use the existing localStorage demo workflows. Set `VITE_DATA_SOURCE=django` to use the authenticated API. An invalid value fails during startup. Django mode never falls back to demo records. Configure `VITE_BACKEND_API_URL=/api/v1` and `DJANGO_DEV_PROXY_TARGET=http://127.0.0.1:8000` for local development; Vite proxies requests on the same origin, so development does not need broad CORS. Production should use an HTTPS reverse proxy or an explicitly restricted HTTPS API origin.
 
-The integrated Django screens are Asset Register, Asset Detail Overview and its real acquisition panel, asset creation/acquisition/capitalization, Category Register read view, and Acquisitions Ledger. The existing six non-overview detail tabs and remaining organization/lifecycle/report views stay explicitly pending. Category write CRUD is not exposed. Mock mode retains its existing demo interactions and storage.
+The F2 integrated Django screens are Asset Register, Asset Detail Overview and its real acquisition panel, asset creation/acquisition/capitalization, Category Register read view, and Acquisitions Ledger. F3 subsequently integrated the Asset Detail Depreciation tab and depreciation workflow; the other non-overview detail tabs and remaining organization/lifecycle/report views stay explicitly pending. Category write CRUD is not exposed. Mock mode retains its existing demo interactions and storage.
 
 ## Reference data and DTO boundary
 

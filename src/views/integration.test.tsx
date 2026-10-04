@@ -124,8 +124,8 @@ describe('real asset detail and cache security', () => {
     render(frame(c.session,c.client,<BackendAssetDetail assetId={assetDto.id} onNavigate={() => {}} />));
     expect(screen.getByRole('status').textContent).toContain('Loading asset details');
     await act(async () => { pending.resolve(json(assetDto)); });
-    expect(await screen.findByRole('heading',{ name:'REAL-001 — Office generator' })).toBeTruthy();
-    const tabs = screen.getAllByRole('button',{ name:/Integration pending/ }); expect(tabs).toHaveLength(6);
+    expect(await screen.findByRole('heading',{ name:'REAL-001 - Office generator' })).toBeTruthy();
+    const tabs = screen.getAllByRole('button',{ name:/Integration pending/ }); expect(tabs).toHaveLength(5);
     for (const tab of tabs) expect(tab.hasAttribute('disabled')).toBe(true);
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });

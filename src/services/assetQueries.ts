@@ -11,6 +11,11 @@ export function useAssets(query: AssetQuery) {
   return useQuery({ queryKey: [...assetKeys.scope(user?.id, generation), 'list', query],
     queryFn: ({ signal }) => djangoRepository.getAssets(query, signal), enabled: !!user });
 }
+export function useAllAssets(query: Omit<AssetQuery, 'page'>) {
+  const { user, generation } = useAuth();
+  return useQuery({ queryKey: [...assetKeys.scope(user?.id, generation), 'all', query],
+    queryFn: ({ signal }) => djangoRepository.getAllAssets(query, signal), enabled: !!user });
+}
 export function useAsset(id: string) {
   const { user, generation } = useAuth();
   return useQuery({ queryKey: [...assetKeys.scope(user?.id, generation), 'detail', id],

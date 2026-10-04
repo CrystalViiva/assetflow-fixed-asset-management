@@ -34,10 +34,10 @@ def seed():
     from organizations.models import Department, Location, Organization
 
     # This child must only ever connect to the random database selected by the parent.
-    prefix = "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
+    prefix = "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
     assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
     assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
-    organization = Organization.objects.create(name="F2 smoke" if prefix.endswith("f2_") else "F1 smoke", code="F2SMOKE" if prefix.endswith("f2_") else "F1SMOKE")
+    organization = Organization.objects.create(name=f"{prefix[:-1].upper()} smoke", code=f"{prefix[:-1].upper()}SMOKE")
     User.objects.create_user(
         os.environ["F1_SMOKE_EMAIL"], os.environ["F1_SMOKE_PASSWORD"],
         organization=organization, role="ASSET_MANAGER",
@@ -45,7 +45,7 @@ def seed():
     category = AssetCategory.objects.create(
         organization=organization, name="Equipment", code="EQ", default_useful_life_months=36,
     )
-    if prefix.endswith("f2_"):
+    if prefix.endswith(("f2_", "f3_")):
         Department.objects.create(organization=organization, name="Operations", code="OPS")
         Location.objects.create(organization=organization, name="Main Plant", code="PLANT")
         return
@@ -56,9 +56,9 @@ def seed():
         )
 
 
-def run(f2=False):
+def run(f2=False, f3=False):
     database = settings.DATABASES["default"]
-    prefix = "assetflow_f2_" if f2 else "assetflow_f1_"
+    prefix = "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
     name = prefix + uuid.uuid4().hex
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -75,7 +75,7 @@ def run(f2=False):
     db_port = database["PORT"] or 5432
     environment.update({
         "DATABASE_URL": f"postgresql://{user}:{password}@{host}:{db_port}/{name}",
-        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "",
+        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "",
         "F1_SMOKE_EMAIL": "smoke@example.test",
         "F1_SMOKE_PASSWORD": secrets.token_urlsafe(32),
         "F1_SMOKE_URL": f"http://127.0.0.1:{port}/api/v1",
@@ -116,7 +116,7 @@ def run(f2=False):
         else:
             raise RuntimeError("Isolated Django server did not become ready.")
         result = subprocess.run(
-            ["node", "--import", "tsx", "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"], cwd=ROOT, env=environment,
+            ["node", "--import", "tsx", "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"], cwd=ROOT, env=environment,
             capture_output=True, text=True, timeout=60, creationflags=flags, check=False,
         )
         if result.returncode:
@@ -125,7 +125,7 @@ def run(f2=False):
                     print(line)
             raise RuntimeError("Frontend API smoke failed; captured output withheld to protect temporary credentials.")
         print(result.stdout.strip())
-        if f2:
+        if f2 or f3:
             result = subprocess.run(
                 [sys.executable, str(Path(__file__).resolve()), "--verify"], cwd=ROOT, env=environment,
                 capture_output=True, text=True, timeout=30, creationflags=flags, check=False,
@@ -134,7 +134,10 @@ def run(f2=False):
                 for line in result.stdout.splitlines():
                     if line.startswith("VERIFY:"):
                         print(line)
-                raise RuntimeError("F2 PostgreSQL state and audit verification failed; details withheld.")
+                if result.stderr:
+                    last = result.stderr.strip().splitlines()[-1]
+                    print(f"VERIFY: verifier raised {last.split(':', maxsplit=1)[0]}")
+                raise RuntimeError("F2/F3 PostgreSQL state and audit verification failed; details withheld.")
             print(result.stdout.strip())
     finally:
         if server:
@@ -157,8 +160,10 @@ if __name__ == "__main__":
         from assets.models import Acquisition, Asset
         from audit.models import AuditLog
         assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
-        assert os.environ["F1_SMOKE_DATABASE"].startswith("assetflow_f2_")
-        asset = Asset.objects.get(asset_tag="F2-SMOKE-001")
+        f3 = bool(os.environ.get("F3_SMOKE_MODE"))
+        prefix = "assetflow_f3_" if f3 else "assetflow_f2_"
+        assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
+        asset = Asset.objects.get(asset_tag="F3-SMOKE-001" if f3 else "F2-SMOKE-001")
         acquisition = Acquisition.objects.get(asset=asset)
         def check(condition, label):
             if not condition:
@@ -175,12 +180,32 @@ if __name__ == "__main__":
             , "component costs")
         events = set(AuditLog.objects.filter(metadata__asset_id=str(asset.pk)).values_list("action", flat=True))
         assert check("ASSET_CAPITALIZED" in events and "ACQUISITION_CAPITALIZED" in events, "capitalization audit events")
+        if f3:
+            from depreciation.models import (
+                AccountingPeriod,
+                DepreciationEntry,
+                DepreciationSchedule,
+            )
+            period = AccountingPeriod.objects.get(organization=asset.organization, year=2026, month=1)
+            entry = DepreciationEntry.objects.get(asset=asset, accounting_period=period)
+            schedule = DepreciationSchedule.objects.get(asset=asset)
+            events = set(AuditLog.objects.filter(metadata__asset_id=str(asset.pk)).values_list("action", flat=True))
+            assert check(period.status == "CLOSED", "closed period state")
+            assert check(schedule.method == "SLM" and schedule.start_date.isoformat() == "2026-01-02", "backend schedule policy and available-for-use start")
+            assert check([str(entry.opening_book_value), str(entry.depreciation_amount), str(entry.accumulated_depreciation), str(entry.closing_book_value)] == ["1001.00", "25.03", "25.03", "975.97"], "exact first-month backend posting")
+            assert check(str(asset.accumulated_depreciation) == "25.03" and str(asset.current_book_value) == "975.97", "authoritative post-posting asset balances")
+            period_events = set(AuditLog.objects.filter(organization=asset.organization, entity_id=str(period.pk)).values_list("action", flat=True))
+            assert check("ACCOUNTING_PERIOD_CREATED" in period_events and "ACCOUNTING_PERIOD_CLOSED" in period_events, "period audit events")
+            assert check("DEPRECIATION_SCHEDULE_CREATED" in events and "DEPRECIATION_POSTED" in events, "schedule/posting audit events")
+            print("PASS: isolated PostgreSQL F3 entry exactly posts 25.03 for the full January 2026 available-for-use month, closes at 975.97 above the 100.00 residual floor, and records audit history.")
+            sys.exit(0)
         print("PASS: isolated PostgreSQL holds one tenant asset and acquisition with exact components, ACTIVE lifecycle and capitalization audit.")
     else:
         try:
-            run(f2=sys.argv[1:] == ["--f2"])
+            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"])
         except Exception as error:  # noqa: BLE001 -- Do not print exception bodies containing credentials.
-            print(f"F2 smoke unavailable/failed ({type(error).__name__}); no connection details printed." if sys.argv[1:] == ["--f2"] else f"F1 smoke unavailable/failed ({type(error).__name__}); no connection details printed.")
+            mode = "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
+            print(f"{mode} smoke unavailable/failed ({type(error).__name__}); no connection details printed.")
             if isinstance(error, RuntimeError):
                 print(str(error))
             sys.exit(1)

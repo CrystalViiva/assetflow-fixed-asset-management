@@ -20,6 +20,7 @@ import { AcquisitionsView } from './views/AcquisitionsView';
 import { AssignmentsView } from './views/AssignmentsView';
 import { TransfersView } from './views/TransfersView';
 import { DepreciationView } from './views/DepreciationView';
+import { BackendDepreciationView } from './views/BackendDepreciationView';
 import { MaintenanceView } from './views/MaintenanceView';
 import { DisposalsView } from './views/DisposalsView';
 import { ReportsView } from './views/ReportsView';
@@ -239,7 +240,7 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
-    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions'].includes(currentRoute)) return <IntegrationPending />;
+    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
         return (
@@ -318,6 +319,7 @@ export default function App() {
           />
         );
       case 'depreciation':
+        if (dataSource === 'django') return <BackendDepreciationView onNavigate={navigateTo} onSelectAsset={handleSelectAsset} />;
         return (
           <DepreciationView
             onNavigate={navigateTo}
