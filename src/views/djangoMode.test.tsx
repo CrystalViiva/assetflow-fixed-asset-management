@@ -19,6 +19,7 @@ function backendData(fetcher: ReturnType<typeof vi.fn<typeof fetch>>, assetRespo
     const url = String(input);
     if (url.includes('/assets/categories/')) return json(categoryPage);
     if (url.includes('/depreciation/')) return json(emptyPage);
+    if (url.includes('/assets/maintenance-plans/') || url.includes('/assets/work-orders/') || url.includes('/assets/maintenance-costs/') || url.includes('/assets/maintenance-records/')) return json(emptyPage);
     if (url.includes('/departments/') || url.includes('/locations/') || url.includes('/assets/acquisitions/')) return json(emptyPage);
     return assetResponse(url);
   });
@@ -88,7 +89,9 @@ it('real-mode asset UUID opens only the real detail overview', async () => {
   fireEvent.click(screen.getByRole('button',{ name:'REAL-001' }));
   expect(await screen.findByRole('heading',{ name:'REAL-001 - Office generator' })).toBeTruthy();
   expect(window.location.hash).toBe(`#asset-detail/${assetDto.id}`);
-  expect(screen.getAllByRole('button',{ name:/Integration pending/ })).toHaveLength(3);
+  expect(screen.getAllByRole('button',{ name:/Integration pending/ })).toHaveLength(2);
+  fireEvent.click(screen.getAllByRole('button',{ name:'Maintenance' }).at(-1)!);
+  expect(await screen.findByText('No maintenance plans.')).toBeTruthy();
   fireEvent.click(screen.getAllByRole('button',{ name:'Depreciation' }).at(-1)!);
   expect(await screen.findByText('No depreciation schedule')).toBeTruthy();
   expect(screen.queryByText(/Monthly Depreciation Posting Run executed successfully/)).toBeNull();

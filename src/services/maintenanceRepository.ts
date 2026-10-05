@@ -1,0 +1,23 @@
+import { ApiClient } from './apiClient';
+import { ApiError } from './apiError';
+import { uuidPattern } from './assetDtos';
+import { MaintenanceCost, MaintenancePlan, MaintenanceRecord, Page, WorkOrder, parseCost, parseMaintenancePage, parsePlan, parseRecord, parseWorkOrder } from './maintenanceDtos';
+
+export interface WorkOrderFilter { page:number; pageSize:number; asset?:string; status?:string; maintenance_type?:string; priority?:string; search?:string; ordering?:string }
+export class DjangoMaintenanceRepository {
+ constructor(private readonly api:ApiClient){}
+ async workOrders(filters:WorkOrderFilter,signal?:AbortSignal):Promise<Page<WorkOrder>>{if(!Number.isInteger(filters.page)||filters.page<1)throw new ApiError('validation','Invalid maintenance page.');return parseMaintenancePage(await this.api.request('/assets/work-orders/',{query:{page:filters.page,page_size:filters.pageSize,asset:filters.asset,status:filters.status,maintenance_type:filters.maintenance_type,priority:filters.priority,search:filters.search,ordering:filters.ordering},signal}),parseWorkOrder);}
+ async workOrder(id:string,signal?:AbortSignal){this.valid(id);return parseWorkOrder(await this.api.request(`/assets/work-orders/${id}/`,{signal}));}
+ async plans(filters:{asset?:string;active?:boolean;page?:number;pageSize?:number},signal?:AbortSignal):Promise<Page<MaintenancePlan>>{return parseMaintenancePage(await this.api.request('/assets/maintenance-plans/',{query:{asset:filters.asset,active:filters.active,page:filters.page??1,page_size:filters.pageSize??100,ordering:'next_due_date'},signal}),parsePlan);}
+ async costs(filters:{work_order?:string;page?:number;pageSize?:number},signal?:AbortSignal):Promise<Page<MaintenanceCost>>{return parseMaintenancePage(await this.api.request('/assets/maintenance-costs/',{query:{work_order:filters.work_order,page:filters.page??1,page_size:filters.pageSize??100,ordering:'incurred_at'},signal}),parseCost);}
+ async records(filters:{asset?:string;maintenance_type?:string;page?:number;pageSize?:number},signal?:AbortSignal):Promise<Page<MaintenanceRecord>>{return parseMaintenancePage(await this.api.request('/assets/maintenance-records/',{query:{asset:filters.asset,maintenance_type:filters.maintenance_type,page:filters.page??1,page_size:filters.pageSize??100,ordering:'-maintenance_date'},signal}),parseRecord);}
+ async createWorkOrder(input:{asset_id:string;maintenance_type:string;priority:string;description:string;due_date:string|null;diagnosis:string}){return parseWorkOrder(await this.api.request('/assets/work-orders/',{method:'POST',body:input}));}
+ async start(id:string){this.valid(id);return parseWorkOrder(await this.api.request(`/assets/work-orders/${id}/start/`,{method:'POST'}));}
+ async assign(id:string,userId:number){this.valid(id);if(!Number.isSafeInteger(userId)||userId<1)throw new ApiError('validation','Invalid assignee.');return parseWorkOrder(await this.api.request(`/assets/work-orders/${id}/assign/`,{method:'POST',body:{assigned_to_id:userId}}));}
+ async cancel(id:string,reason:string){this.valid(id);return parseWorkOrder(await this.api.request(`/assets/work-orders/${id}/cancel/`,{method:'POST',body:{reason}}));}
+ async complete(id:string,input:{resolution:string;completion_notes:string;downtime_minutes:number|null;maintenance_date:string}){this.valid(id);const v=await this.api.request(`/assets/work-orders/${id}/complete/`,{method:'POST',body:input});if(typeof v!=='object'||!v||!('work_order'in v)||!('maintenance_record'in v))throw new ApiError('contract','Maintenance completion response is incomplete.');const out=v as {work_order:unknown;maintenance_record:unknown};return{workOrder:parseWorkOrder(out.work_order),record:parseRecord(out.maintenance_record)};}
+ async createCost(input:{work_order_id:string;cost_type:string;description:string;quantity:string;unit_cost:string;vendor_reference:string;incurred_at:string}){return parseCost(await this.api.request('/assets/maintenance-costs/',{method:'POST',body:input}));}
+ async createPlan(input:{asset_id:string;maintenance_type:string;frequency_value:number;frequency_unit:string;next_due_date:string;active:boolean;instructions:string}){return parsePlan(await this.api.request('/assets/maintenance-plans/',{method:'POST',body:input}));}
+ async updatePlan(id:string,input:Partial<{active:boolean;frequency_value:number;frequency_unit:string;next_due_date:string;instructions:string}>){this.valid(id);return parsePlan(await this.api.request(`/assets/maintenance-plans/${id}/`,{method:'PATCH',body:input}));}
+ private valid(id:string){if(!uuidPattern.test(id))throw new ApiError('validation','Invalid maintenance record UUID.');}
+}

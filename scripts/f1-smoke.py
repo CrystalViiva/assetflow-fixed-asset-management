@@ -34,7 +34,7 @@ def seed():
     from organizations.models import Department, Location, Organization
 
     # This child must only ever connect to the random database selected by the parent.
-    prefix = "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
+    prefix = "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
     assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
     assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
     organization = Organization.objects.create(name=f"{prefix[:-1].upper()} smoke", code=f"{prefix[:-1].upper()}SMOKE")
@@ -45,7 +45,7 @@ def seed():
     category = AssetCategory.objects.create(
         organization=organization, name="Equipment", code="EQ", default_useful_life_months=36,
     )
-    if prefix.endswith(("f2_", "f3_", "f4_")):
+    if prefix.endswith(("f2_", "f3_", "f4_", "f5_")):
         Department.objects.create(organization=organization, name="Operations", code="OPS")
         Location.objects.create(organization=organization, name="Main Plant", code="PLANT")
         if prefix.endswith("f4_"):
@@ -60,9 +60,10 @@ def seed():
         )
 
 
-def run(f2=False, f3=False, f4=False):
+def run(f2=False, f3=False, f4=False, f5=False):
     database = settings.DATABASES["default"]
-    prefix = "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
+    f5 = f5 or bool(os.environ.get("F5_SMOKE_MODE"))
+    prefix = "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
     name = prefix + uuid.uuid4().hex
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -79,7 +80,7 @@ def run(f2=False, f3=False, f4=False):
     db_port = database["PORT"] or 5432
     environment.update({
         "DATABASE_URL": f"postgresql://{user}:{password}@{host}:{db_port}/{name}",
-        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "",
+        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "", "F5_SMOKE_MODE": "1" if f5 else "",
         "F1_SMOKE_EMAIL": "smoke@example.test",
         "F1_SMOKE_PASSWORD": secrets.token_urlsafe(32),
         "F1_SMOKE_URL": f"http://127.0.0.1:{port}/api/v1",
@@ -120,7 +121,7 @@ def run(f2=False, f3=False, f4=False):
         else:
             raise RuntimeError("Isolated Django server did not become ready.")
         result = subprocess.run(
-            ["node", "--import", "tsx", "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"], cwd=ROOT, env=environment,
+            ["node", "--import", "tsx", "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"], cwd=ROOT, env=environment,
             capture_output=True, text=True, timeout=60, creationflags=flags, check=False,
         )
         if result.returncode:
@@ -129,7 +130,7 @@ def run(f2=False, f3=False, f4=False):
                     print(line)
             raise RuntimeError("Frontend API smoke failed; captured output withheld to protect temporary credentials.")
         print(result.stdout.strip())
-        if f2 or f3 or f4:
+        if f2 or f3 or f4 or f5:
             result = subprocess.run(
                 [sys.executable, str(Path(__file__).resolve()), "--verify"], cwd=ROOT, env=environment,
                 capture_output=True, text=True, timeout=30, creationflags=flags, check=False,
@@ -164,11 +165,12 @@ if __name__ == "__main__":
         from assets.models import Acquisition, Asset
         from audit.models import AuditLog
         assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
+        f5 = bool(os.environ.get("F5_SMOKE_MODE"))
         f4 = bool(os.environ.get("F4_SMOKE_MODE"))
         f3 = bool(os.environ.get("F3_SMOKE_MODE"))
-        prefix = "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_"
+        prefix = "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_"
         assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
-        asset = Asset.objects.get(asset_tag="F4-SMOKE-001" if f4 else "F3-SMOKE-001" if f3 else "F2-SMOKE-001")
+        asset = Asset.objects.get(asset_tag="F5-SMOKE-001" if f5 else "F4-SMOKE-001" if f4 else "F3-SMOKE-001" if f3 else "F2-SMOKE-001")
         acquisition = Acquisition.objects.get(asset=asset)
         def check(condition, label):
             if not condition:
@@ -177,7 +179,7 @@ if __name__ == "__main__":
 
         assert check(asset.status == "ACTIVE" and str(asset.purchase_cost) == "1001.00", "asset lifecycle and total")
         assert check(str(asset.residual_value) == "100.00" and asset.useful_life_months == 36, "residual and useful life")
-        expected_capitalization = "2026-02-02" if f4 else "2026-01-02"
+        expected_capitalization = "2026-02-02" if f4 or f5 else "2026-01-02"
         assert check(asset.depreciation_method == "SLM" and asset.capitalization_date.isoformat() == expected_capitalization, "asset accounting dates and method")
         assert check(asset.organization_id == asset.category.organization_id == asset.department.organization_id == asset.location.organization_id, "tenant-owned reference relationships")
         assert check(acquisition.status == "CAPITALIZED" and str(acquisition.total_cost) == "1001.00", "acquisition state and total")
@@ -186,6 +188,34 @@ if __name__ == "__main__":
             , "component costs")
         events = set(AuditLog.objects.filter(metadata__asset_id=str(asset.pk)).values_list("action", flat=True))
         assert check("ASSET_CAPITALIZED" in events and "ACQUISITION_CAPITALIZED" in events, "capitalization audit events")
+        if f5:
+            from depreciation.models import DepreciationEntry, DepreciationSchedule
+            from maintenance.models import (
+                MaintenanceCost,
+                MaintenancePlan,
+                MaintenanceRecord,
+                WorkOrder,
+            )
+            asset.refresh_from_db()
+            costs = list(MaintenanceCost.objects.filter(work_order__asset=asset))
+            records = list(MaintenanceRecord.objects.filter(asset=asset))
+            order = WorkOrder.objects.get(asset=asset)
+            plan = MaintenancePlan.objects.get(asset=asset)
+            events = set(AuditLog.objects.filter(metadata__asset_id=str(asset.pk)).values_list("action", flat=True))
+            events.update(AuditLog.objects.filter(entity_id=str(costs[0].pk)).values_list("action", flat=True))
+            events.update(AuditLog.objects.filter(entity_id=str(order.pk)).values_list("action", flat=True))
+            events.update(AuditLog.objects.filter(entity_id=str(plan.pk)).values_list("action", flat=True))
+            assert check(order.status == "COMPLETED" and len(costs) == 1 and len(records) == 1, "completed order, one exact cost and one history record")
+            assert check(MaintenancePlan.objects.filter(asset=asset, active=False, frequency_value=3, frequency_unit="MONTHS").count() == 1, "plan creation and deactivation")
+            assert check(str(costs[0].quantity) == "2.500" and str(costs[0].unit_cost) == "13.37" and str(costs[0].total_cost) == "33.43", "exact Decimal cost values")
+            assert check(str(records[0].total_cost) == "33.43" and records[0].work_order_id == order.pk, "completion-generated immutable maintenance record total and linkage")
+            assert check(asset.status == "ACTIVE" and str(asset.purchase_cost) == "1001.00" and str(asset.residual_value) == "100.00" and asset.useful_life_months == 36 and asset.depreciation_method == "SLM", "maintenance leaves asset lifecycle restored and financial assumptions unchanged")
+            assert check(str(asset.accumulated_depreciation) == "0.00" and str(asset.current_book_value) == "1001.00", "maintenance leaves accumulated depreciation and book value unchanged")
+            assert check(not DepreciationEntry.objects.filter(asset=asset).exists() and not DepreciationSchedule.objects.filter(asset=asset).exists(), "maintenance creates no depreciation schedule or entry")
+            assert check({"MAINTENANCE_PLAN_CREATED", "MAINTENANCE_PLAN_UPDATED", "WORK_ORDER_CREATED", "WORK_ORDER_ASSIGNED", "WORK_ORDER_STARTED", "MAINTENANCE_COST_CREATED", "WORK_ORDER_COMPLETED", "MAINTENANCE_RECORD_CREATED"}.issubset(events), "plan, work order, cost, completion and record audit events")
+            assert check(WorkOrder.objects.filter(asset=asset).count() == 1 and MaintenanceRecord.objects.filter(work_order=order).count() == 1, "repeated completion did not create another record")
+            print("PASS: isolated PostgreSQL F5 exact-Decimal maintenance workflow, completion history, audit and accounting invariance verified.")
+            sys.exit(0)
         if f4:
             from audit.models import AuditLog
             from transfers.models import AssetAssignment, AssetTransfer
@@ -222,9 +252,9 @@ if __name__ == "__main__":
         print("PASS: isolated PostgreSQL holds one tenant asset and acquisition with exact components, ACTIVE lifecycle and capitalization audit.")
     else:
         try:
-            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"])
+            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"], f5=sys.argv[1:] == ["--f5"])
         except Exception as error:  # noqa: BLE001 -- Do not print exception bodies containing credentials.
-            mode = "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
+            mode = "F5" if sys.argv[1:] == ["--f5"] else "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
             print(f"{mode} smoke unavailable/failed ({type(error).__name__}); no connection details printed.")
             if isinstance(error, RuntimeError):
                 print(str(error))

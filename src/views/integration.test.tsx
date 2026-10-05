@@ -30,6 +30,7 @@ function backendData(fetcher: ReturnType<typeof vi.fn<typeof fetch>>, primary: (
   fetcher.mockImplementation(async input => {
     const url = String(input);
     if (url.includes('/assets/categories/')) return json(categoryPage);
+    if (url.includes('/assets/maintenance-plans/') || url.includes('/assets/work-orders/') || url.includes('/assets/maintenance-costs/') || url.includes('/assets/maintenance-records/')) return json(emptyPage);
     if (url.includes('/departments/') || url.includes('/locations/') || url.includes('/assets/acquisitions/')) return json(emptyPage);
     return primary(url);
   });
@@ -121,16 +122,17 @@ describe('real asset register', () => {
   });
 });
 describe('real asset detail and cache security', () => {
-  it('renders loading then real overview, null fields, and disabled pending tabs', async () => {
+  it('renders loading then real overview, null fields, real maintenance and only unsupported pending tabs', async () => {
     const c = await authenticated(); const pending = deferred<Response>();
     backendData(c.fetcher, url => url.includes(`/assets/${assetDto.id}/`) ? pending.promise : json(emptyPage));
     render(frame(c.session,c.client,<BackendAssetDetail assetId={assetDto.id} onNavigate={() => {}} />));
     expect(screen.getByRole('status').textContent).toContain('Loading asset details');
     await act(async () => { pending.resolve(json(assetDto)); });
     expect(await screen.findByRole('heading',{ name:'REAL-001 - Office generator' })).toBeTruthy();
-    const tabs = screen.getAllByRole('button',{ name:/Integration pending/ }); expect(tabs).toHaveLength(3);
+    const tabs = screen.getAllByRole('button',{ name:/Integration pending/ }); expect(tabs).toHaveLength(2);
     for (const tab of tabs) expect(tab.hasAttribute('disabled')).toBe(true);
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button',{ name:'Maintenance' }));
+    expect(await screen.findByText('No maintenance plans.')).toBeTruthy();
   });
   it('loads real assignment and transfer history tabs from their own backend resources', async () => {
     const c = await authenticated('ASSET_MANAGER');

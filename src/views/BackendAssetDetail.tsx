@@ -10,15 +10,21 @@ import { useAuth } from '../auth/AuthProvider';
 import { canManageAssets } from '../services/acquisitionQueries';
 import { movementRepository } from '../services/runtime';
 import { errorMessage } from '../services/apiError';
+import { useMaintenanceCosts, useMaintenanceOrders, useMaintenancePlans, useMaintenanceRecords } from '../services/maintenanceQueries';
+import { formatMaintenanceMoney as formatMoney } from '../services/maintenanceDtos';
 
 export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; onNavigate: (route: string) => void }) {
-  const [activeTab, setActiveTab] = useState<'Overview' | 'Depreciation' | 'Assignments' | 'Transfers'>('Overview');
+  const [activeTab, setActiveTab] = useState<'Overview' | 'Depreciation' | 'Assignments' | 'Transfers' | 'Maintenance'>('Overview');
   const { role, generation, isCurrent } = useAuth();
   const writable = canManageAssets(role);
   const [movementMessage, setMovementMessage] = useState('');
   const assignmentRows = useAssignments({ asset: assetId }, activeTab === 'Assignments');
   const activeCustody = useAssignments({ asset: assetId, active: true }, activeTab === 'Overview');
   const transferRows = useTransfers({ asset: assetId }, activeTab === 'Transfers');
+  const maintenanceOrders = useMaintenanceOrders({page:1,pageSize:100,asset:assetId,ordering:'-opened_at'},activeTab==='Maintenance');
+  const maintenancePlans = useMaintenancePlans({asset:assetId},activeTab==='Maintenance');
+  const maintenanceHistory = useMaintenanceRecords({asset:assetId},activeTab==='Maintenance');
+  const maintenanceCosts = useMaintenanceCosts({},activeTab==='Maintenance');
   const movementAction = useMovementAction('assignments');
   const result = useAsset(assetId);
   const schedules = useDepreciationSchedules(activeTab === 'Depreciation');
@@ -42,8 +48,8 @@ export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; o
     {back}<div className="rounded-xl border bg-white p-6"><p className="text-sm text-slate-500">Django API - Asset Detail</p>
       <h1 className="text-2xl font-bold mt-2">{asset.tag} - {asset.name}</h1><p className="mt-3 text-slate-600 whitespace-pre-wrap">{asset.description || 'No description provided.'}</p></div>
     <nav aria-label="Asset detail sections" className="flex flex-wrap gap-2 rounded-xl bg-white border p-3 text-sm">
-      {(['Overview','Depreciation','Assignments','Transfers'] as const).map(tab => <button key={tab} aria-current={activeTab === tab ? 'page' : undefined} onClick={() => setActiveTab(tab)} className={`px-3 py-2 rounded ${activeTab === tab ? 'bg-[#00288e] text-white' : 'text-slate-700 hover:bg-slate-100'}`}>{tab}</button>)}
-      {['Maintenance','Documents','Audit'].map(tab => <button key={tab} disabled title="Integration pending" className="px-3 py-2 text-slate-500 disabled:cursor-not-allowed">{tab} - Integration pending</button>)}
+      {(['Overview','Depreciation','Assignments','Transfers','Maintenance'] as const).map(tab => <button key={tab} aria-current={activeTab === tab ? 'page' : undefined} onClick={() => setActiveTab(tab)} className={`px-3 py-2 rounded ${activeTab === tab ? 'bg-[#00288e] text-white' : 'text-slate-700 hover:bg-slate-100'}`}>{tab}</button>)}
+      {['Documents','Audit'].map(tab => <button key={tab} disabled title="Integration pending" className="px-3 py-2 text-slate-500 disabled:cursor-not-allowed">{tab} - Integration pending</button>)}
     </nav>
     {result.isFetching && <p role="status" className="text-sm text-blue-700">Refreshing asset...</p>}
     {activeTab === 'Overview' && <>
@@ -84,6 +90,14 @@ export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; o
         {entries.isPending && <LoadingState label="Loading posted depreciation entries..." />}{entries.isError && <ErrorState error={entries.error} retry={() => void entries.refetch()} />}
         {!entries.isPending && !entries.isError && (entries.data.length ? <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-slate-500"><th className="p-2">Period</th><th className="p-2 text-right">Opening</th><th className="p-2 text-right">Posted amount</th><th className="p-2 text-right">Accumulated</th><th className="p-2 text-right">Closing</th></tr></thead><tbody>{entries.data.map(row => <tr key={row.id} className="border-b"><td className="p-2">{row.year}-{String(row.month).padStart(2,'0')} - POSTED</td><td className="p-2 text-right">{formatDecimal(row.openingBookValue)}</td><td className="p-2 text-right">{formatDecimal(row.depreciationAmount)}</td><td className="p-2 text-right">{formatDecimal(row.accumulatedDepreciation)}</td><td className="p-2 text-right">{formatDecimal(row.closingBookValue)}</td></tr>)}</tbody></table></div> : <p className="mt-3 text-sm text-slate-600">No posted ledger entries.</p>)}
       </section>
+    </div>}
+    {activeTab === 'Maintenance' && <div className="space-y-4">
+      <section className="rounded-xl border bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Maintenance plans</h2><p className="text-sm text-slate-600">Asset-specific recurrence and next due dates returned by Django.</p></div>{writable&&<button onClick={()=>onNavigate('maintenance')} className="rounded bg-[#00288e] px-3 py-2 text-sm text-white">Manage maintenance</button>}</div>
+        {maintenancePlans.isPending?<LoadingState label="Loading maintenance plans…"/>:maintenancePlans.isError?<ErrorState error={maintenancePlans.error} retry={()=>void maintenancePlans.refetch()}/>:maintenancePlans.data.results.length===0?<p className="mt-3 text-sm text-slate-600">No maintenance plans.</p>:<div className="mt-3 space-y-2">{maintenancePlans.data.results.map(p=><article key={p.id} className="rounded border p-3"><b>{p.type}</b> · every {p.frequencyValue} {p.frequencyUnit.toLowerCase()} · next due {p.nextDueDate} · {p.active?'Active':'Inactive'}<p className="text-sm">{p.instructions||'No instructions'}</p></article>)}</div>}
+      </section>
+      <section className="rounded-xl border bg-white p-5"><h2 className="text-lg font-semibold">Work orders</h2>{maintenanceOrders.isPending?<LoadingState label="Loading asset work orders…"/>:maintenanceOrders.isError?<ErrorState error={maintenanceOrders.error} retry={()=>void maintenanceOrders.refetch()}/>:maintenanceOrders.data.results.length===0?<p className="mt-3 text-sm text-slate-600">No work orders for this asset.</p>:<div className="mt-3 space-y-2">{maintenanceOrders.data.results.map(o=><article key={o.id} className="rounded border p-3"><div className="font-semibold">{o.number} · {o.type} · {o.priority} · {o.status}</div><p className="mt-1 whitespace-pre-wrap text-sm">{o.description}</p><p className="mt-1 text-xs text-slate-500">Opened {o.openedAt}{o.completedAt?` · Completed ${o.completedAt}`:''}</p></article>)}</div>}</section>
+      <section className="rounded-xl border bg-white p-5"><h2 className="text-lg font-semibold">Maintenance costs</h2>{maintenanceCosts.isPending?<LoadingState label="Loading maintenance costs…"/>:maintenanceCosts.isError?<ErrorState error={maintenanceCosts.error} retry={()=>void maintenanceCosts.refetch()}/>:maintenanceCosts.data.results.filter(c=>maintenanceOrders.data?.results.some(o=>o.id===c.workOrderId)).length===0?<p className="mt-3 text-sm text-slate-600">No maintenance costs on this page.</p>:<div className="mt-3 space-y-2">{maintenanceCosts.data.results.filter(c=>maintenanceOrders.data?.results.some(o=>o.id===c.workOrderId)).map(c=><p key={c.id} className="border-b pb-2 text-sm">{c.workOrderNumber} · {c.type} · {c.description} · {c.quantity} × {formatMoney(c.unitCost)} = <b>{formatMoney(c.totalCost)}</b> · {c.incurredAt}</p>)}</div>}<p className="mt-2 text-xs text-slate-500">Maintenance costs remain separate from asset acquisition and depreciation values.</p></section>
+      <section className="rounded-xl border bg-white p-5"><h2 className="text-lg font-semibold">Completed maintenance history</h2>{maintenanceHistory.isPending?<LoadingState label="Loading maintenance history…"/>:maintenanceHistory.isError?<ErrorState error={maintenanceHistory.error} retry={()=>void maintenanceHistory.refetch()}/>:maintenanceHistory.data.results.length===0?<p className="mt-3 text-sm text-slate-600">No completed maintenance records.</p>:<div className="mt-3 space-y-2">{maintenanceHistory.data.results.map(r=><article key={r.id} className="rounded border p-3"><b>{r.workOrderNumber} · {r.date} · {r.type}</b><p className="text-sm">{r.summary}</p><p className="text-sm">Backend total: {formatMoney(r.totalCost)} · downtime: {r.downtimeMinutes??'not recorded'} minutes</p><p className="text-xs text-slate-500">Performed by {r.performedBy??'not specified'}</p></article>)}</div>}</section>
     </div>}
   </section>;
 }
