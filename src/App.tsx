@@ -24,6 +24,7 @@ import { BackendDepreciationView } from './views/BackendDepreciationView';
 import { BackendAssignmentsView } from './views/BackendAssignmentsView';
 import { BackendTransfersView } from './views/BackendTransfersView';
 import { BackendMaintenanceView } from './views/BackendMaintenanceView';
+import { BackendDisposalsView } from './views/BackendDisposalsView';
 import { MaintenanceView } from './views/MaintenanceView';
 import { DisposalsView } from './views/DisposalsView';
 import { ReportsView } from './views/ReportsView';
@@ -162,7 +163,7 @@ export default function App() {
 
   // Quick Action Handler (from Navbar or Views)
   const handleOpenQuickAction = (action: string) => {
-    if (dataSource === 'django') { if (action === 'maintenance') navigateTo('maintenance'); return; }
+    if (dataSource === 'django') { if (action === 'maintenance') navigateTo('maintenance'); if (action === 'disposal') navigateTo('disposals'); return; }
     const targetAsset = assets.find((a) => a.id === selectedAssetId) || assets[0] || null;
     if (action === 'transfer') {
       setSelectedTransferAsset(targetAsset);
@@ -243,7 +244,7 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
-    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance'].includes(currentRoute)) return <IntegrationPending />;
+    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
         return (
@@ -344,6 +345,7 @@ export default function App() {
           />
         );
       case 'disposals':
+        if (dataSource === 'django') return <BackendDisposalsView onNavigate={navigateTo} onSelectAsset={handleSelectAsset} initialAssetId={selectedAssetId} />;
         return (
           <DisposalsView
             onNavigate={navigateTo}

@@ -1,0 +1,35 @@
+# F6 — Disposal and derecognition integration
+
+## Backend contract
+
+The existing Django `Disposal` record is an immutable accounting snapshot once completed. It belongs to one organization and asset and stores disposal date, method, reason, nonnegative proceeds, base currency, lifecycle status, actor/timestamps, and nullable derecognition values until completion. Methods are `SALE`, `SCRAP`, `DONATION`, `WRITE_OFF`, and `TRANSFER_OUT`.
+
+The workflow is `DRAFT → PENDING_APPROVAL → APPROVED → COMPLETED`. A draft may be edited; the UI creates drafts and submits them. A requester cannot approve their own disposal. A pending request may also be rejected or cancelled, and a draft, pending, or approved request may be cancelled. Rejected/cancelled requests are terminal. The API does not provide an approval queue separate from the disposal list, so role-authorized reviewers act from the list.
+
+Django permits disposal only for a capitalized `ACTIVE` asset. The disposal date cannot predate capitalization. Completion is rejected for a future date, mismatched base currency, inconsistent asset accounting state, active custody assignment, requested/approved transfer, or open work order (`OPEN`, `ASSIGNED`, `IN_PROGRESS`). Proceeds may be zero and may not be negative. The service locks both disposal and asset rows, requires approval, enforces separation of duties, and commits the snapshot, `DISPOSED` asset status, and audit events in one transaction. A completed disposal is unique per asset and immutable; it cannot be repeated or reversed through the API.
+
+At completion Django snapshots `purchase_cost` and `accumulated_depreciation`, derives carrying amount as capitalized cost minus accumulated depreciation, checks it agrees with `current_book_value` and is not below residual value, then derives `gain_or_loss = proceeds - carrying_amount`. The frontend sends only asset, date, method, reason, and proceeds. It does not calculate or submit carrying amount, accumulated depreciation, gain, or loss. Django changes the asset lifecycle status and updater/timestamp only; it does not alter acquisition cost, residual value, useful life, method, book value, accumulated depreciation, schedule, or posted depreciation entries. Subsequent depreciation posting rejects non-active assets. Existing assignment, transfer, and maintenance services likewise reject disposed assets.
+
+List/detail and workflow endpoints are mounted at `/api/v1/assets/disposals/`. The list supports pagination, asset/status/method/requester/approver/department/location/date/gain-loss filters, search by asset tag/name/reason, and ordering by date/status/method/proceeds/gain-loss/created time. Reads allow `ADMIN`, `ASSET_MANAGER`, `ACCOUNTANT`, and `DEPARTMENT_MANAGER`; department managers are restricted to assets in their own department. Writes allow `ADMIN` and `ASSET_MANAGER`; the server enforces organization, actor, asset, and object scope. No organization ID is accepted from the frontend. Employee reads/writes are denied.
+
+## Frontend behavior
+
+`disposalDtos.ts` validates the exact response schema, UUIDs, dates/timestamps, methods/statuses, nullable values, currency, and fixed-scale decimal strings. Signed gain/loss is retained as a string, including losses. `DjangoDisposalRepository` calls only the real list/detail/create and named transition actions. TanStack queries are keyed by user and session generation. The mutation layer disables retries, blocks concurrent submissions within a screen, checks session generation before and after requests, and invalidates only disposal and asset queries; it never patches authoritative accounting data into cache.
+
+The Django Disposals screen uses real active assets and paginated disposal records. It exposes draft creation/submission, reviewer approval/rejection, completion, and cancellation only for backend write roles. A second user must approve a request created by the current user. Completed cards display Django's stored cost, accumulated depreciation, carrying amount, proceeds, gain/loss, actors, and timestamps. The Asset Detail Disposal tab reads real asset-specific history, offers the workflow entry point only for active assets to managers, and shows the server-derived terminal lifecycle status. Obvious assignments, transfers, maintenance, and acquisition actions are hidden for disposed assets. Django remains authoritative if state or permissions change concurrently.
+
+The old modal and governance board remain the mock-mode demo. Django mode routes to a dedicated operational screen because the old mock fields (`disposal_no`, recommendation, `PENDING_REVIEW`, and immediate approval) do not match the API's UUID, snapshot, and multi-step lifecycle. There is no plan to adapt or fabricate those mock statuses in Django mode.
+
+If a create response is lost, the UI takes an authoritative preflight snapshot of draft IDs, then queries the asset's draft list and matches a newly created record by asset, requester, date, method, reason, and exact proceeds. A transition failure is reconciled by reading the disposal detail. If reads cannot settle the result, the UI blocks more actions and requires a history recheck; it never replays a POST automatically. Session changes suppress stale results and cache invalidation. Server errors are passed through the centralized safe error model.
+
+## Validation and smoke
+
+Run the real integration flow with `venv\Scripts\python.exe scripts\f1-smoke.py --f6`. It creates a random `assetflow_f6_*` database on the configured PostgreSQL server, migrates it, seeds an isolated organization and separate asset manager/admin users, starts Django, and drives TypeScript repositories through HTTP/JWT. The smoke capitalizes a 1001.00 asset, posts one 25.03 depreciation entry, disposes it for 1200.00, and verifies Django records a 975.97 carrying amount and 224.03 gain, preserves asset/depreciation balances and ledger rows, rejects repeat disposal/completion and future depreciation, checks audit events, logs out, and drops only the random database. It does not use or modify the application's persistent database.
+
+The standard F1 smoke harness requires disposable PostgreSQL administrator credentials in the configured environment and a running PostgreSQL endpoint. The script withholds connection details and temporary credentials in output. No F6 backend changes or migrations were needed; the current contract already exposes all required workflow actions.
+
+## Limitations
+
+- There is no dedicated eligibility endpoint; the UI uses the authoritative asset state and disposal history, and Django revalidates eligibility under row lock at each service action.
+- There is no dedicated approval inbox, audit-log query integration, explicit disposal reversal, or editable rejection/cancellation reason form. The existing disposal response and audit events remain authoritative.
+- F6 makes no claim of formal IFRS/IAS compliance; it integrates the accounting behavior implemented by the current backend.
