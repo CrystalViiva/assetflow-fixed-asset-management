@@ -4,6 +4,7 @@ import { apiBase } from './config';
 import { DjangoAssetRepository } from './djangoApiBridge';
 import { Session } from './session';
 import { DjangoDepreciationRepository } from './depreciationRepository';
+import { DjangoMovementRepository } from './movementRepository';
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: {
   staleTime: 30_000, gcTime: 5 * 60_000, retry: false, refetchOnWindowFocus: true,
@@ -17,3 +18,4 @@ export const session = new Session(apiClient, {
 }, () => { queryClient.clear(); });
 export const djangoRepository = new DjangoAssetRepository(apiClient);
 export const depreciationRepository = new DjangoDepreciationRepository(apiClient);
+export const movementRepository = new DjangoMovementRepository(apiClient);

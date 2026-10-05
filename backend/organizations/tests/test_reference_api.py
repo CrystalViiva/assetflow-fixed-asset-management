@@ -63,3 +63,52 @@ def test_existing_asset_read_roles_can_discover_tenant_reference_labels(role):
     api.force_authenticate(user)
     for route in ("department-list", "location-list"):
         assert api.get(reverse(route)).status_code == 200
+
+
+@pytest.mark.django_db
+def test_custodian_reference_is_minimal_paginated_tenant_scoped_and_manager_only():
+    own = Organization.objects.create(name="Own", code="OWN-CUST")
+    other = Organization.objects.create(name="Other", code="OTHER-CUST")
+    department = Department.objects.create(organization=own, name="Operations", code="OPS")
+    foreign_department = Department.objects.create(
+        organization=other, name="Foreign Operations", code="FOREIGN-OPS"
+    )
+    manager = User.objects.create_user(
+        "manager@example.test", organization=own, role="ASSET_MANAGER"
+    )
+    own_user = User.objects.create_user(
+        "custodian@example.test", organization=own, department=department
+    )
+    for number in range(24):
+        User.objects.create_user(
+            f"worker-{number:02}@example.test", organization=own, role="EMPLOYEE"
+        )
+    User.objects.create_user("inactive@example.test", organization=own, is_active=False)
+    inconsistent = User.objects.create_user(
+        "legacy@example.test", organization=own, department=foreign_department
+    )
+    User.objects.create_user("foreign@example.test", organization=other)
+    api = APIClient()
+    assert api.get(reverse("custodian-list")).status_code == 401
+    api.force_authenticate(manager)
+    response = api.get(reverse("custodian-list"), {"organization_id": str(other.pk)})
+    assert response.status_code == 200
+    assert response.data["count"] == 27
+    assert len(response.data["results"]) == 25
+    assert response.data["next"] is not None
+    second_page = api.get(reverse("custodian-list"), {"page": 2}).data["results"]
+    assert len(second_page) == 2
+    assert {manager.email, own_user.email}.issubset(
+        {row["email"] for row in response.data["results"]}
+    )
+    custodian = next(row for row in response.data["results"] if row["id"] == own_user.pk)
+    assert set(custodian) == {"id", "email", "role", "department_id", "department_name"}
+    assert custodian["department_id"] == str(department.pk)
+    legacy = next(
+        row for row in [*response.data["results"], *second_page] if row["id"] == inconsistent.pk
+    )
+    assert legacy["department_id"] is None
+    assert legacy["department_name"] is None
+    assert api.post(reverse("custodian-list"), {}, format="json").status_code == 403
+    api.force_authenticate(own_user)
+    assert api.get(reverse("custodian-list")).status_code == 403

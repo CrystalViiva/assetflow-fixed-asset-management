@@ -21,6 +21,8 @@ import { AssignmentsView } from './views/AssignmentsView';
 import { TransfersView } from './views/TransfersView';
 import { DepreciationView } from './views/DepreciationView';
 import { BackendDepreciationView } from './views/BackendDepreciationView';
+import { BackendAssignmentsView } from './views/BackendAssignmentsView';
+import { BackendTransfersView } from './views/BackendTransfersView';
 import { MaintenanceView } from './views/MaintenanceView';
 import { DisposalsView } from './views/DisposalsView';
 import { ReportsView } from './views/ReportsView';
@@ -240,7 +242,7 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
-    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation'].includes(currentRoute)) return <IntegrationPending />;
+    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
         return (
@@ -301,6 +303,7 @@ export default function App() {
           />
         );
       case 'transfers':
+        if (dataSource === 'django') return <BackendTransfersView onNavigate={navigateTo} onSelectAsset={handleSelectAsset} />;
         return (
           <TransfersView
             onNavigate={navigateTo}
@@ -312,6 +315,7 @@ export default function App() {
           />
         );
       case 'assignments':
+        if (dataSource === 'django') return <BackendAssignmentsView onNavigate={navigateTo} onSelectAsset={handleSelectAsset} />;
         return (
           <AssignmentsView
             onNavigate={navigateTo}

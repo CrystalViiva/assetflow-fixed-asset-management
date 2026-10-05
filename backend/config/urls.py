@@ -26,7 +26,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.serializers import AuthenticatedUserSerializer
 from config.views import health_check
-from organizations.api import DepartmentReferenceList, LocationReferenceList
+from organizations.api import CustodianReferenceList, DepartmentReferenceList, LocationReferenceList
 
 
 class AuthenticatedUserView(APIView):
@@ -50,6 +50,7 @@ urlpatterns = [
     path("api/v1/", include("depreciation.urls")),
     path("api/v1/departments/", DepartmentReferenceList.as_view(), name="department-list"),
     path("api/v1/locations/", LocationReferenceList.as_view(), name="location-list"),
+    path("api/v1/custodians/", CustodianReferenceList.as_view(), name="custodian-list"),
     path("api/v1/health/", health_check, name="health-check"),
     path("api/v1/auth/token/", TokenObtainPairView.as_view(), name="token-obtain-pair"),
     path("api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),

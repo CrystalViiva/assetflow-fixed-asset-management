@@ -34,7 +34,7 @@ def seed():
     from organizations.models import Department, Location, Organization
 
     # This child must only ever connect to the random database selected by the parent.
-    prefix = "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
+    prefix = "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
     assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
     assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
     organization = Organization.objects.create(name=f"{prefix[:-1].upper()} smoke", code=f"{prefix[:-1].upper()}SMOKE")
@@ -45,9 +45,13 @@ def seed():
     category = AssetCategory.objects.create(
         organization=organization, name="Equipment", code="EQ", default_useful_life_months=36,
     )
-    if prefix.endswith(("f2_", "f3_")):
+    if prefix.endswith(("f2_", "f3_", "f4_")):
         Department.objects.create(organization=organization, name="Operations", code="OPS")
         Location.objects.create(organization=organization, name="Main Plant", code="PLANT")
+        if prefix.endswith("f4_"):
+            Department.objects.create(organization=organization, name="Destination Operations", code="OPS-DST")
+            Location.objects.create(organization=organization, name="Destination Plant", code="PLANT-DST")
+            User.objects.create_user("custodian@example.test", os.environ["F1_SMOKE_PASSWORD"], organization=organization, role="EMPLOYEE")
         return
     for number in (1, 2):
         Asset.objects.create(
@@ -56,9 +60,9 @@ def seed():
         )
 
 
-def run(f2=False, f3=False):
+def run(f2=False, f3=False, f4=False):
     database = settings.DATABASES["default"]
-    prefix = "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
+    prefix = "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
     name = prefix + uuid.uuid4().hex
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -75,7 +79,7 @@ def run(f2=False, f3=False):
     db_port = database["PORT"] or 5432
     environment.update({
         "DATABASE_URL": f"postgresql://{user}:{password}@{host}:{db_port}/{name}",
-        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "",
+        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "",
         "F1_SMOKE_EMAIL": "smoke@example.test",
         "F1_SMOKE_PASSWORD": secrets.token_urlsafe(32),
         "F1_SMOKE_URL": f"http://127.0.0.1:{port}/api/v1",
@@ -94,9 +98,9 @@ def run(f2=False, f3=False):
             result = subprocess.run(command, cwd=ROOT, env=environment, capture_output=True, timeout=120, creationflags=flags, check=False)
             if result.returncode:
                 raise RuntimeError("Isolated database setup failed; captured output withheld to protect configuration.")
-        if f2:
+        if f2 or f4:
             result = subprocess.run(
-                [sys.executable, "-m", "pytest", "backend/organizations/tests/test_reference_api.py", "--create-db", "-q"],
+                [sys.executable, "-m", "pytest", "backend/organizations/tests/test_reference_api.py", "backend/transfers/tests/test_api.py", "backend/transfers/tests/test_services.py", "--create-db", "-q"],
                 cwd=ROOT, env=environment, capture_output=True, timeout=600, creationflags=flags, check=False,
             )
             if result.returncode:
@@ -116,7 +120,7 @@ def run(f2=False, f3=False):
         else:
             raise RuntimeError("Isolated Django server did not become ready.")
         result = subprocess.run(
-            ["node", "--import", "tsx", "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"], cwd=ROOT, env=environment,
+            ["node", "--import", "tsx", "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"], cwd=ROOT, env=environment,
             capture_output=True, text=True, timeout=60, creationflags=flags, check=False,
         )
         if result.returncode:
@@ -125,7 +129,7 @@ def run(f2=False, f3=False):
                     print(line)
             raise RuntimeError("Frontend API smoke failed; captured output withheld to protect temporary credentials.")
         print(result.stdout.strip())
-        if f2 or f3:
+        if f2 or f3 or f4:
             result = subprocess.run(
                 [sys.executable, str(Path(__file__).resolve()), "--verify"], cwd=ROOT, env=environment,
                 capture_output=True, text=True, timeout=30, creationflags=flags, check=False,
@@ -160,10 +164,11 @@ if __name__ == "__main__":
         from assets.models import Acquisition, Asset
         from audit.models import AuditLog
         assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
+        f4 = bool(os.environ.get("F4_SMOKE_MODE"))
         f3 = bool(os.environ.get("F3_SMOKE_MODE"))
-        prefix = "assetflow_f3_" if f3 else "assetflow_f2_"
+        prefix = "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_"
         assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
-        asset = Asset.objects.get(asset_tag="F3-SMOKE-001" if f3 else "F2-SMOKE-001")
+        asset = Asset.objects.get(asset_tag="F4-SMOKE-001" if f4 else "F3-SMOKE-001" if f3 else "F2-SMOKE-001")
         acquisition = Acquisition.objects.get(asset=asset)
         def check(condition, label):
             if not condition:
@@ -172,7 +177,8 @@ if __name__ == "__main__":
 
         assert check(asset.status == "ACTIVE" and str(asset.purchase_cost) == "1001.00", "asset lifecycle and total")
         assert check(str(asset.residual_value) == "100.00" and asset.useful_life_months == 36, "residual and useful life")
-        assert check(asset.depreciation_method == "SLM" and asset.capitalization_date.isoformat() == "2026-01-02", "asset accounting dates and method")
+        expected_capitalization = "2026-02-02" if f4 else "2026-01-02"
+        assert check(asset.depreciation_method == "SLM" and asset.capitalization_date.isoformat() == expected_capitalization, "asset accounting dates and method")
         assert check(asset.organization_id == asset.category.organization_id == asset.department.organization_id == asset.location.organization_id, "tenant-owned reference relationships")
         assert check(acquisition.status == "CAPITALIZED" and str(acquisition.total_cost) == "1001.00", "acquisition state and total")
         assert check([str(value) for value in (acquisition.purchase_price, acquisition.freight_cost,
@@ -180,6 +186,20 @@ if __name__ == "__main__":
             , "component costs")
         events = set(AuditLog.objects.filter(metadata__asset_id=str(asset.pk)).values_list("action", flat=True))
         assert check("ASSET_CAPITALIZED" in events and "ACQUISITION_CAPITALIZED" in events, "capitalization audit events")
+        if f4:
+            from audit.models import AuditLog
+            from transfers.models import AssetAssignment, AssetTransfer
+            assignment = AssetAssignment.objects.get(asset=asset)
+            transfer = AssetTransfer.objects.get(asset=asset)
+            asset.refresh_from_db()
+            events = set(AuditLog.objects.filter(metadata__asset_id=str(asset.pk)).values_list("action", flat=True))
+            assert check(assignment.returned_at is not None and assignment.assigned_to.email == "custodian@example.test", "assignment return retained with assigned custodian")
+            assert check(transfer.status == "COMPLETED", "transfer completed")
+            assert check(asset.department.code == "OPS-DST" and asset.location.code == "PLANT-DST", "completed transfer applied destination placement")
+            assert check(not AssetAssignment.objects.filter(asset=asset, returned_at__isnull=True).exists(), "transfer did not create or alter active custody")
+            assert check({"ASSET_ASSIGNED", "ASSET_ASSIGNMENT_RETURNED", "ASSET_TRANSFER_REQUESTED", "ASSET_TRANSFER_APPROVED", "ASSET_TRANSFER_COMPLETED"}.issubset(events), "assignment and transfer audit events")
+            print("PASS: disposable PostgreSQL F4 preserves placement through assignment/return and changes placement only at transfer completion; custody history and audit retained.")
+            sys.exit(0)
         if f3:
             from depreciation.models import (
                 AccountingPeriod,
@@ -202,9 +222,9 @@ if __name__ == "__main__":
         print("PASS: isolated PostgreSQL holds one tenant asset and acquisition with exact components, ACTIVE lifecycle and capitalization audit.")
     else:
         try:
-            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"])
+            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"])
         except Exception as error:  # noqa: BLE001 -- Do not print exception bodies containing credentials.
-            mode = "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
+            mode = "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
             print(f"{mode} smoke unavailable/failed ({type(error).__name__}); no connection details printed.")
             if isinstance(error, RuntimeError):
                 print(str(error))

@@ -6,9 +6,62 @@ for a browser client to discover them. No organization write API is introduced.
 
 from rest_framework import serializers
 from rest_framework.generics import ListAPIView
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
+from accounts.models import User, UserRole
 from assets.permissions import AssetDomainPermission
 from organizations.models import Department, Location
+
+
+class CustodianReferencePermission(BasePermission):
+    """Only asset managers can discover tenant users for custody assignment."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user.is_authenticated
+            and user.organization_id
+            and request.method in SAFE_METHODS
+            and (user.is_superuser or user.role in {UserRole.ADMIN, UserRole.ASSET_MANAGER})
+        )
+
+
+class CustodianReferenceSerializer(serializers.ModelSerializer):
+    department_id = serializers.UUIDField(read_only=True, allow_null=True)
+    department_name = serializers.CharField(
+        source="department.name", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = User
+        fields = ("id", "email", "role", "department_id", "department_name")
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # User.department is a normal FK, so legacy or direct ORM writes can
+        # leave a cross-organization relation even though the user is scoped.
+        if (
+            instance.department_id
+            and instance.department.organization_id != instance.organization_id
+        ):
+            data["department_id"] = None
+            data["department_name"] = None
+        return data
+
+
+class CustodianReferenceList(ListAPIView):
+    serializer_class = CustodianReferenceSerializer
+    permission_classes = (CustodianReferencePermission,)
+
+    def get_queryset(self):
+        return (
+            User.objects.filter(
+                organization_id=getattr(self.request.user, "organization_id", None), is_active=True
+            )
+            .select_related("department")
+            .order_by("email", "id")
+        )
 
 
 class DepartmentReferenceSerializer(serializers.ModelSerializer):

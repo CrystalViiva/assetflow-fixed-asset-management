@@ -12,8 +12,11 @@ import { assetDto, deferred, identity, json } from '../test/fixtures';
 import { BackendAssetRegister, updateAssetFilters } from './BackendAssetRegister';
 import { BackendAssetDetail } from './BackendAssetDetail';
 import { BackendAssetCreate } from './BackendAssetCreate';
+import { BackendAssignmentsView } from './BackendAssignmentsView';
+import { BackendTransfersView } from './BackendTransfersView';
 import { LoginView } from './LoginView';
 import { defaultAssetQuery } from '../services/djangoApiBridge';
+import { useMovementAction } from '../services/movementMutations';
 
 afterEach(() => vi.unstubAllGlobals());
 function frame(session: Session, client: QueryClient, children: ReactNode) {
@@ -125,9 +128,30 @@ describe('real asset detail and cache security', () => {
     expect(screen.getByRole('status').textContent).toContain('Loading asset details');
     await act(async () => { pending.resolve(json(assetDto)); });
     expect(await screen.findByRole('heading',{ name:'REAL-001 - Office generator' })).toBeTruthy();
-    const tabs = screen.getAllByRole('button',{ name:/Integration pending/ }); expect(tabs).toHaveLength(5);
+    const tabs = screen.getAllByRole('button',{ name:/Integration pending/ }); expect(tabs).toHaveLength(3);
     for (const tab of tabs) expect(tab.hasAttribute('disabled')).toBe(true);
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+  });
+  it('loads real assignment and transfer history tabs from their own backend resources', async () => {
+    const c = await authenticated('ASSET_MANAGER');
+    const at='2026-01-01T10:00:00Z';
+    const assignment={ id:'11111111-1111-4111-8111-111111111111',organization_id:assetDto.organization_id,asset_id:assetDto.id,asset_tag:assetDto.asset_tag,asset_name:assetDto.name,
+      assigned_to_id:7,assigned_to_email:'custodian@example.test',department_id:assetDto.department_id,department_name:assetDto.department_name,location_id:assetDto.location_id,location_name:assetDto.location_name,
+      assigned_at:at,returned_at:null,returned_by_email:null,notes:'Custody record',created_by_email:'manager@example.test',created_at:at,updated_at:at };
+    const transfer={ id:'22222222-2222-4222-8222-222222222222',organization_id:assetDto.organization_id,asset_id:assetDto.id,asset_tag:assetDto.asset_tag,asset_name:assetDto.name,
+      from_department_id:assetDto.department_id,from_department_name:assetDto.department_name,from_location_id:assetDto.location_id,from_location_name:assetDto.location_name,
+      to_department_id:'33333333-3333-4333-8333-333333333333',to_department_name:'Finance',to_location_id:'44444444-4444-4444-8444-444444444444',to_location_name:'Head Office',
+      requested_by_email:'manager@example.test',approved_by_email:null,completed_by_email:null,rejected_by_email:null,cancelled_by_email:null,requested_at:at,approved_at:null,completed_at:null,rejected_at:null,cancelled_at:null,status:'REQUESTED',reason:'Relocation',notes:'' };
+    c.fetcher.mockImplementation(async input => { const url=String(input); if(url===`/api/v1/assets/${assetDto.id}/`)return json(assetDto);if(url.includes('/assets/assignments/'))return json({count:1,next:null,previous:null,results:[assignment]});if(url.includes('/assets/transfers/'))return json({count:1,next:null,previous:null,results:[transfer]});if(url.includes('/assets/acquisitions/'))return json(emptyPage);return json(emptyPage); });
+    render(frame(c.session,c.client,<BackendAssetDetail assetId={assetDto.id} onNavigate={()=>{}} />));
+    await screen.findByRole('heading',{name:'REAL-001 - Office generator'});
+    fireEvent.click(screen.getByRole('button',{name:'Assignments'}));
+    expect(await screen.findByText('custodian@example.test')).toBeTruthy();expect(screen.getByText('Custody record')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'Transfers'}));
+    expect(await screen.findByText(/Finance \/ Head Office/)).toBeTruthy();expect(screen.getByText('Relocation')).toBeTruthy();
+    expect(c.fetcher.mock.calls.some(([url])=>String(url).includes('/assets/assignments/'))).toBe(true);
+    expect(c.fetcher.mock.calls.some(([url])=>String(url).includes('/assets/transfers/'))).toBe(true);
+    expect(screen.queryByText(/AST-000002/)).toBeNull();
   });
   it.each([404,403,500])('handles detail HTTP %s', async status => {
     const c = await authenticated(); backendData(c.fetcher, () => json({},status));
@@ -146,6 +170,48 @@ describe('real asset detail and cache security', () => {
     await act(async () => { await c.session.login('two@example.test','test-password'); });
     expect(screen.queryByText('User A private asset')).toBeNull(); await screen.findByText('No assets match these filters.');
     expect(c.session.getSnapshot().user?.id).toBe(2);
+  });
+});
+
+describe('real custody operations screen',()=>{
+  it('loads paginated tenant references and real active assignment records',async()=>{
+    const c=await authenticated('ASSET_MANAGER');const at='2026-01-01T10:00:00Z';const assignmentId='11111111-1111-4111-8111-111111111111';
+    const assignment={id:assignmentId,organization_id:assetDto.organization_id,asset_id:assetDto.id,asset_tag:'REAL-001',asset_name:'Office generator',assigned_to_id:7,assigned_to_email:'custodian@example.test',department_id:null,department_name:null,location_id:null,location_name:null,assigned_at:at,returned_at:null,returned_by_email:null,notes:'Active custody',created_by_email:'manager@example.test',created_at:at,updated_at:at};
+    c.fetcher.mockImplementation(async input=>{const url=String(input);if(url.includes('/assets/assignments/'))return json({count:1,next:null,previous:null,results:[assignment]});if(url.includes('/custodians/'))return json({count:1,next:null,previous:null,results:[{id:7,email:'custodian@example.test',role:'EMPLOYEE',department_id:null,department_name:null}]});if(url.includes('/assets/'))return json(emptyPage);throw new Error(`Unexpected ${url}`);});
+    const select=vi.fn();render(frame(c.session,c.client,<BackendAssignmentsView onNavigate={()=>{}} onSelectAsset={select}/>));
+    expect(await screen.findByText('custodian@example.test')).toBeTruthy();expect(screen.getByText('Active',{selector:'td'})).toBeTruthy();
+    expect(screen.getByRole('button',{name:'Assign custody'}).hasAttribute('disabled')).toBe(true);
+    expect(c.fetcher.mock.calls.some(([url])=>String(url).includes('/custodians/'))).toBe(true);
+  });
+  it('creates and returns custody through backend actions without sending placement fields',async()=>{
+    const c=await authenticated('ASSET_MANAGER');const at='2026-01-01T10:00:00Z';const id='11111111-1111-4111-8111-111111111111';let created=false;let returned=false;
+    const assignment=()=>({id,organization_id:assetDto.organization_id,asset_id:assetDto.id,asset_tag:'REAL-001',asset_name:'Office generator',assigned_to_id:7,assigned_to_email:'custodian@example.test',department_id:assetDto.department_id,department_name:assetDto.department_name,location_id:assetDto.location_id,location_name:assetDto.location_name,assigned_at:at,returned_at:returned?at:null,returned_by_email:returned?'manager@example.test':null,notes:'UI custody workflow',created_by_email:'manager@example.test',created_at:at,updated_at:at});
+    c.fetcher.mockImplementation(async(input,init)=>{const url=String(input);if(url.includes('/assets/assignments/')&&url.endsWith('/return/')){returned=true;return json(assignment());}if(url.includes('/assets/assignments/')&&init?.method==='POST'){expect(JSON.parse(String(init.body))).toEqual({asset_id:assetDto.id,assigned_to_id:7,notes:'UI custody workflow'});created=true;return json(assignment());}if(url.includes('/assets/assignments/')){const active=url.includes('active=true');return json({count:active?Number(created&&!returned):Number(created&&returned),next:null,previous:null,results:active?created&&!returned?[assignment()]:[]:created&&returned?[assignment()]:[]});}if(url.includes('/custodians/'))return json({count:1,next:null,previous:null,results:[{id:7,email:'custodian@example.test',role:'EMPLOYEE',department_id:null,department_name:null}]});if(url.includes('/assets/')&&url.includes('page_size=100'))return json({count:1,next:null,previous:null,results:[assetDto]});throw new Error(`Unexpected ${url}`);});
+    render(frame(c.session,c.client,<BackendAssignmentsView onNavigate={()=>{}} onSelectAsset={()=>{}}/>));
+    expect(await screen.findByRole('option',{name:/REAL-001/})).toBeTruthy();expect(await screen.findByRole('option',{name:/custodian@example.test/})).toBeTruthy();fireEvent.change(screen.getByLabelText('Asset'),{target:{value:assetDto.id}});fireEvent.change(screen.getByLabelText('Custodian'),{target:{value:'7'}});fireEvent.change(screen.getByLabelText('Notes'),{target:{value:'UI custody workflow'}});expect(screen.getByRole('button',{name:'Assign custody'}).hasAttribute('disabled')).toBe(false);fireEvent.click(screen.getByRole('button',{name:'Assign custody'}));
+    await waitFor(()=>expect(c.fetcher.mock.calls.some(([url,init])=>String(url).includes('/assets/assignments/')&&init?.method==='POST')).toBe(true));expect(await screen.findByText('Custody assignment saved. Asset placement is unchanged.')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button',{name:'Return'}));expect(await screen.findByText('Assignment returned; history retained and asset placement unchanged.')).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'History'}));expect(await screen.findByText('UI custody workflow')).toBeTruthy();
+  });
+});
+
+describe('movement mutation session safety',()=>{
+  it('does not apply an old-session result to the cache after logout',async()=>{
+    const c=await authenticated('ASSET_MANAGER');let finish!:()=>void;let mutation:Promise<unknown>|undefined;
+    const operation=vi.fn(()=>new Promise<void>(resolve=>{finish=resolve;}));const invalidate=vi.spyOn(c.client,'invalidateQueries');
+    function Harness(){const action=useMovementAction('assignments');return <button onClick={()=>{mutation=action.run(operation);void mutation.catch(()=>{});}}>Run movement</button>;}
+    render(frame(c.session,c.client,<Harness/>));fireEvent.click(screen.getByRole('button',{name:'Run movement'}));await waitFor(()=>expect(operation).toHaveBeenCalledOnce());
+    c.session.logout();finish();await expect(mutation).rejects.toMatchObject({kind:'authentication'});expect(invalidate).not.toHaveBeenCalled();
+  });
+});
+
+describe('real transfer operations screen',()=>{
+  it('loads backend history and completes through the transition route before refreshing placement queries',async()=>{
+    const c=await authenticated('ASSET_MANAGER');const at='2026-01-01T10:00:00Z';const id='22222222-2222-4222-8222-222222222222';let status='APPROVED';let placementReads=0;
+    const makeTransfer=()=>({id,organization_id:assetDto.organization_id,asset_id:assetDto.id,asset_tag:'REAL-001',asset_name:'Office generator',from_department_id:'55555555-5555-4555-8555-555555555555',from_department_name:'Operations',from_location_id:'66666666-6666-4666-8666-666666666666',from_location_name:'Main Plant',to_department_id:'33333333-3333-4333-8333-333333333333',to_department_name:'Finance',to_location_id:'44444444-4444-4444-8444-444444444444',to_location_name:'Head Office',requested_by_email:'manager@example.test',approved_by_email:'manager@example.test',completed_by_email:status==='COMPLETED'?'manager@example.test':null,rejected_by_email:null,cancelled_by_email:null,requested_at:at,approved_at:at,completed_at:status==='COMPLETED'?at:null,rejected_at:null,cancelled_at:null,status,reason:'Relocation',notes:''});
+    c.fetcher.mockImplementation(async(input,init)=>{const url=String(input);if(url.includes('/assets/transfers/')&&url.endsWith('/complete/')&&init?.method==='POST'){status='COMPLETED';return json(makeTransfer());}if(url.includes('/assets/transfers/'))return json({count:1,next:null,previous:null,results:[makeTransfer()]});if(url==='/api/v1/assets/'||url.startsWith('/api/v1/assets/?')){placementReads++;return json(emptyPage);}if(url.includes('/departments/')||url.includes('/locations/'))return json(emptyPage);throw new Error(`Unexpected ${url}`);});
+    render(frame(c.session,c.client,<BackendTransfersView onNavigate={()=>{}} onSelectAsset={()=>{}}/>));
+    expect(await screen.findByRole('button',{name:/REAL-001.*Office generator/})).toBeTruthy();expect(screen.getByText(/Operations \/ Main Plant/)).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'Complete transfer'}));
+    await waitFor(()=>expect(c.fetcher.mock.calls.some(([url,init])=>String(url).endsWith('/complete/')&&init?.method==='POST')).toBe(true));expect(await screen.findByText('Transfer completed; authoritative placement has been refreshed.')).toBeTruthy();expect(placementReads).toBeGreaterThan(1);expect(screen.getByText('COMPLETED')).toBeTruthy();
   });
 });
 

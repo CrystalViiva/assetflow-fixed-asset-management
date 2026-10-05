@@ -1,0 +1,20 @@
+import { describe,expect,it,vi } from 'vitest';
+import { ApiClient } from './apiClient';
+import { ApiError } from './apiError';
+import { mapAssignmentDto,mapTransferDto,parseAssignmentDto,parseCustodianDto,parseTransferDto } from './movementDtos';
+import { DjangoMovementRepository } from './movementRepository';
+import { movementMutationRetry } from './movementMutations';
+import { json } from '../test/fixtures';
+const uuid='11111111-1111-4111-8111-111111111111';
+const assignmentDto={id:uuid,organization_id:uuid,asset_id:uuid,asset_tag:'A-1',asset_name:'Asset',assigned_to_id:7,assigned_to_email:'custodian@example.test',department_id:uuid,department_name:'Operations',location_id:uuid,location_name:'Plant',assigned_at:'2026-01-01T10:00:00Z',returned_at:null,returned_by_email:null,notes:'Custody only',created_by_email:'manager@example.test',created_at:'2026-01-01T10:00:00Z',updated_at:'2026-01-01T10:00:00Z'};
+const transferDto={id:uuid,organization_id:uuid,asset_id:uuid,asset_tag:'A-1',asset_name:'Asset',from_department_id:uuid,from_department_name:'Operations',from_location_id:uuid,from_location_name:'Plant',to_department_id:uuid,to_department_name:'Finance',to_location_id:uuid,to_location_name:'HQ',requested_by_email:'manager@example.test',approved_by_email:null,completed_by_email:null,rejected_by_email:null,cancelled_by_email:null,requested_at:'2026-01-01T10:00:00Z',approved_at:null,completed_at:null,rejected_at:null,cancelled_at:null,status:'REQUESTED',reason:'Move',notes:''};
+function api(fetcher:ReturnType<typeof vi.fn<typeof fetch>>){const result=new ApiClient('/api/v1',fetcher);result.session={accessToken:'smoke-token',generation:1,refresh:async()=>{},invalidate:()=>{}};return result;}
+describe('F4 movement DTOs',()=>{
+ it('maps assignment and nullable custodian without mixing custody with placement',()=>{expect(mapAssignmentDto(parseAssignmentDto(assignmentDto))).toMatchObject({custodianId:7,departmentId:uuid,locationId:uuid,returnedAt:null});expect(mapAssignmentDto(parseAssignmentDto({...assignmentDto,assigned_to_id:null,assigned_to_email:null})).custodianId).toBeNull();expect(()=>parseAssignmentDto({...assignmentDto,assigned_to_id:'7'})).toThrow(ApiError);});
+ it('rejects malformed transfer statuses and inconsistent nullable relations',()=>{expect(mapTransferDto(parseTransferDto(transferDto))).toMatchObject({status:'REQUESTED',fromDepartmentId:uuid,toLocationId:uuid});expect(()=>parseTransferDto({...transferDto,status:'IN_TRANSIT'})).toThrow(ApiError);expect(()=>parseTransferDto({...transferDto,to_location_name:null})).toThrow(ApiError);expect(()=>parseTransferDto(null)).toThrow(ApiError);});
+ it('maps the minimal custodian reference and rejects malformed identity',()=>{expect(parseCustodianDto({id:7,email:'a@example.test',role:'EMPLOYEE',department_id:uuid,department_name:'Ops'})).toMatchObject({id:7,departmentId:uuid});expect(()=>parseCustodianDto({id:'7'})).toThrow(ApiError);});
+});
+describe('F4 movement repository contracts',()=>{
+ it('uses actual custody and transfer routes, numeric custodian IDs, and backend-derived transfer source',async()=>{const fetcher=vi.fn<typeof fetch>().mockResolvedValueOnce(json(assignmentDto)).mockResolvedValueOnce(json({...transferDto,status:'REQUESTED'}));const repo=new DjangoMovementRepository(api(fetcher));await repo.createAssignment({asset_id:uuid,assigned_to_id:7,notes:'n'});await repo.createTransfer({asset_id:uuid,to_department_id:uuid,to_location_id:uuid,reason:'Move',notes:''});expect(fetcher.mock.calls[0][0]).toBe('/api/v1/assets/assignments/');expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toEqual({asset_id:uuid,assigned_to_id:7,notes:'n'});expect(fetcher.mock.calls[1][0]).toBe('/api/v1/assets/transfers/');expect(JSON.parse(String(fetcher.mock.calls[1][1]?.body))).toEqual({asset_id:uuid,to_department_id:uuid,to_location_id:uuid,reason:'Move',notes:''});expect(String(fetcher.mock.calls[1][1]?.body)).not.toContain('from_department');});
+ it('does not retry workflow mutations automatically',()=>{expect(movementMutationRetry).toBe(false);});
+});

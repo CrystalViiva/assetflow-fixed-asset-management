@@ -88,7 +88,7 @@ it('real-mode asset UUID opens only the real detail overview', async () => {
   fireEvent.click(screen.getByRole('button',{ name:'REAL-001' }));
   expect(await screen.findByRole('heading',{ name:'REAL-001 - Office generator' })).toBeTruthy();
   expect(window.location.hash).toBe(`#asset-detail/${assetDto.id}`);
-  expect(screen.getAllByRole('button',{ name:/Integration pending/ })).toHaveLength(5);
+  expect(screen.getAllByRole('button',{ name:/Integration pending/ })).toHaveLength(3);
   fireEvent.click(screen.getAllByRole('button',{ name:'Depreciation' }).at(-1)!);
   expect(await screen.findByText('No depreciation schedule')).toBeTruthy();
   expect(screen.queryByText(/Monthly Depreciation Posting Run executed successfully/)).toBeNull();
