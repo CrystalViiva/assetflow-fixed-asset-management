@@ -9,6 +9,7 @@ import secrets
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -32,13 +33,14 @@ def seed():
     from accounts.models import User
     from assets.models import Asset, AssetCategory
     from organizations.models import Department, Location, Organization
+    from transfers.models import AssetAssignment
 
     # This child must only ever connect to the random database selected by the parent.
-    prefix = "assetflow_f6_" if os.environ.get("F6_SMOKE_MODE") else "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
+    prefix = "assetflow_f7_" if os.environ.get("F7_SMOKE_MODE") else "assetflow_f6_" if os.environ.get("F6_SMOKE_MODE") else "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
     assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
     assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
     organization = Organization.objects.create(name=f"{prefix[:-1].upper()} smoke", code=f"{prefix[:-1].upper()}SMOKE")
-    User.objects.create_user(
+    manager = User.objects.create_user(
         os.environ["F1_SMOKE_EMAIL"], os.environ["F1_SMOKE_PASSWORD"],
         organization=organization, role="ASSET_MANAGER",
     )
@@ -55,6 +57,31 @@ def seed():
         if prefix.endswith("f6_"):
             User.objects.create_user(os.environ["F1_SMOKE_APPROVER_EMAIL"], os.environ["F1_SMOKE_PASSWORD"], organization=organization, role="ADMIN")
         return
+    if prefix.endswith("f7_"):
+        department_a = Department.objects.create(organization=organization, name="Operations", code="OPS")
+        Department.objects.create(organization=organization, name="Finance", code="FIN")
+        location_a = Location.objects.create(organization=organization, name="Main Plant", code="PLANT")
+        Location.objects.create(organization=organization, name="Remote Plant", code="REMOTE")
+        created_assets = []
+        for number, department, location in ((1, department_a, location_a), (2, department_a, location_a)):
+            created_assets.append(Asset.objects.create(
+                organization=organization, category=category, asset_tag=f"F7-SMOKE-{number:02}",
+                name=f"F7 physical verification asset {number}", department=department, location=location,
+                status="ACTIVE", condition="GOOD", acquisition_date="2026-01-01",
+                capitalization_date="2026-01-02", available_for_use_date="2026-01-02",
+                purchase_cost="1001.00", residual_value="100.00", useful_life_months=36,
+                depreciation_method="SLM", accumulated_depreciation="25.03", current_book_value="975.97",
+            ))
+        custodian = User.objects.create_user(
+            "custodian@example.test", os.environ["F1_SMOKE_PASSWORD"],
+            organization=organization, department=department_a, role="EMPLOYEE",
+        )
+        AssetAssignment.objects.create(
+            organization=organization, asset=created_assets[1], assigned_to=custodian,
+            department=department_a, location=location_a, created_by=manager,
+            notes="Disposable F7 custody fixture",
+        )
+        return
     for number in (1, 2):
         Asset.objects.create(
             organization=organization, category=category, asset_tag=f"F1-SMOKE-{number:02}",
@@ -62,11 +89,12 @@ def seed():
         )
 
 
-def run(f2=False, f3=False, f4=False, f5=False, f6=False):
+def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False):
     database = settings.DATABASES["default"]
+    f7 = f7 or bool(os.environ.get("F7_SMOKE_MODE"))
     f6 = f6 or bool(os.environ.get("F6_SMOKE_MODE"))
     f5 = f5 or bool(os.environ.get("F5_SMOKE_MODE"))
-    prefix = "assetflow_f6_" if f6 else "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
+    prefix = "assetflow_f7_" if f7 else "assetflow_f6_" if f6 else "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
     name = prefix + uuid.uuid4().hex
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -83,7 +111,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False):
     db_port = database["PORT"] or 5432
     environment.update({
         "DATABASE_URL": f"postgresql://{user}:{password}@{host}:{db_port}/{name}",
-        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "", "F5_SMOKE_MODE": "1" if f5 else "", "F6_SMOKE_MODE": "1" if f6 else "", "F1_SMOKE_APPROVER_EMAIL": "approver@example.test",
+        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "", "F5_SMOKE_MODE": "1" if f5 else "", "F6_SMOKE_MODE": "1" if f6 else "", "F7_SMOKE_MODE": "1" if f7 else "", "F1_SMOKE_APPROVER_EMAIL": "approver@example.test",
         "F1_SMOKE_EMAIL": "smoke@example.test",
         "F1_SMOKE_PASSWORD": secrets.token_urlsafe(32),
         "F1_SMOKE_URL": f"http://127.0.0.1:{port}/api/v1",
@@ -91,6 +119,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False):
     })
     server = None
     created = False
+    shim_path = None
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     try:
         admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
@@ -123,8 +152,18 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False):
                 time.sleep(0.25)
         else:
             raise RuntimeError("Isolated Django server did not become ready.")
+        node_command = ["node"]
+        if f7 and os.name == "nt":
+            # tsx asks Node for account details when choosing its cache directory; some
+            # managed Windows runners deny that OS lookup. Keep the compatibility shim
+            # temporary and outside the repository.
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".cjs", encoding="utf-8", delete=False) as shim:
+                shim.write("const os=require('node:os');os.userInfo=()=>({uid:-1,gid:-1,username:'assetflow-smoke',homedir:os.homedir(),shell:null});\n")
+                shim_path = shim.name
+            node_command.extend(["--require", shim_path])
+        node_command.extend(["--import", "tsx", "scripts/f7-api-smoke.ts" if f7 else "scripts/f6-api-smoke.ts" if f6 else "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"])
         result = subprocess.run(
-            ["node", "--import", "tsx", "scripts/f6-api-smoke.ts" if f6 else "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"], cwd=ROOT, env=environment,
+            node_command, cwd=ROOT, env=environment,
             capture_output=True, text=True, timeout=60, creationflags=flags, check=False,
         )
         if result.returncode:
@@ -133,7 +172,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False):
                     print(line)
             raise RuntimeError("Frontend API smoke failed; captured output withheld to protect temporary credentials.")
         print(result.stdout.strip())
-        if f2 or f3 or f4 or f5 or f6:
+        if f2 or f3 or f4 or f5 or f6 or f7:
             result = subprocess.run(
                 [sys.executable, str(Path(__file__).resolve()), "--verify"], cwd=ROOT, env=environment,
                 capture_output=True, text=True, timeout=30, creationflags=flags, check=False,
@@ -148,6 +187,8 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False):
                 raise RuntimeError("Isolated PostgreSQL state and audit verification failed; details withheld.")
             print(result.stdout.strip())
     finally:
+        if shim_path:
+            Path(shim_path).unlink(missing_ok=True)
         if server:
             server.terminate()
             server.wait(timeout=10)
@@ -165,6 +206,38 @@ if __name__ == "__main__":
     elif sys.argv[1:] == ["--verify"]:
         import django
         django.setup()
+        if os.environ.get("F7_SMOKE_MODE"):
+            from assets.models import Asset
+            from audit.models import AuditLog
+            from transfers.models import AssetAssignment
+            from verification.models import (
+                PhysicalVerification,
+                VerificationCampaign,
+                VerificationEvidence,
+                VerificationException,
+            )
+            assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
+            assert os.environ["F1_SMOKE_DATABASE"].startswith("assetflow_f7_")
+            campaign = VerificationCampaign.objects.get(name="F7 isolated physical verification")
+            registered = Asset.objects.get(asset_tag="F7-SMOKE-01")
+            mismatch_asset = Asset.objects.get(asset_tag="F7-SMOKE-02")
+            unregistered_count = PhysicalVerification.objects.filter(campaign=campaign, asset__isnull=True).count()
+            events = set(AuditLog.objects.filter(organization=registered.organization).values_list("action", flat=True))
+            assert campaign.status == "COMPLETED"
+            assert campaign.verifications.filter(asset=registered).count() == 1
+            assert campaign.verifications.filter(asset__asset_tag="F7-SMOKE-02", result="CONDITION_MISMATCH").count() == 1
+            assert campaign.verifications.filter(asset__isnull=True, result="UNREGISTERED_ASSET").count() == 1 and unregistered_count == 1
+            exception_types = set(VerificationException.objects.filter(campaign=campaign).values_list("exception_type", flat=True))
+            assert {"LOCATION_MISMATCH", "DEPARTMENT_MISMATCH", "CUSTODY_MISMATCH", "TAG_MISMATCH", "CONDITION_MISMATCH", "DAMAGED_ASSET", "UNREGISTERED_ASSET"}.issubset(exception_types)
+            assert VerificationEvidence.objects.filter(verification__campaign=campaign, evidence_type="NOTE", integrity_status="METADATA_ONLY").exists()
+            assert Asset.objects.filter(organization=registered.organization).count() == 2
+            assert [mismatch_asset.asset_tag, mismatch_asset.department.code, mismatch_asset.location.code, mismatch_asset.status, str(mismatch_asset.purchase_cost), str(mismatch_asset.residual_value), str(mismatch_asset.accumulated_depreciation), str(mismatch_asset.current_book_value)] == ["F7-SMOKE-02", "OPS", "PLANT", "ACTIVE", "1001.00", "100.00", "25.03", "975.97"]
+            assert [mismatch_asset.acquisition_date.isoformat(), mismatch_asset.capitalization_date.isoformat(), mismatch_asset.available_for_use_date.isoformat(), mismatch_asset.depreciation_method, mismatch_asset.useful_life_months, mismatch_asset.condition] == ["2026-01-01", "2026-01-02", "2026-01-02", "SLM", 36, "GOOD"]
+            active_assignments = list(AssetAssignment.objects.filter(asset=mismatch_asset, returned_at__isnull=True).values_list("assigned_to__email", "department__code", "location__code"))
+            assert active_assignments == [("custodian@example.test", "OPS", "PLANT")]
+            assert {"VERIFICATION_CAMPAIGN_CREATED", "VERIFICATION_CAMPAIGN_STARTED", "VERIFICATION_CREATED", "VERIFICATION_RESULT_RECONCILED", "VERIFICATION_EXCEPTION_CREATED", "VERIFICATION_CAMPAIGN_COMPLETED", "VERIFICATION_EVIDENCE_ADDED"}.issubset(events)
+            print("PASS: isolated PostgreSQL F7 campaign, registered/mismatching/unregistered observations, exceptions, NOTE evidence metadata, asset invariance, two-asset count and audit events verified.")
+            sys.exit(0)
         from assets.models import Acquisition, Asset
         from audit.models import AuditLog
         assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
@@ -277,9 +350,9 @@ if __name__ == "__main__":
         print("PASS: isolated PostgreSQL holds one tenant asset and acquisition with exact components, ACTIVE lifecycle and capitalization audit.")
     else:
         try:
-            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"], f5=sys.argv[1:] == ["--f5"], f6=sys.argv[1:] == ["--f6"])
+            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"], f5=sys.argv[1:] == ["--f5"], f6=sys.argv[1:] == ["--f6"], f7=sys.argv[1:] == ["--f7"])
         except Exception as error:  # noqa: BLE001 -- Do not print exception bodies containing credentials.
-            mode = "F6" if sys.argv[1:] == ["--f6"] else "F5" if sys.argv[1:] == ["--f5"] else "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
+            mode = "F7" if sys.argv[1:] == ["--f7"] else "F6" if sys.argv[1:] == ["--f6"] else "F5" if sys.argv[1:] == ["--f5"] else "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
             print(f"{mode} smoke unavailable/failed ({type(error).__name__}); no connection details printed.")
             if isinstance(error, RuntimeError):
                 print(str(error))

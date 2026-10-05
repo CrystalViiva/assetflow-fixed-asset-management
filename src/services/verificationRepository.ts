@@ -1,0 +1,23 @@
+import { ApiClient } from './apiClient';
+import { ApiError } from './apiError';
+import { uuidPattern } from './assetDtos';
+import { Campaign, Observation, VerificationEvidence, VerificationException, VerificationPage, parseCampaign, parseObservation, parseVerificationEvidence, parseVerificationException, parseVerificationPage } from './verificationDtos';
+
+export interface VerificationFilters {page:number;pageSize:number;search?:string;status?:string;scope_type?:string;campaign?:string;asset?:string;result?:string;exception_type?:string;severity?:string}
+export class DjangoVerificationRepository {
+ constructor(private readonly api:ApiClient){}
+ campaigns(filters:VerificationFilters,signal?:AbortSignal):Promise<VerificationPage<Campaign>>{return this.page('/verification/campaigns/',filters,parseCampaign,signal);}
+ observations(filters:VerificationFilters,signal?:AbortSignal):Promise<VerificationPage<Observation>>{return this.page('/verification/records/',filters,parseObservation,signal);}
+ exceptions(filters:VerificationFilters,signal?:AbortSignal):Promise<VerificationPage<VerificationException>>{return this.page('/verification/exceptions/',filters,parseVerificationException,signal);}
+ evidence(verification:string,signal?:AbortSignal):Promise<VerificationPage<VerificationEvidence>>{this.valid(verification);return this.page('/verification/evidence/',{page:1,pageSize:100,search:undefined,status:undefined,scope_type:undefined,campaign:undefined,asset:undefined,result:undefined,exception_type:undefined,severity:undefined},parseVerificationEvidence,signal,'verification',verification);}
+ async addNote(input:{verification_id:string;exception_id?:string;evidence_type:'NOTE';description:string;external_reference?:string}){return parseVerificationEvidence(await this.api.request('/verification/evidence/',{method:'POST',body:input}));}
+ async campaign(id:string,signal?:AbortSignal){this.valid(id);return parseCampaign(await this.api.request(`/verification/campaigns/${id}/`,{signal}));}
+ async exception(id:string,signal?:AbortSignal){this.valid(id);return parseVerificationException(await this.api.request(`/verification/exceptions/${id}/`,{signal}));}
+ async createCampaign(input:{name:string;description:string;scope_type:string;department_id?:string;location_id?:string;start_date:string;due_date?:string}){return parseCampaign(await this.api.request('/verification/campaigns/',{method:'POST',body:input}));}
+ async transitionCampaign(id:string,action:'start'|'complete'|'cancel'){this.valid(id);return parseCampaign(await this.api.request(`/verification/campaigns/${id}/${action}/`,{method:'POST'}));}
+ async exceptionAction(id:string,action:'start-review'|'resolve'|'accept'|'reject',resolution_notes=''){this.valid(id);return parseVerificationException(await this.api.request(`/verification/exceptions/${id}/${action}/`,{method:'POST',...(['resolve','accept','reject'].includes(action)?{body:{resolution_notes}}:{})}));}
+ async assignException(id:string,assigned_to_id:number){this.valid(id);if(!Number.isSafeInteger(assigned_to_id)||assigned_to_id<1)throw new ApiError('validation','Invalid custodian reference.');return parseVerificationException(await this.api.request(`/verification/exceptions/${id}/assign/`,{method:'POST',body:{assigned_to_id}}));}
+ async createObservation(input:{campaign_id:string;asset_id?:string;observed_asset_tag:string;observed_description:string;observed_location_id?:string;observed_department_id?:string;observed_custodian_id?:number;observed_condition:string;notes:string}){return parseObservation(await this.api.request('/verification/records/',{method:'POST',body:{...input,asset_id:input.asset_id??null}}));}
+ private async page<T>(path:string,filters:VerificationFilters,parse:(value:unknown)=>T,signal?:AbortSignal,extraKey?:string,extraValue?:string){if(!Number.isInteger(filters.page)||filters.page<1||!Number.isInteger(filters.pageSize)||filters.pageSize<1||filters.pageSize>100)throw new ApiError('validation','Invalid verification pagination.');return parseVerificationPage(await this.api.request(path,{query:{page:filters.page,page_size:filters.pageSize,search:filters.search,status:filters.status,scope_type:filters.scope_type,campaign:filters.campaign,asset:filters.asset,result:filters.result,exception_type:filters.exception_type,severity:filters.severity,ordering:'-created_at',...(extraKey&&extraValue?{[extraKey]:extraValue}:{})},signal}),parse);}
+ private valid(id:string){if(!uuidPattern.test(id))throw new ApiError('validation','Invalid verification UUID.');}
+}

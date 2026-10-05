@@ -17,6 +17,7 @@ import { BackendTransfersView } from './BackendTransfersView';
 import { LoginView } from './LoginView';
 import { defaultAssetQuery } from '../services/djangoApiBridge';
 import { useMovementAction } from '../services/movementMutations';
+import { BackendVerificationView } from './BackendVerificationView';
 
 afterEach(() => vi.unstubAllGlobals());
 function frame(session: Session, client: QueryClient, children: ReactNode) {
@@ -121,6 +122,13 @@ describe('real asset register', () => {
     expect(updateAssetFilters({ ...defaultAssetQuery,page:3 },{ [field]:field === 'pageSize' ? 50 : 'test' }).page).toBe(1);
   });
 });
+describe('F7 physical verification screen',()=>{
+ it('renders database-derived campaign progress and keeps observation history empty when Django returns none',async()=>{
+  const c=await authenticated('ACCOUNTANT');const departmentId='55555555-5555-4555-8555-555555555555';const campaign={id:'66666666-6666-4666-8666-666666666666',organization_id:assetDto.organization_id,name:'Quarterly stocktake',description:'',status:'OPEN',scope_type:'DEPARTMENT',department_id:departmentId,location_id:null,start_date:'2026-04-01',due_date:null,opened_at:'2026-04-01T10:00:00Z',completed_at:null,created_by_email:'manager@example.test',expected_asset_count:8,verified_asset_count:3,unverified_asset_count:5,exception_count:2,resolved_exception_count:1,verification_percentage:'37.50',created_at:'2026-04-01T09:00:00Z',updated_at:'2026-04-01T10:00:00Z'};
+  c.fetcher.mockImplementation(async input=>{const url=String(input);if(url.includes('/verification/campaigns/'))return json({count:1,next:null,previous:null,results:[campaign]});if(url.includes('/verification/records/'))return json(emptyPage);if(url.includes('/verification/exceptions/'))return json(emptyPage);if(url.includes('/departments/'))return json({...emptyPage,results:[{id:departmentId,organization_id:assetDto.organization_id,name:'Operations',code:'OPS',is_active:true}],count:1});if(url.includes('/locations/'))return json(emptyPage);return json(emptyPage);});
+  render(frame(c.session,c.client,<BackendVerificationView/>));expect(await screen.findByText('Quarterly stocktake')).toBeTruthy();expect(screen.getByText(/Coverage 37.50% · 3\/8 registered assets · 5 not observed · 2 exceptions \(1 resolved\)/)).toBeTruthy();expect(screen.queryByText('1,284')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'Open observations'}));expect(await screen.findByText('No physical observations recorded.')).toBeTruthy();expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/verification/records/?'))).toBe(true);
+ });
+});
 describe('real asset detail and cache security', () => {
   it('renders loading then real overview, null fields, real maintenance and only unsupported pending tabs', async () => {
     const c = await authenticated(); const pending = deferred<Response>();
@@ -154,6 +162,11 @@ describe('real asset detail and cache security', () => {
     expect(c.fetcher.mock.calls.some(([url])=>String(url).includes('/assets/assignments/'))).toBe(true);
     expect(c.fetcher.mock.calls.some(([url])=>String(url).includes('/assets/transfers/'))).toBe(true);
     expect(screen.queryByText(/AST-000002/)).toBeNull();
+  });
+  it('loads authoritative verification history with one asset-filtered request from the detail tab',async()=>{
+    const c=await authenticated('ACCOUNTANT');const record={id:'77777777-7777-4777-8777-777777777777',organization_id:assetDto.organization_id,campaign_id:'88888888-8888-4888-8888-888888888888',asset_id:assetDto.id,asset_tag:assetDto.asset_tag,verified_at:'2026-04-01T12:00:00Z',verified_by_email:'manager@example.test',result:'LOCATION_MISMATCH',observed_location_id:'99999999-9999-4999-8999-999999999999',observed_department_id:assetDto.department_id,observed_custodian_id:null,observed_condition:'GOOD',observed_asset_tag:'OTHER-TAG',observed_description:'Seen at another site',notes:'Counted during check',exceptions:[{id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',exception_type:'LOCATION_MISMATCH',severity:'MEDIUM',status:'OPEN',description:'Observed location differs from the asset register.'}],created_at:'2026-04-01T12:00:00Z',updated_at:'2026-04-01T12:00:00Z'};
+    c.fetcher.mockImplementation(async input=>{const url=String(input);if(url===`/api/v1/assets/${assetDto.id}/`)return json(assetDto);if(url.includes('/verification/records/')){expect(url).toContain(`asset=${assetDto.id}`);return json({count:1,next:null,previous:null,results:[record]});}return json(emptyPage);});
+    render(frame(c.session,c.client,<BackendAssetDetail assetId={assetDto.id} onNavigate={()=>{}}/>));await screen.findByRole('heading',{name:'REAL-001 - Office generator'});expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/verification/records/'))).toBe(false);fireEvent.click(screen.getByRole('button',{name:'Verification'}));expect(await screen.findByText(/LOCATION_MISMATCH · observed/)).toBeTruthy();expect(screen.getByText(/Seen at another site/)).toBeTruthy();expect(c.fetcher.mock.calls.filter(call=>String(call[0]).includes('/verification/records/'))).toHaveLength(1);
   });
   it.each([404,403,500])('handles detail HTTP %s', async status => {
     const c = await authenticated(); backendData(c.fetcher, () => json({},status));

@@ -14,9 +14,11 @@ import { useMaintenanceCosts, useMaintenanceOrders, useMaintenancePlans, useMain
 import { formatMaintenanceMoney as formatMoney } from '../services/maintenanceDtos';
 import { useDisposals } from '../services/disposalQueries';
 import { DisposalRecord, formatDisposalMoney } from '../services/disposalDtos';
+import { useVerificationObservations } from '../services/verificationQueries';
 
 export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; onNavigate: (route: string) => void }) {
-  const [activeTab, setActiveTab] = useState<'Overview' | 'Depreciation' | 'Assignments' | 'Transfers' | 'Maintenance' | 'Disposal'>('Overview');
+  const [activeTab, setActiveTab] = useState<'Overview' | 'Depreciation' | 'Assignments' | 'Transfers' | 'Maintenance' | 'Disposal' | 'Verification'>('Overview');
+  const [verificationPage,setVerificationPage]=useState(1);
   const { role, generation, isCurrent } = useAuth();
   const writable = canManageAssets(role);
   const [movementMessage, setMovementMessage] = useState('');
@@ -28,6 +30,7 @@ export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; o
   const maintenanceHistory = useMaintenanceRecords({asset:assetId},activeTab==='Maintenance');
   const maintenanceCosts = useMaintenanceCosts({},activeTab==='Maintenance');
   const disposalRows = useDisposals({page:1,pageSize:100,asset:assetId,ordering:'-disposal_date'},activeTab==='Disposal');
+  const verificationRows=useVerificationObservations({page:verificationPage,pageSize:25,asset:assetId},activeTab==='Verification');
   const movementAction = useMovementAction('assignments');
   const result = useAsset(assetId);
   const schedules = useDepreciationSchedules(activeTab === 'Depreciation');
@@ -52,7 +55,7 @@ export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; o
     {back}<div className="rounded-xl border bg-white p-6"><p className="text-sm text-slate-500">Django API - Asset Detail</p>
       <h1 className="text-2xl font-bold mt-2">{asset.tag} - {asset.name}</h1><p className="mt-3 text-slate-600 whitespace-pre-wrap">{asset.description || 'No description provided.'}</p></div>
     <nav aria-label="Asset detail sections" className="flex flex-wrap gap-2 rounded-xl bg-white border p-3 text-sm">
-      {(['Overview','Depreciation','Assignments','Transfers','Maintenance','Disposal'] as const).map(tab => <button key={tab} aria-current={activeTab === tab ? 'page' : undefined} onClick={() => setActiveTab(tab)} className={`px-3 py-2 rounded ${activeTab === tab ? 'bg-[#00288e] text-white' : 'text-slate-700 hover:bg-slate-100'}`}>{tab}</button>)}
+      {(['Overview','Depreciation','Assignments','Transfers','Maintenance','Disposal','Verification'] as const).map(tab => <button key={tab} aria-current={activeTab === tab ? 'page' : undefined} onClick={() => {setActiveTab(tab);if(tab==='Verification')setVerificationPage(1);}} className={`px-3 py-2 rounded ${activeTab === tab ? 'bg-[#00288e] text-white' : 'text-slate-700 hover:bg-slate-100'}`}>{tab}</button>)}
       {['Documents','Audit'].map(tab => <button key={tab} disabled title="Integration pending" className="px-3 py-2 text-slate-500 disabled:cursor-not-allowed">{tab} - Integration pending</button>)}
     </nav>
     {result.isFetching && <p role="status" className="text-sm text-blue-700">Refreshing asset...</p>}
@@ -107,6 +110,7 @@ export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; o
       {asset.status==='DISPOSED'&&<p className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">This asset is disposed. Django blocks new depreciation, assignments, transfers, and maintenance work orders.</p>}
       {disposalRows.isPending?<LoadingState label="Loading disposal history…"/>:disposalRows.isError?<ErrorState error={disposalRows.error} retry={()=>void disposalRows.refetch()}/>:disposalRows.data.results.length===0?<p role="status" className="py-5 text-sm text-slate-600">No disposal workflow exists for this asset.</p>:<div className="space-y-3">{disposalRows.data.results.map(row=><AssetDisposalCard key={row.id} record={row}/>)}</div>}
     </section>}
+    {activeTab==='Verification'&&<section className="space-y-4 rounded-xl border bg-white p-5"><div><h2 className="text-lg font-semibold">Physical verification history</h2><p className="mt-1 text-sm text-slate-600">Authoritative physical observations for this asset. Observations do not update the asset register.</p></div>{verificationRows.isPending?<LoadingState label="Loading verification history…"/>:verificationRows.isError?<ErrorState error={verificationRows.error} retry={()=>void verificationRows.refetch()}/>:verificationRows.data.results.length===0?<p role="status" className="py-5 text-sm text-slate-600">No physical observations for this asset.</p>:<div className="space-y-3">{verificationRows.data.results.map(row=><article key={row.id} className="rounded border p-4"><div className="flex flex-wrap justify-between gap-2"><b>{row.result} · observed {new Date(row.verifiedAt).toLocaleString()}</b><span className="rounded bg-slate-100 px-2 py-1 text-xs">{row.condition}</span></div><p className="mt-1 text-sm">Tag observed: {row.observedAssetTag||'Not recorded'} · department ID: {row.observedDepartmentId??'Not recorded'} · location ID: {row.observedLocationId??'Not recorded'}</p><p className="mt-1 text-xs text-slate-500">Campaign {row.campaignId} · recorded by {row.verifiedByEmail}{row.observedDescription?` · ${row.observedDescription}`:''}</p>{row.exceptions.length>0&&<ul className="mt-2 list-inside list-disc text-sm">{row.exceptions.map(exception=><li key={exception.id}>{exception.type} · {exception.severity} · {exception.status}: {exception.description}</li>)}</ul>}</article>)}</div>}{verificationRows.data&&verificationRows.data.count>25&&<div className="flex items-center justify-between"><button className="rounded border px-3 py-2 disabled:opacity-50" disabled={verificationPage<=1||!verificationRows.data.previous} onClick={()=>setVerificationPage(page=>page-1)}>Previous</button><span className="text-sm">{verificationRows.data.count} observations · Page {verificationPage}</span><button className="rounded border px-3 py-2 disabled:opacity-50" disabled={!verificationRows.data.next} onClick={()=>setVerificationPage(page=>page+1)}>Next</button></div>}</section>}
   </section>;
 }
 function Fact({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 break-words font-medium">{value}</dd></div>; }

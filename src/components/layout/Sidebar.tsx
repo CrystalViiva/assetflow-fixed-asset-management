@@ -211,6 +211,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span aria-hidden="true" className="material-symbols-outlined text-[18px]">archive</span>
               {!isCollapsed && <span>Disposals</span>}
             </button>
+            <button
+              onClick={() => onNavigate('verification')}
+              title="Physical verification"
+              className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors text-[13px] ${
+                isActive('verification')
+                  ? 'bg-[#00288e] text-white font-semibold'
+                  : 'text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e]'
+              }`}
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">fact_check</span>
+              {!isCollapsed && <span>Physical verification</span>}
+            </button>
           </div>
         </div>
 

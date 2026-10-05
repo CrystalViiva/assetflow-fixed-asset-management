@@ -25,6 +25,7 @@ import { BackendAssignmentsView } from './views/BackendAssignmentsView';
 import { BackendTransfersView } from './views/BackendTransfersView';
 import { BackendMaintenanceView } from './views/BackendMaintenanceView';
 import { BackendDisposalsView } from './views/BackendDisposalsView';
+import { BackendVerificationView } from './views/BackendVerificationView';
 import { MaintenanceView } from './views/MaintenanceView';
 import { DisposalsView } from './views/DisposalsView';
 import { ReportsView } from './views/ReportsView';
@@ -244,7 +245,7 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
-    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals'].includes(currentRoute)) return <IntegrationPending />;
+    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals', 'verification'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
         return (
@@ -356,6 +357,8 @@ export default function App() {
             }}
           />
         );
+      case 'verification':
+        return dataSource === 'django' ? <BackendVerificationView /> : <IntegrationPending />;
       case 'reports':
         return (
           <ReportsView
