@@ -18,6 +18,7 @@ import { LoginView } from './LoginView';
 import { defaultAssetQuery } from '../services/djangoApiBridge';
 import { useMovementAction } from '../services/movementMutations';
 import { BackendVerificationView } from './BackendVerificationView';
+import { BackendAssuranceView } from './BackendAssuranceView';
 
 afterEach(() => vi.unstubAllGlobals());
 function frame(session: Session, client: QueryClient, children: ReactNode) {
@@ -74,6 +75,47 @@ describe('login and application boundary', () => {
     await act(async () => { pending.resolve(json({},401)); });
     expect(await screen.findByRole('button',{ name:'Sign in' })).toBeTruthy(); expect(fetcher).toHaveBeenCalledTimes(1);
   });
+});
+describe('deterministic assurance integration',()=>{
+ it('creates a pending run, separately dispatches execution, and truthfully shows RUNNING',async()=>{
+  const c=await authenticated('ASSET_MANAGER');const runId='11111111-1111-4111-8111-111111111111';const orgId=assetDto.organization_id;const now='2026-10-05T10:00:00Z';
+  const pending={id:runId,organization_id:orgId,run_type:'FULL',status:'PENDING',verification_campaign_id:null,stale_after_days:365,scheduled_for:null,started_at:null,completed_at:null,started_by_email:identity.email,completed_by_email:null,assets_evaluated:0,findings_generated:0,findings_open:0,findings_resolved:0,failure_message:'',execution_phase:'CAPTURE',captured_at:null,sealed_at:null,executor_version:1,input_schema_version:0,population_count:0,unit_count:0,units_completed:0,created_at:now,updated_at:now};
+  const running={...pending,status:'RUNNING',started_at:now,execution_phase:'EVALUATE',captured_at:now,sealed_at:now,population_count:4,unit_count:2,units_completed:1};
+  let currentRun:Record<string,unknown>=pending;c.fetcher.mockImplementation(async input=>{const url=String(input);if(url.includes('/assurance/runs/')&&url.endsWith('/execute/')){currentRun=running;return json({},500);}if(url.includes('/assurance/runs/')&&url.endsWith(`/${runId}/`))return json(currentRun);if(url.includes('/assurance/runs/'))return json({count:1,next:null,previous:null,results:[currentRun]});if(url.includes('/verification/campaigns/'))return json(emptyPage);return json(emptyPage);});
+  render(frame(c.session,c.client,<BackendAssuranceView onSelectAsset={vi.fn()}/>));
+  expect(await screen.findByRole('button',{name:'Execute'})).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'Execute'}));
+  expect(await screen.findByText(/Django confirms the run is RUNNING/)).toBeTruthy();
+  expect(await screen.findByText(/1\/2 work units complete/)).toBeTruthy();
+  expect(screen.queryByText(/Completed .*assets evaluated/)).toBeNull();expect(screen.queryByText(/Public findings from completed run/)).toBeNull();
+  expect(c.fetcher.mock.calls.filter(call=>String(call[0]).includes('/assurance/runs/')&&String(call[0]).endsWith('/execute/'))).toHaveLength(1);
+  expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/assurance/runs/')&&String(call[0]).includes('/findings/'))).toBe(false);
+ });
+ it('loads public findings from Django and never queries candidate/input resources',async()=>{
+  const c=await authenticated('ACCOUNTANT');const runId='11111111-1111-4111-8111-111111111111',orgId=assetDto.organization_id,now='2026-10-05T10:00:00Z';
+  const occurrence={id:'22222222-2222-4222-8222-222222222222',assurance_run:runId,detected_at:now,expected_value:'100.00',observed_value:'80.00',description:'Book value exception'};
+  const finding={id:'33333333-3333-4333-8333-333333333333',organization_id:orgId,assurance_run:runId,last_detected_run:runId,asset:assetDto.id,asset_tag:assetDto.asset_tag,asset_name:assetDto.name,physical_verification:null,department_name:null,location_name:null,identity_key:`asset:${assetDto.id}`,finding_type:'BOOK_VALUE_EXCEPTION',severity:'HIGH',status:'OPEN',source:'ASSET_MASTER',expected_value:'100.00',observed_value:'80.00',description:'Book value exception',occurrence_count:1,first_detected_at:now,last_detected_at:now,resolved_at:null,resolved_by_email:null,resolution_notes:'',occurrences:[occurrence],created_at:now,updated_at:now};
+  c.fetcher.mockImplementation(async input=>String(input).includes('/assurance/findings/')?json({count:1,next:null,previous:null,results:[finding]}):json(emptyPage));
+  render(frame(c.session,c.client,<BackendAssuranceView onSelectAsset={vi.fn()}/>));fireEvent.click(screen.getByRole('button',{name:'Public findings'}));
+  expect((await screen.findAllByText(/Book value exception/)).length).toBeGreaterThan(0);expect(screen.getByText(/Occurrence history \(1; showing 1\)/)).toBeTruthy();
+  expect(c.fetcher.mock.calls.some(call=>/candidate|run-input|work-unit/i.test(String(call[0])))).toBe(false);
+ });
+ it('loads Asset Detail assurance history on demand through one asset-filtered public query',async()=>{
+  const c=await authenticated('ACCOUNTANT');backendData(c.fetcher,url=>url.includes(`/assets/${assetDto.id}/`)?json(assetDto):json(emptyPage));
+  render(frame(c.session,c.client,<BackendAssetDetail assetId={assetDto.id} onNavigate={()=>{}}/>));await screen.findByRole('heading',{name:'REAL-001 - Office generator'});
+  expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/assurance/findings/'))).toBe(false);fireEvent.click(screen.getByRole('button',{name:'Assurance'}));
+  expect(await screen.findByText('No published assurance findings for this asset.')).toBeTruthy();const calls=c.fetcher.mock.calls.filter(call=>String(call[0]).includes('/assurance/findings/'));expect(calls).toHaveLength(1);expect(String(calls[0][0])).toContain(`asset=${assetDto.id}`);
+ });
+ it('shows a failed run as failed and never requests unpublished run findings',async()=>{
+  const c=await authenticated('ACCOUNTANT');const runId='11111111-1111-4111-8111-111111111111',now='2026-10-05T10:00:00Z';const failed={id:runId,organization_id:assetDto.organization_id,run_type:'FINANCIAL',status:'FAILED',verification_campaign_id:null,stale_after_days:365,scheduled_for:null,started_at:now,completed_at:now,started_by_email:identity.email,completed_by_email:identity.email,assets_evaluated:0,findings_generated:0,findings_open:0,findings_resolved:0,failure_message:'Evaluation failed (ValueError).',execution_phase:'EVALUATE',captured_at:now,sealed_at:now,executor_version:1,input_schema_version:1,population_count:1,unit_count:1,units_completed:0,created_at:now,updated_at:now};
+  c.fetcher.mockImplementation(async input=>String(input).includes('/assurance/runs/')?json({count:1,next:null,previous:null,results:[failed]}):json(emptyPage));render(frame(c.session,c.client,<BackendAssuranceView onSelectAsset={vi.fn()}/>));
+  expect(await screen.findByText(/Evaluation failed\. Django did not publish public findings from this run/)).toBeTruthy();expect(screen.queryByText(/ValueError/)).toBeNull();expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/findings/'))).toBe(false);
+ });
+ it('reconciles a lost run-creation response from authoritative history without replay',async()=>{
+  const c=await authenticated('ASSET_MANAGER');const runId='11111111-1111-4111-8111-111111111111',now=new Date().toISOString();const created={id:runId,organization_id:assetDto.organization_id,run_type:'FULL',status:'PENDING',verification_campaign_id:null,stale_after_days:365,scheduled_for:null,started_at:null,completed_at:null,started_by_email:identity.email,completed_by_email:null,assets_evaluated:0,findings_generated:0,findings_open:0,findings_resolved:0,failure_message:'',execution_phase:'CAPTURE',captured_at:null,sealed_at:null,executor_version:1,input_schema_version:0,population_count:0,unit_count:0,units_completed:0,created_at:now,updated_at:now};let runLists=0;
+  c.fetcher.mockImplementation(async (input,init)=>{const parsed=new URL(String(input),'http://localhost');if(parsed.pathname.endsWith('/assurance/runs/')){if(init?.method==='POST')return json({},500);runLists++;return json({count:runLists>=3?1:0,next:null,previous:null,results:runLists>=3?[created]:[]});}if(parsed.pathname.endsWith('/verification/campaigns/'))return json(emptyPage);return json(emptyPage);});
+  render(frame(c.session,c.client,<BackendAssuranceView onSelectAsset={vi.fn()}/>));fireEvent.click(await screen.findByRole('button',{name:'Create pending run'}));
+  expect(await screen.findByText(/was created; Django confirmed it in run history/)).toBeTruthy();expect(c.fetcher.mock.calls.filter(call=>String(call[0]).endsWith('/assurance/runs/')&&call[1]?.method==='POST')).toHaveLength(1);
+ });
 });
 describe('real asset register', () => {
   it('renders loading then successful server data and navigates by UUID', async () => {

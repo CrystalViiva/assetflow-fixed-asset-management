@@ -1,0 +1,11 @@
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../auth/AuthProvider';
+import { AssuranceFilters } from './assuranceRepository';
+import { assuranceRepository, queryClient } from './runtime';
+
+export const assuranceKeys={scope:(userId:number|undefined,generation:number)=>['django',userId,generation,'assurance'] as const,list:(userId:number|undefined,generation:number,kind:string,filters:AssuranceFilters)=>[...assuranceKeys.scope(userId,generation),kind,filters] as const,detail:(userId:number|undefined,generation:number,id:string)=>[...assuranceKeys.scope(userId,generation),'detail',id] as const,runFindings:(userId:number|undefined,generation:number,id:string,filters:AssuranceFilters)=>[...assuranceKeys.scope(userId,generation),'run-findings',id,filters] as const};
+export function useAssuranceRuns(filters:AssuranceFilters,enabled=true){const{user,generation}=useAuth();return useQuery({queryKey:assuranceKeys.list(user?.id,generation,'runs',filters),queryFn:({signal})=>assuranceRepository.runs(filters,signal),enabled:!!user&&enabled,refetchInterval:query=>query.state.data?.results.some(row=>row.status==='RUNNING')?5000:false});}
+export function useAssuranceRun(id:string,enabled=true){const{user,generation}=useAuth();return useQuery({queryKey:assuranceKeys.detail(user?.id,generation,id),queryFn:({signal})=>assuranceRepository.run(id,signal),enabled:!!user&&enabled&&!!id,refetchInterval:query=>query.state.data?.status==='RUNNING'?3000:false});}
+export function useAssuranceRunFindings(id:string,filters:AssuranceFilters,enabled=true){const{user,generation}=useAuth();return useQuery({queryKey:assuranceKeys.runFindings(user?.id,generation,id,filters),queryFn:({signal})=>assuranceRepository.runFindings(id,filters,signal),enabled:!!user&&enabled&&!!id});}
+export function useAssuranceFindings(filters:AssuranceFilters,enabled=true){const{user,generation}=useAuth();return useQuery({queryKey:assuranceKeys.list(user?.id,generation,'findings',filters),queryFn:({signal})=>assuranceRepository.findings(filters,signal),enabled:!!user&&enabled});}
+export async function invalidateAssurance(userId:number,generation:number){await queryClient.invalidateQueries({queryKey:assuranceKeys.scope(userId,generation)});}

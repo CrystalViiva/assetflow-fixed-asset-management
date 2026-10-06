@@ -8,6 +8,7 @@ import { DjangoMovementRepository } from './movementRepository';
 import { DjangoMaintenanceRepository } from './maintenanceRepository';
 import { DjangoDisposalRepository } from './disposalRepository';
 import { DjangoVerificationRepository } from './verificationRepository';
+import { DjangoAssuranceRepository } from './assuranceRepository';
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: {
   staleTime: 30_000, gcTime: 5 * 60_000, retry: false, refetchOnWindowFocus: true,
@@ -25,3 +26,4 @@ export const movementRepository = new DjangoMovementRepository(apiClient);
 export const maintenanceRepository = new DjangoMaintenanceRepository(apiClient);
 export const disposalRepository = new DjangoDisposalRepository(apiClient);
 export const verificationRepository = new DjangoVerificationRepository(apiClient);
+export const assuranceRepository = new DjangoAssuranceRepository(apiClient);
