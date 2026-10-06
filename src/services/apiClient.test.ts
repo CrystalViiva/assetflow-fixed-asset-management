@@ -150,6 +150,13 @@ describe('session and transport', () => {
     expect((await pending).every(result => result.status === 'rejected')).toBe(true);
     expect(c.fetcher).toHaveBeenCalledTimes(1); expect(c.session.getSnapshot().user).toBeNull();
   });
+  it('discards an authenticated binary response when logout changes the session generation in flight', async () => {
+    const c = setup(); await login(c); const response = deferred<Response>();
+    c.fetcher.mockReturnValueOnce(response.promise);
+    const pending = c.api.download('/verification/evidence/11111111-1111-4111-8111-111111111111/content/');
+    c.session.logout(); response.resolve(new Response('private bytes', { status: 200 }));
+    await expect(pending).rejects.toMatchObject({ kind: 'authentication' });
+  });
 });
 describe('public error boundary and query encoding', () => {
   it.each([[400,'validation'],[401,'authentication'],[403,'authorization'],[404,'not-found'],[409,'conflict'],[500,'server']])('maps HTTP %s to %s', (status, kind) => {

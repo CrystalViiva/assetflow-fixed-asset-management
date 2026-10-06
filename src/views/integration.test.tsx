@@ -200,7 +200,7 @@ describe('real asset detail and cache security', () => {
     expect(screen.getByRole('status').textContent).toContain('Loading asset details');
     await act(async () => { pending.resolve(json(assetDto)); });
     expect(await screen.findByRole('heading',{ name:'REAL-001 - Office generator' })).toBeTruthy();
-    const tabs = screen.getAllByRole('button',{ name:/Integration pending/ }); expect(tabs).toHaveLength(1);
+    const tabs = screen.getAllByRole('button',{ name:/Generic documents — not supported/ }); expect(tabs).toHaveLength(1);
     for (const tab of tabs) expect(tab.hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByRole('button',{ name:'Maintenance' }));
     expect(await screen.findByText('No maintenance plans.')).toBeTruthy();

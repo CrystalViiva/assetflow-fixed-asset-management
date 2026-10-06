@@ -23,6 +23,7 @@ interface RequestOptions {
   query?: Query;
   signal?: AbortSignal;
   authenticated?: boolean;
+  retryUnauthorized?: boolean;
 }
 
 export class ApiClient {
@@ -47,12 +48,13 @@ export class ApiClient {
       const timeout = AbortSignal.timeout(20_000);
       const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
       const headers: Record<string, string> = { Accept: 'application/json' };
-      if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+      const multipart = typeof FormData !== 'undefined' && options.body instanceof FormData;
+      if (options.body !== undefined && !multipart) headers['Content-Type'] = 'application/json';
       if (authenticated && token) headers.Authorization = `Bearer ${token}`;
       try {
         return await this.fetcher(`${this.base}${path}${serializeQuery(options.query)}`, {
           method: options.method || 'GET', headers,
-          body: options.body === undefined ? undefined : JSON.stringify(options.body),
+          body: options.body === undefined ? undefined : multipart ? options.body as FormData : JSON.stringify(options.body),
           signal, credentials: 'omit', redirect: 'error', cache: 'no-store',
         });
       } catch (error) {
@@ -63,7 +65,7 @@ export class ApiClient {
     const originalToken = session?.accessToken || null;
     let response = await send(originalToken);
     ensureCurrent();
-    if (response.status === 401 && authenticated && session) {
+    if (response.status === 401 && authenticated && session && options.retryUnauthorized !== false) {
       // A delayed 401 may belong to the old token after another request finished refreshing.
       if (!session.accessToken || session.accessToken === originalToken) await session.refresh();
       ensureCurrent();
@@ -97,7 +99,7 @@ export class ApiClient {
         return await this.fetcher(`${this.base}${path}`, { method: 'GET', headers: { Accept: '*/*', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: signal ? AbortSignal.any([signal, timeout]) : timeout, credentials: 'omit', redirect: 'error', cache: 'no-store' });
       } catch (error) {
         if (signal?.aborted) throw error;
-        throw new ApiError('network', 'Unable to download this AssetFlow export. Check your connection and try again.');
+        throw new ApiError('network', 'Unable to download this private AssetFlow file. Check your connection and try again.');
       }
     };
     const originalToken = session.accessToken;

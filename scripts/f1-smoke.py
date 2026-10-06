@@ -37,7 +37,7 @@ def seed():
     from transfers.models import AssetAssignment
 
     # This child must only ever connect to the random database selected by the parent.
-    prefix = "assetflow_f11_" if os.environ.get("F11_SMOKE_MODE") else "assetflow_f10_" if os.environ.get("F10_SMOKE_MODE") else "assetflow_f9_" if os.environ.get("F9_SMOKE_MODE") else "assetflow_f8_" if os.environ.get("F8_SMOKE_MODE") else "assetflow_f7_" if os.environ.get("F7_SMOKE_MODE") else "assetflow_f6_" if os.environ.get("F6_SMOKE_MODE") else "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
+    prefix = "assetflow_f12_" if os.environ.get("F12_SMOKE_MODE") else "assetflow_f11_" if os.environ.get("F11_SMOKE_MODE") else "assetflow_f10_" if os.environ.get("F10_SMOKE_MODE") else "assetflow_f9_" if os.environ.get("F9_SMOKE_MODE") else "assetflow_f8_" if os.environ.get("F8_SMOKE_MODE") else "assetflow_f7_" if os.environ.get("F7_SMOKE_MODE") else "assetflow_f6_" if os.environ.get("F6_SMOKE_MODE") else "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
     assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
     assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
     organization = Organization.objects.create(name=f"{prefix[:-1].upper()} smoke", code=f"{prefix[:-1].upper()}SMOKE")
@@ -117,7 +117,7 @@ def seed():
             notes="Disposable F8 custody fixture",
         )
         return
-    if prefix.endswith("f7_"):
+    if prefix.endswith(("f7_", "f12_")):
         department_a = Department.objects.create(organization=organization, name="Operations", code="OPS")
         Department.objects.create(organization=organization, name="Finance", code="FIN")
         location_a = Location.objects.create(organization=organization, name="Main Plant", code="PLANT")
@@ -141,6 +141,9 @@ def seed():
             department=department_a, location=location_a, created_by=manager,
             notes="Disposable F7 custody fixture",
         )
+        if prefix.endswith("f12_"):
+            foreign = Organization.objects.create(name="F12 foreign smoke", code="F12FOREIGN")
+            User.objects.create_user("f12foreign@example.test", os.environ["F1_SMOKE_PASSWORD"], organization=foreign, role="ASSET_MANAGER")
         return
     for number in (1, 2):
         Asset.objects.create(
@@ -149,7 +152,8 @@ def seed():
         )
 
 
-def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9=False, f10=False, f11=False):
+def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9=False, f10=False, f11=False, f12=False):
+    f12 = f12 or bool(os.environ.get("F12_SMOKE_MODE"))
     f11 = f11 or bool(os.environ.get("F11_SMOKE_MODE"))
     f10 = f10 or bool(os.environ.get("F10_SMOKE_MODE"))
     database = settings.DATABASES["default"]
@@ -158,7 +162,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
     f7 = f7 or bool(os.environ.get("F7_SMOKE_MODE"))
     f6 = f6 or bool(os.environ.get("F6_SMOKE_MODE"))
     f5 = f5 or bool(os.environ.get("F5_SMOKE_MODE"))
-    prefix = "assetflow_f11_" if f11 else "assetflow_f10_" if f10 else "assetflow_f9_" if f9 else "assetflow_f8_" if f8 else "assetflow_f7_" if f7 else "assetflow_f6_" if f6 else "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
+    prefix = "assetflow_f12_" if f12 else "assetflow_f11_" if f11 else "assetflow_f10_" if f10 else "assetflow_f9_" if f9 else "assetflow_f8_" if f8 else "assetflow_f7_" if f7 else "assetflow_f6_" if f6 else "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
     name = prefix + uuid.uuid4().hex
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -175,14 +179,14 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
     db_port = database["PORT"] or 5432
     environment.update({
         "DATABASE_URL": f"postgresql://{user}:{password}@{host}:{db_port}/{name}",
-        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "", "F5_SMOKE_MODE": "1" if f5 else "", "F6_SMOKE_MODE": "1" if f6 else "", "F7_SMOKE_MODE": "1" if f7 else "", "F8_SMOKE_MODE": "1" if f8 else "", "F9_SMOKE_MODE": "1" if f9 else "", "F10_SMOKE_MODE": "1" if f10 else "", "F11_SMOKE_MODE": "1" if f11 else "", "F1_SMOKE_APPROVER_EMAIL": "approver@example.test",
+        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "", "F5_SMOKE_MODE": "1" if f5 else "", "F6_SMOKE_MODE": "1" if f6 else "", "F7_SMOKE_MODE": "1" if f7 else "", "F8_SMOKE_MODE": "1" if f8 else "", "F9_SMOKE_MODE": "1" if f9 else "", "F10_SMOKE_MODE": "1" if f10 else "", "F11_SMOKE_MODE": "1" if f11 else "", "F12_SMOKE_MODE": "1" if f12 else "", "F1_SMOKE_APPROVER_EMAIL": "approver@example.test",
         "F1_SMOKE_EMAIL": "smoke@example.test",
         "F1_SMOKE_PASSWORD": secrets.token_urlsafe(32),
         "F1_SMOKE_URL": f"http://127.0.0.1:{port}/api/v1",
         "DEBUG": "false", "SECURE_SSL_REDIRECT": "false", "ALLOWED_HOSTS": "127.0.0.1,localhost",
     })
-    private_root = tempfile.mkdtemp(prefix="assetflow_f9_private_") if f9 else None
-    if f9:
+    private_root = tempfile.mkdtemp(prefix="assetflow_f12_private_") if f12 else tempfile.mkdtemp(prefix="assetflow_f9_private_") if f9 else None
+    if f9 or f12:
         environment.update({"DJANGO_SETTINGS_MODULE":"config.f9_smoke_settings","F9_SMOKE_PRIVATE_ROOT":private_root})
     elif f8:
         environment.update({"DJANGO_SETTINGS_MODULE":"config.f8_smoke_settings","ASSURANCE_WORK_UNIT_SIZE":"1"})
@@ -222,7 +226,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
         else:
             raise RuntimeError("Isolated Django server did not become ready.")
         node_command = ["node"]
-        if (f7 or f8 or f9 or f10 or f11) and os.name == "nt":
+        if (f7 or f8 or f9 or f10 or f11 or f12) and os.name == "nt":
             # tsx asks Node for account details when choosing its cache directory; some
             # managed Windows runners deny that OS lookup. Keep the compatibility shim
             # temporary and outside the repository.
@@ -230,7 +234,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
                 shim.write("const os=require('node:os');os.userInfo=()=>({uid:-1,gid:-1,username:'assetflow-smoke',homedir:os.homedir(),shell:null});\n")
                 shim_path = shim.name
             node_command.extend(["--require", shim_path])
-        node_command.extend(["--import", "tsx", "scripts/f11-api-smoke.ts" if f11 else "scripts/f10-api-smoke.ts" if f10 else "scripts/f9-api-smoke.ts" if f9 else "scripts/f8-api-smoke.ts" if f8 else "scripts/f7-api-smoke.ts" if f7 else "scripts/f6-api-smoke.ts" if f6 else "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"])
+        node_command.extend(["--import", "tsx", "scripts/f12-api-smoke.ts" if f12 else "scripts/f11-api-smoke.ts" if f11 else "scripts/f10-api-smoke.ts" if f10 else "scripts/f9-api-smoke.ts" if f9 else "scripts/f8-api-smoke.ts" if f8 else "scripts/f7-api-smoke.ts" if f7 else "scripts/f6-api-smoke.ts" if f6 else "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"])
         result = subprocess.run(
             node_command, cwd=ROOT, env=environment,
             capture_output=True, text=True, timeout=60, creationflags=flags, check=False,
@@ -241,7 +245,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
                     print(line)
             raise RuntimeError("Frontend API smoke failed; captured output withheld to protect temporary credentials.")
         print(result.stdout.strip())
-        if f2 or f3 or f4 or f5 or f6 or f7 or f8 or f9 or f10 or f11:
+        if f2 or f3 or f4 or f5 or f6 or f7 or f8 or f9 or f10 or f11 or f12:
             result = subprocess.run(
                 [sys.executable, str(Path(__file__).resolve()), "--verify"], cwd=ROOT, env=environment,
                 capture_output=True, text=True, timeout=30, creationflags=flags, check=False,
@@ -269,9 +273,9 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
         if private_root:
             private_path = Path(private_root).resolve()
             assert private_path.parent == Path(tempfile.gettempdir()).resolve()
-            assert private_path.name.startswith("assetflow_f9_private_")
+            assert private_path.name.startswith("assetflow_f12_private_" if f12 else "assetflow_f9_private_")
             shutil.rmtree(private_path)
-            print("Disposable private export storage removed; no export file was written to the repository.")
+            print("Disposable private verification evidence storage removed; no uploaded file was written to the repository." if f12 else "Disposable private export storage removed; no export file was written to the repository.")
         admin.close()
 
 
@@ -281,6 +285,28 @@ if __name__ == "__main__":
     elif sys.argv[1:] == ["--verify"]:
         import django
         django.setup()
+        if os.environ.get("F12_SMOKE_MODE"):
+            import hashlib
+
+            from assets.models import Asset
+            from audit.models import AuditLog
+            from django.core.files.storage import storages
+            from verification.models import VerificationEvidence
+            assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
+            assert os.environ["F1_SMOKE_DATABASE"].startswith("assetflow_f12_")
+            evidence = list(VerificationEvidence.objects.filter(integrity_status="VERIFIED").order_by("created_at"))
+            assert len(evidence) == 4
+            for item in evidence:
+                with storages["assetflow_private"].open(item.binary_storage_key, "rb") as stream:
+                    content = stream.read()
+                assert len(content) == item.byte_size and hashlib.sha256(content).hexdigest() == item.sha256
+            assert VerificationEvidence.objects.count() == 5
+            assert Asset.objects.count() == 2
+            events = set(AuditLog.objects.filter(organization=evidence[0].organization).values_list("action", flat=True))
+            assert {"VERIFICATION_EVIDENCE_VERIFIED", "VERIFICATION_EVIDENCE_DOWNLOADED"}.issubset(events)
+            assert not any(item.binary_storage_key.startswith("/") or ".." in item.binary_storage_key for item in evidence)
+            print("PASS: isolated PostgreSQL/private storage F12 verified bytes, size/SHA256, invalid upload rejection, domain-generated audit events, and unchanged two-asset master-data boundary.")
+            sys.exit(0)
         if os.environ.get("F9_SMOKE_MODE"):
             from uuid import UUID
 
@@ -530,7 +556,7 @@ if __name__ == "__main__":
         print("PASS: isolated PostgreSQL holds one tenant asset and acquisition with exact components, ACTIVE lifecycle and capitalization audit.")
     else:
         try:
-            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"], f5=sys.argv[1:] == ["--f5"], f6=sys.argv[1:] == ["--f6"], f7=sys.argv[1:] == ["--f7"], f8=sys.argv[1:] == ["--f8"], f9=sys.argv[1:] == ["--f9"], f10=sys.argv[1:] == ["--f10"], f11=sys.argv[1:] == ["--f11"])
+            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"], f5=sys.argv[1:] == ["--f5"], f6=sys.argv[1:] == ["--f6"], f7=sys.argv[1:] == ["--f7"], f8=sys.argv[1:] == ["--f8"], f9=sys.argv[1:] == ["--f9"], f10=sys.argv[1:] == ["--f10"], f11=sys.argv[1:] == ["--f11"], f12=sys.argv[1:] == ["--f12"])
         except Exception as error:  # noqa: BLE001 -- Do not print exception bodies containing credentials.
             mode = "F11" if sys.argv[1:] == ["--f11"] else "F10" if sys.argv[1:] == ["--f10"] else "F9" if sys.argv[1:] == ["--f9"] else "F8" if sys.argv[1:] == ["--f8"] else "F7" if sys.argv[1:] == ["--f7"] else "F6" if sys.argv[1:] == ["--f6"] else "F5" if sys.argv[1:] == ["--f5"] else "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
             print(f"{mode} smoke unavailable/failed ({type(error).__name__}); no connection details printed.")

@@ -63,7 +63,7 @@ export function BackendAssetDetail({ assetId, onNavigate }: { assetId: string; o
     <nav aria-label="Asset detail sections" className="flex flex-wrap gap-2 rounded-xl bg-white border p-3 text-sm">
       {(['Overview','Depreciation','Assignments','Transfers','Maintenance','Disposal','Verification','Assurance'] as const).map(tab => <button key={tab} aria-current={activeTab === tab ? 'page' : undefined} onClick={() => {setActiveTab(tab);if(tab==='Verification')setVerificationPage(1);if(tab==='Assurance')setAssurancePage(1);}} className={`px-3 py-2 rounded ${activeTab === tab ? 'bg-[#00288e] text-white' : 'text-slate-700 hover:bg-slate-100'}`}>{tab}</button>)}
       <button aria-current={activeTab === 'Audit' ? 'page' : undefined} onClick={() => {setActiveTab('Audit');setAuditPage(1);}} className={`px-3 py-2 rounded ${activeTab === 'Audit' ? 'bg-[#00288e] text-white' : 'text-slate-700 hover:bg-slate-100'}`}>Audit</button>
-      <button disabled title="Integration pending" className="px-3 py-2 text-slate-500 disabled:cursor-not-allowed">Documents - Integration pending</button>
+      <button disabled title="Only verification-linked binary evidence is supported; generic asset documents are not available." className="px-3 py-2 text-slate-500 disabled:cursor-not-allowed">Generic documents — not supported</button>
     </nav>
     {result.isFetching && <p role="status" className="text-sm text-blue-700">Refreshing asset...</p>}
     {activeTab === 'Overview' && <>
