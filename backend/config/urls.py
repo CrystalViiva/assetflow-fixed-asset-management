@@ -25,6 +25,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.serializers import AuthenticatedUserSerializer
+from assets.dashboard_api import DashboardMetricsView
 from audit.api import AuditEventListView
 from config.views import health_check
 from organizations.api import CustodianReferenceList, DepartmentReferenceList, LocationReferenceList
@@ -41,6 +42,7 @@ class AuthenticatedUserView(APIView):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/audit/events/", AuditEventListView.as_view(), name="audit-event-list"),
+    path("api/v1/dashboard/metrics/", DashboardMetricsView.as_view(), name="dashboard-metrics"),
     # Specific nested routes must precede the assets router's catch-all detail route.
     path("api/v1/", include("transfers.urls")),
     path("api/v1/", include("accounts.admin_urls")),

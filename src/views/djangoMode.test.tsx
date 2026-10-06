@@ -11,12 +11,14 @@ import { MockAssetRepository } from '../services/assetRepository';
 import { assetDto, identity, json } from '../test/fixtures';
 
 const emptyPage = { count:0,next:null,previous:null,results:[] };
+const dashboardData = { as_of:'2026-10-06T10:00:00Z',currency:'NGN',scope:'organization',portfolio:{registered_assets:0,currently_held_assets:0,capitalized_assets:0,disposed_assets:0},financial:{capitalized_cost:'0.00',book_value:'0.00',accumulated_depreciation:'0.00',current_month_posted_depreciation:'0.00',current_month_capitalized_cost:'0.00'},distributions:{status:[],category:[],department:[],location:[]},trends:{posted_depreciation:[],capitalizations:[]},operations:{open_work_orders:0,critical_open_work_orders:0,current_month_maintenance_cost:'0.00',requested_transfers:0,approved_transfers:0,pending_disposals:0,approved_disposals:0},controls:{open_verification_exceptions:0,open_assurance_findings:0},recent_activity:[] };
 const categoryPage = { count:1,next:null,previous:null,results:[{ id:assetDto.category_id,organization_id:assetDto.organization_id,
   organization_name:'Test Organization',name:'Equipment',code:'EQ',is_active:true,description:'',default_useful_life_months:120,
   default_depreciation_method:'SLM',capitalization_threshold:'0.00',created_at:'2026-01-01T00:00:00Z',updated_at:'2026-01-01T00:00:00Z' }] };
 function backendData(fetcher: ReturnType<typeof vi.fn<typeof fetch>>, assetResponse: (url: string) => Response | Promise<Response>) {
   fetcher.mockImplementation(async input => {
     const url = String(input);
+    if (url.includes('/dashboard/metrics/')) return json(dashboardData);
     if (url.includes('/assets/categories/')) return json(categoryPage);
     if (url.includes('/depreciation/')) return json(emptyPage);
     if (url.includes('/assets/maintenance-plans/') || url.includes('/assets/work-orders/') || url.includes('/assets/maintenance-costs/') || url.includes('/assets/maintenance-records/')) return json(emptyPage);
@@ -45,11 +47,20 @@ it('real-mode shell shows real identity, no mock alerts/actions, and logs out', 
   fireEvent.click(screen.getByRole('button',{ name:'Sign out' }));
   expect(await screen.findByRole('button',{ name:'Sign in' })).toBeTruthy(); expect(c.client.getQueryCache().getAll()).toHaveLength(0);
 });
-it('real-mode unintegrated routes render pending instead of demo screens', async () => {
+it('Django dashboard uses live metrics and never renders mock enterprise figures', async () => {
   await renderRealApp(); await screen.findByText('Office generator');
   fireEvent.click(screen.getByRole('button',{ name:'Dashboard' }));
-  expect(await screen.findByRole('heading',{ name:'Integration pending' })).toBeTruthy();
+  expect(await screen.findByRole('heading',{ name:'Operational dashboard' })).toBeTruthy();
+  expect(await screen.findByText('0 capitalized · 0 disposed')).toBeTruthy();
+  expect(screen.getByText(/Live Django/)).toBeTruthy();
   expect(screen.queryByText('Office generator')).toBeNull();
+});
+it('Django dashboard API failure stays an error and does not substitute demonstration analytics', async () => {
+  const c = await renderRealApp(); await screen.findByText('Office generator');
+  c.fetcher.mockImplementation(async input => String(input).includes('/dashboard/metrics/') ? Response.json({ error:{code:'API_ERROR',message:'failure'} },{status:503}) : json(emptyPage));
+  fireEvent.click(screen.getByRole('button',{ name:'Dashboard' }));
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent',expect.stringContaining('could not complete'));
+  for (const demo of ['1,284','Babajide Adeleke','₦48.2M','Lagos Corporate Facility']) expect(screen.queryByText(demo)).toBeNull();
 });
 it('Django Audit Log route renders its role-scoped real screen without mock rows', async () => {
   const c = await renderRealApp(); await screen.findByText('Office generator');

@@ -37,6 +37,7 @@ import { UsersRolesView } from './views/UsersRolesView';
 import { AuditLogView } from './views/AuditLogView';
 import { BackendAuditLogView } from './views/BackendAuditLogView';
 import { BackendOrganizationAdminView } from './views/BackendOrganizationAdminView';
+import { BackendDashboardView } from './views/BackendDashboardView';
 import { SettingsView } from './views/SettingsView';
 
 // Modals
@@ -249,9 +250,10 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
-    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals', 'verification', 'assurance', 'reports', 'audit-log'].includes(currentRoute)) return <IntegrationPending />;
+    if (dataSource === 'django' && !['dashboard', 'all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals', 'verification', 'assurance', 'reports', 'audit-log'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
+        if (dataSource === 'django') return <BackendDashboardView onNavigate={navigateTo} />;
         return (
           <DashboardView
             onNavigate={navigateTo}

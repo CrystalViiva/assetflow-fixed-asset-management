@@ -185,7 +185,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
             <div>POST /api/v1/transfers/&#123;id&#125;/approve/      -&gt; WaybillApproveAPIView</div>
             <div>GET  /api/v1/maintenance/                -&gt; WorkOrderViewSet</div>
             <div>GET  /api/v1/disposals/                  -&gt; AssetDerecognitionViewSet</div>
-            <div>GET  /api/v1/dashboard/metrics/          -&gt; ExecutiveLedgerMetricsView</div>
+            <div>GET  /api/v1/dashboard/metrics/          -&gt; live organization-scoped PostgreSQL aggregates</div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">

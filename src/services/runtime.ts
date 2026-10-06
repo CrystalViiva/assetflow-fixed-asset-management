@@ -12,6 +12,7 @@ import { DjangoAssuranceRepository } from './assuranceRepository';
 import { DjangoReportRepository } from './reportRepository';
 import { DjangoAuditRepository } from './auditRepository';
 import { DjangoOrganizationAdminRepository } from './organizationAdminRepository';
+import { DjangoDashboardRepository } from './dashboardRepository';
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: {
   staleTime: 30_000, gcTime: 5 * 60_000, retry: false, refetchOnWindowFocus: true,
@@ -33,3 +34,4 @@ export const assuranceRepository = new DjangoAssuranceRepository(apiClient);
 export const reportRepository = new DjangoReportRepository(apiClient);
 export const auditRepository = new DjangoAuditRepository(apiClient);
 export const organizationAdminRepository = new DjangoOrganizationAdminRepository(apiClient);
+export const dashboardRepository = new DjangoDashboardRepository(apiClient);
