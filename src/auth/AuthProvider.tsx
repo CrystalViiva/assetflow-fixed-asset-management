@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { Session } from '../services/session';
-import { session } from '../services/runtime';
+import { session } from '../services/authRuntime';
 
 const AuthContext = createContext<Session>(session);
 export function AuthProvider({ children, value = session }: { children: ReactNode; value?: Session }) {

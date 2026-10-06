@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Asset } from '../../types';
+import { useModalAccessibility } from '../common/useModalAccessibility';
 
 interface PrintBarcodeModalProps {
   isOpen: boolean;
@@ -15,23 +16,26 @@ interface PrintBarcodeModalProps {
 
 export const PrintBarcodeModal: React.FC<PrintBarcodeModalProps> = ({ isOpen, onClose, asset }) => {
   if (!isOpen || !asset) return null;
+  const dialogRef = useModalAccessibility(isOpen, onClose);
 
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white rounded-xl max-w-sm w-full shadow-2xl p-5 space-y-4 text-center border border-slate-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="barcode-dialog-title" tabIndex={-1} className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-white rounded-xl max-w-sm w-full shadow-2xl p-5 space-y-4 text-center border border-slate-200">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2 text-left">
             <span className="material-symbols-outlined text-[#00288e] text-[20px]">qr_code_scanner</span>
             <div>
-              <h3 className="text-[15px] font-bold text-slate-900">Zebra Thermal Label</h3>
+              <h3 id="barcode-dialog-title" className="text-[15px] font-bold text-slate-900">Asset label preview</h3>
               <p className="text-[11px] text-slate-500">Standard 50mm x 30mm RFID Asset Tag</p>
             </div>
           </div>
           <button
+            type="button"
+            aria-label="Close label preview"
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
           >

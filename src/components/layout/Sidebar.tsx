@@ -5,7 +5,7 @@
  * Conforms to the Stitch visual hierarchy and design.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { dataSource } from '../../services/config';
 
 interface SidebarProps {
@@ -13,6 +13,8 @@ interface SidebarProps {
   onNavigate: (route: string) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  isMobileOpen: boolean;
+  onCloseMobile: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -20,20 +22,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   isCollapsed,
   onToggleCollapse,
+  isMobileOpen,
+  onCloseMobile,
 }) => {
   const [assetsOpen, setAssetsOpen] = useState(true);
   const [orgOpen, setOrgOpen] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (isMobileOpen) closeButtonRef.current?.focus();
+  }, [isMobileOpen]);
+
+  useEffect(() => {
+    if (!isMobileOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onCloseMobile();
+        document.getElementById('mobile-nav-toggle')?.focus();
+      } else if (event.key === 'Tab') {
+        const items = [...(document.querySelector('aside[role="dialog"][aria-label="Primary navigation menu"]')?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])'
+        ) ?? [])];
+        if (!items.length) return;
+        if (event.shiftKey && document.activeElement === items[0]) {
+          event.preventDefault(); items[items.length - 1].focus();
+        } else if (!event.shiftKey && document.activeElement === items[items.length - 1]) {
+          event.preventDefault(); items[0].focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isMobileOpen, onCloseMobile]);
 
   const isActive = (route: string) => currentRoute === route;
 
   return (
+    <>
+    {isMobileOpen && <button type="button" tabIndex={-1} aria-hidden="true" className="fixed inset-0 top-12 z-30 bg-slate-950/35 md:hidden" onClick={onCloseMobile} />}
     <aside
-      className={`fixed left-0 top-12 bottom-0 bg-white z-40 flex flex-col justify-between border-r border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.02)] select-none transition-all duration-200 ${
-        isCollapsed ? 'w-16' : 'w-64'
-      }`}
+      role={isMobileOpen ? 'dialog' : undefined}
+      aria-modal={isMobileOpen ? true : undefined}
+      aria-label={isMobileOpen ? 'Primary navigation menu' : undefined}
+      className={`fixed left-0 top-12 bottom-0 bg-white z-40 flex-col justify-between border-r border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.02)] select-none transition-all duration-200 ${
+        isMobileOpen ? 'flex translate-x-0' : 'hidden -translate-x-full md:flex md:translate-x-0'
+      } ${isCollapsed ? 'w-64 md:w-16' : 'w-64'}`}
     >
+      <button ref={closeButtonRef} type="button" onClick={onCloseMobile} className="m-2 rounded border px-3 py-2 text-left text-sm font-medium text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 md:hidden">Close navigation</button>
       {/* Scrollable Navigation Items */}
-      <div className="flex-1 overflow-y-auto py-2 px-1.5 space-y-3">
+      <nav aria-label="Workspace destinations" className="flex-1 overflow-y-auto py-2 px-1.5 space-y-3">
         {/* MAIN SECTION */}
         <div>
           {!isCollapsed && (
@@ -43,6 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
           <button
             onClick={() => onNavigate('dashboard')}
+            aria-current={isActive('dashboard') ? 'page' : undefined}
             title="Dashboard"
             className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors text-[13px] ${
               isActive('dashboard')
@@ -67,6 +105,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed ? (
               <div>
                 <button
+                  type="button"
+                  aria-expanded={assetsOpen}
+                  aria-controls="asset-navigation-items"
                   onClick={() => setAssetsOpen(!assetsOpen)}
                   className="w-full flex items-center justify-between px-2.5 py-1.5 text-[13px] text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e] rounded transition-colors"
                 >
@@ -81,9 +122,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Submenu items */}
                 {assetsOpen && (
-                  <div className="pl-6 pr-1 space-y-0.5 mt-0.5">
+                  <div id="asset-navigation-items" className="pl-6 pr-1 space-y-0.5 mt-0.5">
                     <button
                       onClick={() => onNavigate('all-assets')}
+                      aria-current={isActive('all-assets') || isActive('asset-detail') ? 'page' : undefined}
                       className={`w-full flex items-center justify-between px-2.5 py-1 rounded text-[13px] transition-colors ${
                         isActive('all-assets') || isActive('asset-detail')
                           ? 'bg-[#00288e] text-white font-semibold'
@@ -104,6 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     <button
                       onClick={() => onNavigate('asset-categories')}
+                      aria-current={isActive('asset-categories') ? 'page' : undefined}
                       className={`w-full flex items-center px-2.5 py-1 rounded text-[13px] transition-colors ${
                         isActive('asset-categories')
                           ? 'bg-[#00288e] text-white font-semibold'
@@ -115,6 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     <button
                       onClick={() => onNavigate('acquisitions')}
+                      aria-current={isActive('acquisitions') || isActive('asset-create') ? 'page' : undefined}
                       className={`w-full flex items-center px-2.5 py-1 rounded text-[13px] transition-colors ${
                         isActive('acquisitions') || isActive('asset-create')
                           ? 'bg-[#00288e] text-white font-semibold'
@@ -126,6 +170,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     <button
                       onClick={() => onNavigate('transfers')}
+                      aria-current={isActive('transfers') ? 'page' : undefined}
                       className={`w-full flex items-center justify-between px-2.5 py-1 rounded text-[13px] transition-colors ${
                         isActive('transfers')
                           ? 'bg-[#00288e] text-white font-semibold'
@@ -140,6 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     <button
                       onClick={() => onNavigate('assignments')}
+                      aria-current={isActive('assignments') ? 'page' : undefined}
                       className={`w-full flex items-center px-2.5 py-1 rounded text-[13px] transition-colors ${
                         isActive('assignments')
                           ? 'bg-[#00288e] text-white font-semibold'
@@ -165,7 +211,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Depreciation */}
             <button
-              onClick={() => onNavigate('depreciation')}
+                  onClick={() => onNavigate('depreciation')}
+                  aria-current={isActive('depreciation') ? 'page' : undefined}
               title="Depreciation"
               className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors text-[13px] ${
                 isActive('depreciation')
@@ -180,6 +227,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Maintenance */}
             <button
               onClick={() => onNavigate('maintenance')}
+              aria-current={isActive('maintenance') ? 'page' : undefined}
               title="Maintenance"
               className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded transition-colors text-[13px] ${
                 isActive('maintenance')
@@ -201,6 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Disposals */}
             <button
               onClick={() => onNavigate('disposals')}
+              aria-current={isActive('disposals') ? 'page' : undefined}
               title="Disposals"
               className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors text-[13px] ${
                 isActive('disposals')
@@ -213,6 +262,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
             <button
               onClick={() => onNavigate('verification')}
+              aria-current={isActive('verification') ? 'page' : undefined}
               title="Physical verification"
               className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors text-[13px] ${
                 isActive('verification')
@@ -225,6 +275,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
             <button
               onClick={() => onNavigate('assurance')}
+              aria-current={isActive('assurance') ? 'page' : undefined}
               title="Assurance & reconciliation"
               className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors text-[13px] ${
                 isActive('assurance')
@@ -248,6 +299,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="space-y-0.5">
             <button
               onClick={() => onNavigate('reports')}
+              aria-current={isActive('reports') ? 'page' : undefined}
               title="Reports"
               className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors text-[13px] ${
                 isActive('reports')
@@ -261,6 +313,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <button
               onClick={() => onNavigate('audit-log')}
+              aria-current={isActive('audit-log') ? 'page' : undefined}
               title="Audit Log"
               className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors text-[13px] ${
                 isActive('audit-log')
@@ -285,6 +338,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed ? (
               <div>
                 <button
+                  type="button"
+                  aria-expanded={orgOpen}
+                  aria-controls="organization-navigation-items"
                   onClick={() => setOrgOpen(!orgOpen)}
                   className="w-full flex items-center justify-between px-2.5 py-1.5 text-[13px] text-slate-600 hover:bg-[#eff4ff] hover:text-[#00288e] rounded transition-colors"
                 >
@@ -298,9 +354,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
 
                 {orgOpen && (
-                  <div className="pl-6 pr-1 space-y-0.5 mt-0.5">
+                  <div id="organization-navigation-items" className="pl-6 pr-1 space-y-0.5 mt-0.5">
                     <button
                       onClick={() => onNavigate('departments')}
+                      aria-current={isActive('departments') ? 'page' : undefined}
                       className={`w-full flex items-center px-2.5 py-1 rounded text-[13px] transition-colors ${
                         isActive('departments')
                           ? 'bg-[#00288e] text-white font-semibold'
@@ -312,6 +369,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     <button
                       onClick={() => onNavigate('locations')}
+                      aria-current={isActive('locations') ? 'page' : undefined}
                       className={`w-full flex items-center px-2.5 py-1 rounded text-[13px] transition-colors ${
                         isActive('locations')
                           ? 'bg-[#00288e] text-white font-semibold'
@@ -323,6 +381,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                     <button
                       onClick={() => onNavigate('users-and-roles')}
+                      aria-current={isActive('users-and-roles') ? 'page' : undefined}
                       className={`w-full flex items-center px-2.5 py-1 rounded text-[13px] transition-colors ${
                         isActive('users-and-roles')
                           ? 'bg-[#00288e] text-white font-semibold'
@@ -346,6 +405,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <button
               onClick={() => onNavigate('settings')}
+              aria-current={isActive('settings') ? 'page' : undefined}
               title="Settings"
               className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors text-[13px] ${
                 isActive('settings')
@@ -358,7 +418,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
         </div>
-      </div>
+      </nav>
 
       {/* Bottom Period & Base Currency Panel */}
       {!isCollapsed ? (
@@ -394,5 +454,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       )}
     </aside>
+    </>
   );
 };

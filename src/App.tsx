@@ -5,52 +5,53 @@
  * Core Application Controller & Routing Engine
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { Breadcrumbs } from './components/layout/Breadcrumbs';
 
-// Views
-import { DashboardView } from './views/DashboardView';
-import { AssetRegisterView } from './views/AssetRegisterView';
-import { AssetDetailView } from './views/AssetDetailView';
-import { AssetCreateView } from './views/AssetCreateView';
-import { CategoriesView } from './views/CategoriesView';
-import { AcquisitionsView } from './views/AcquisitionsView';
-import { AssignmentsView } from './views/AssignmentsView';
-import { TransfersView } from './views/TransfersView';
-import { DepreciationView } from './views/DepreciationView';
-import { BackendDepreciationView } from './views/BackendDepreciationView';
-import { BackendAssignmentsView } from './views/BackendAssignmentsView';
-import { BackendTransfersView } from './views/BackendTransfersView';
-import { BackendMaintenanceView } from './views/BackendMaintenanceView';
-import { BackendDisposalsView } from './views/BackendDisposalsView';
-import { BackendVerificationView } from './views/BackendVerificationView';
-import { BackendAssuranceView } from './views/BackendAssuranceView';
-import { BackendReportsView } from './views/BackendReportsView';
-import { MaintenanceView } from './views/MaintenanceView';
-import { DisposalsView } from './views/DisposalsView';
-import { ReportsView } from './views/ReportsView';
-import { DepartmentsView } from './views/DepartmentsView';
-import { LocationsView } from './views/LocationsView';
-import { UsersRolesView } from './views/UsersRolesView';
-import { AuditLogView } from './views/AuditLogView';
-import { BackendAuditLogView } from './views/BackendAuditLogView';
-import { BackendOrganizationAdminView } from './views/BackendOrganizationAdminView';
-import { BackendDashboardView } from './views/BackendDashboardView';
-import { SettingsView } from './views/SettingsView';
+// Feature screens load only when the user opens that area.
+const DashboardView = lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
+const BackendDashboardView = lazy(() => import('./views/BackendDashboardView').then(m => ({ default: m.BackendDashboardView })));
+const AssetRegisterView = lazy(() => import('./views/AssetRegisterView').then(m => ({ default: m.AssetRegisterView })));
+const AssetDetailView = lazy(() => import('./views/AssetDetailView').then(m => ({ default: m.AssetDetailView })));
+const AssetCreateView = lazy(() => import('./views/AssetCreateView').then(m => ({ default: m.AssetCreateView })));
+const CategoriesView = lazy(() => import('./views/CategoriesView').then(m => ({ default: m.CategoriesView })));
+const AcquisitionsView = lazy(() => import('./views/AcquisitionsView').then(m => ({ default: m.AcquisitionsView })));
+const AssignmentsView = lazy(() => import('./views/AssignmentsView').then(m => ({ default: m.AssignmentsView })));
+const BackendAssignmentsView = lazy(() => import('./views/BackendAssignmentsView').then(m => ({ default: m.BackendAssignmentsView })));
+const TransfersView = lazy(() => import('./views/TransfersView').then(m => ({ default: m.TransfersView })));
+const BackendTransfersView = lazy(() => import('./views/BackendTransfersView').then(m => ({ default: m.BackendTransfersView })));
+const DepreciationView = lazy(() => import('./views/DepreciationView').then(m => ({ default: m.DepreciationView })));
+const BackendDepreciationView = lazy(() => import('./views/BackendDepreciationView').then(m => ({ default: m.BackendDepreciationView })));
+const MaintenanceView = lazy(() => import('./views/MaintenanceView').then(m => ({ default: m.MaintenanceView })));
+const BackendMaintenanceView = lazy(() => import('./views/BackendMaintenanceView').then(m => ({ default: m.BackendMaintenanceView })));
+const DisposalsView = lazy(() => import('./views/DisposalsView').then(m => ({ default: m.DisposalsView })));
+const BackendDisposalsView = lazy(() => import('./views/BackendDisposalsView').then(m => ({ default: m.BackendDisposalsView })));
+const BackendVerificationView = lazy(() => import('./views/BackendVerificationView').then(m => ({ default: m.BackendVerificationView })));
+const BackendAssuranceView = lazy(() => import('./views/BackendAssuranceView').then(m => ({ default: m.BackendAssuranceView })));
+const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
+const BackendReportsView = lazy(() => import('./views/BackendReportsView').then(m => ({ default: m.BackendReportsView })));
+const DepartmentsView = lazy(() => import('./views/DepartmentsView').then(m => ({ default: m.DepartmentsView })));
+const LocationsView = lazy(() => import('./views/LocationsView').then(m => ({ default: m.LocationsView })));
+const UsersRolesView = lazy(() => import('./views/UsersRolesView').then(m => ({ default: m.UsersRolesView })));
+const BackendOrganizationAdminView = lazy(() => import('./views/BackendOrganizationAdminView').then(m => ({ default: m.BackendOrganizationAdminView })));
+const AuditLogView = lazy(() => import('./views/AuditLogView').then(m => ({ default: m.AuditLogView })));
+const BackendAuditLogView = lazy(() => import('./views/BackendAuditLogView').then(m => ({ default: m.BackendAuditLogView })));
+const SettingsView = lazy(() => import('./views/SettingsView').then(m => ({ default: m.SettingsView })));
 
 // Modals
-import { PrintBarcodeModal } from './components/modals/PrintBarcodeModal';
-import { InitiateTransferModal } from './components/modals/InitiateTransferModal';
-import { LogMaintenanceModal } from './components/modals/LogMaintenanceModal';
-import { DisposeAssetModal } from './components/modals/DisposeAssetModal';
+const PrintBarcodeModal = lazy(() => import('./components/modals/PrintBarcodeModal').then(m => ({ default: m.PrintBarcodeModal })));
+const InitiateTransferModal = lazy(() => import('./components/modals/InitiateTransferModal').then(m => ({ default: m.InitiateTransferModal })));
+const LogMaintenanceModal = lazy(() => import('./components/modals/LogMaintenanceModal').then(m => ({ default: m.LogMaintenanceModal })));
+const DisposeAssetModal = lazy(() => import('./components/modals/DisposeAssetModal').then(m => ({ default: m.DisposeAssetModal })));
 
 // Types & Services
 import { Asset, AssetCategory, Department, LocationHub, Transfer, MaintenanceRecord, DisposalRecord } from './types';
 import { assetRepository } from './services/assetRepository';
 import { dataSource } from './services/config';
 import { IntegrationPending } from './components/common/AsyncState';
+import { ChunkLoadBoundary } from './components/common/ChunkLoadBoundary';
 
 interface ToastNotification {
   id: string;
@@ -65,6 +66,7 @@ export default function App() {
   const [selectedAssetId, setSelectedAssetId] = useState<string>(dataSource === 'django' ? '' : 'AST-000002');
   const [creationAssetId, setCreationAssetId] = useState<string | undefined>();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState<string>('');
 
   // Domain Master Data
@@ -157,14 +159,16 @@ export default function App() {
       setCreationAssetId(route.slice('asset-create/'.length)); setCurrentRoute('asset-create');
     } else { if (route === 'asset-create') setCreationAssetId(undefined); setCurrentRoute(route); }
     window.location.hash = route;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsMobileNavOpen(false);
+    window.scrollTo({ top: 0, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
 
   const handleSelectAsset = (assetId: string) => {
     setSelectedAssetId(assetId);
     setCurrentRoute('asset-detail');
     window.location.hash = `asset-detail/${assetId}`;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsMobileNavOpen(false);
+    window.scrollTo({ top: 0, behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
 
   // Quick Action Handler (from Navbar or Views)
@@ -407,12 +411,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-[#0b1c30] flex flex-col font-sans antialiased">
+      <a href="#app-main" onClick={event => { event.preventDefault(); document.getElementById('app-main')?.focus(); }} className="sr-only z-[60] rounded bg-white px-4 py-2 text-[#00288e] focus:not-sr-only focus:fixed focus:left-3 focus:top-14 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">Skip to main content</a>
       {/* Top Navbar */}
       <Navbar
         onNavigate={navigateTo}
         onOpenQuickAction={handleOpenQuickAction}
         globalSearch={globalSearch}
         setGlobalSearch={setGlobalSearch}
+        onToggleMobileNav={() => setIsMobileNavOpen(value => !value)}
+        isMobileNavOpen={isMobileNavOpen}
       />
 
       {/* Main Layout Container */}
@@ -423,12 +430,16 @@ export default function App() {
           onNavigate={navigateTo}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          isMobileOpen={isMobileNavOpen}
+          onCloseMobile={() => setIsMobileNavOpen(false)}
         />
 
         {/* Content Region */}
         <main
+          id="app-main"
+          tabIndex={-1}
           className={`flex-1 flex flex-col transition-all duration-200 min-w-0 ${
-            isSidebarCollapsed ? 'ml-16' : 'ml-64'
+            isSidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
           }`}
         >
           {/* Subheader Breadcrumbs with Real-time Clock */}
@@ -440,19 +451,23 @@ export default function App() {
 
           {/* Active View Container */}
           <div className="flex-1 w-full max-w-[1680px] mx-auto">
-            {renderCurrentView()}
+            <ChunkLoadBoundary>
+              <Suspense fallback={<div role="status" className="m-5 rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">Opening this workspace…</div>}>
+                {renderCurrentView()}
+              </Suspense>
+            </ChunkLoadBoundary>
           </div>
         </main>
       </div>
 
       {/* Reusable Action Modals */}
-      <PrintBarcodeModal
+      {barcodeModalOpen && <Suspense fallback={null}><PrintBarcodeModal
         isOpen={barcodeModalOpen}
         onClose={() => setBarcodeModalOpen(false)}
         asset={selectedBarcodeAsset}
-      />
+      /></Suspense>}
 
-      <InitiateTransferModal
+      {transferModalOpen && <Suspense fallback={null}><InitiateTransferModal
         isOpen={transferModalOpen}
         onClose={() => setTransferModalOpen(false)}
         selectedAsset={selectedTransferAsset}
@@ -460,26 +475,26 @@ export default function App() {
         departments={departments}
         locations={locations}
         onSubmitTransfer={handleSubmitTransfer}
-      />
+      /></Suspense>}
 
-      <LogMaintenanceModal
+      {maintenanceModalOpen && <Suspense fallback={null}><LogMaintenanceModal
         isOpen={maintenanceModalOpen}
         onClose={() => setMaintenanceModalOpen(false)}
         selectedAsset={selectedMaintenanceAsset}
         assets={assets}
         onSubmitMaintenance={handleSubmitMaintenance}
-      />
+      /></Suspense>}
 
-      <DisposeAssetModal
+      {disposalModalOpen && <Suspense fallback={null}><DisposeAssetModal
         isOpen={disposalModalOpen}
         onClose={() => setDisposalModalOpen(false)}
         selectedAsset={selectedDisposalAsset}
         assets={assets}
         onSubmitDisposal={handleSubmitDisposal}
-      />
+      /></Suspense>}
 
       {/* Floating Enterprise Toast Notifications */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
+      <div aria-live="polite" aria-relevant="additions" className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}
@@ -521,6 +536,8 @@ export default function App() {
               </div>
             </div>
             <button
+              type="button"
+              aria-label={`Dismiss notification: ${toast.title}`}
               onClick={() => removeToast(toast.id)}
               className="text-slate-400 hover:text-slate-600 p-0.5 transition-colors"
             >

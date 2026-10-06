@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import { Asset, MaintenanceRecord, MaintenanceType } from '../../types';
+import { useModalAccessibility } from '../common/useModalAccessibility';
 
 interface LogMaintenanceModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
     'Complete system diagnostic, fluid and filter replacements, OEM calibrated testing and signoff.'
   );
   const [submitting, setSubmitting] = useState(false);
+  const dialogRef = useModalAccessibility(isOpen, onClose);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,19 +68,21 @@ export const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white rounded-xl max-w-xl w-full shadow-2xl p-6 space-y-4 border border-slate-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in" onMouseDown={event => { if (event.target === event.currentTarget && !submitting) onClose(); }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="maintenance-dialog-title" tabIndex={-1} className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-white rounded-xl max-w-xl w-full shadow-2xl p-6 space-y-4 border border-slate-200">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-800 flex items-center justify-center">
               <span className="material-symbols-outlined text-[20px]">build</span>
             </div>
             <div>
-              <h3 className="text-[16px] font-bold text-slate-900">Log Maintenance Work Order</h3>
+              <h3 id="maintenance-dialog-title" className="text-[16px] font-bold text-slate-900">Log Maintenance Work Order</h3>
               <p className="text-[11px] text-slate-500">Open preventive overhaul or corrective repair schedule</p>
             </div>
           </div>
           <button
+            type="button"
+            aria-label="Close maintenance dialog"
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
           >

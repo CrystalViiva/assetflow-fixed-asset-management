@@ -15,19 +15,22 @@ interface NavbarProps {
   onOpenQuickAction: (action: string) => void;
   globalSearch: string;
   setGlobalSearch: (s: string) => void;
+  onToggleMobileNav: () => void;
+  isMobileNavOpen: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = (props) => dataSource === 'django' ? <AuthenticatedNavbar {...props} /> : <MockNavbar {...props} />;
 
-function AuthenticatedNavbar({ onNavigate, globalSearch, setGlobalSearch }: NavbarProps) {
+function AuthenticatedNavbar({ onNavigate, globalSearch, setGlobalSearch, onToggleMobileNav, isMobileNavOpen }: NavbarProps) {
   const { user, role, logout } = useAuth();
   const signOut = () => { logout(); window.location.hash = '#/'; };
-  return <header className="fixed top-0 left-0 right-0 h-12 bg-white z-50 flex items-center justify-between gap-3 px-4 border-b border-slate-200">
-    <button onClick={() => onNavigate('all-assets')} className="flex items-center gap-2 font-bold text-[#00288e]"><AssetFlowLogo className="w-7 h-7" />AssetFlow</button>
+  return <header className="fixed top-0 left-0 right-0 h-12 bg-white z-50 flex items-center justify-between gap-2 px-2 sm:px-4 border-b border-slate-200">
+    <button id="mobile-nav-toggle" type="button" onClick={onToggleMobileNav} aria-label={isMobileNavOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={isMobileNavOpen} className="rounded p-2 text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 md:hidden"><span aria-hidden="true" className="material-symbols-outlined">{isMobileNavOpen ? 'close' : 'menu'}</span></button>
+    <button onClick={() => onNavigate('all-assets')} className="flex items-center gap-1.5 whitespace-nowrap font-bold text-[#00288e]"><AssetFlowLogo className="w-7 h-7" /><span className="hidden min-[430px]:inline">AssetFlow</span></button>
     <span className="hidden lg:inline text-xs text-blue-700">Django API</span>
     <input aria-label="Global asset search" className="rounded border bg-slate-50 p-1.5 text-sm min-w-0 max-w-md flex-1" placeholder="Search assets" value={globalSearch} onChange={e => { setGlobalSearch(e.target.value); onNavigate('all-assets'); }} />
     <div className="hidden md:block text-right text-xs"><div>{user?.email}</div><div className="text-slate-500">{role?.replaceAll('_', ' ')}</div></div>
-    <button onClick={signOut} className="border rounded px-3 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Sign out</button>
+    <button onClick={signOut} className="shrink-0 rounded border px-2 sm:px-3 py-1.5 text-xs sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Sign out</button>
   </header>;
 }
 
@@ -36,6 +39,8 @@ const MockNavbar: React.FC<NavbarProps> = ({
   onOpenQuickAction,
   globalSearch,
   setGlobalSearch,
+  onToggleMobileNav,
+  isMobileNavOpen,
 }) => {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -75,15 +80,16 @@ const MockNavbar: React.FC<NavbarProps> = ({
   }, []);
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-12 bg-white z-50 flex items-center justify-between px-3 md:px-4 border-b border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.03)] select-none">
+    <header className="fixed top-0 left-0 right-0 h-12 bg-white z-50 flex items-center justify-between gap-2 px-2 md:px-4 border-b border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.03)] select-none">
+      <button id="mobile-nav-toggle" type="button" onClick={onToggleMobileNav} aria-label={isMobileNavOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={isMobileNavOpen} className="rounded p-2 text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 md:hidden"><span aria-hidden="true" className="material-symbols-outlined">{isMobileNavOpen ? 'close' : 'menu'}</span></button>
       {/* Brand Zone */}
-      <div className="flex items-center gap-3 min-w-[280px]">
+      <div className="flex min-w-0 items-center gap-2 md:min-w-[220px] md:gap-3">
         <button
           onClick={() => onNavigate('dashboard')}
           className="flex items-center gap-2 text-left focus:outline-none group"
         >
           <AssetFlowLogo className="h-7 w-7 transition-transform group-hover:scale-105" />
-          <span className="text-[17px] font-bold tracking-tight text-[#00288e]">
+          <span className="hidden text-[17px] font-bold tracking-tight text-[#00288e] min-[430px]:inline">
             AssetFlow
           </span>
         </button>
@@ -99,7 +105,7 @@ const MockNavbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Global Search Center Input */}
-      <div className="flex-1 max-w-xl px-2 md:px-4">
+      <div className="flex-1 min-w-0 max-w-xl px-1 md:px-4">
         <div className="relative flex items-center w-full">
           <span className="material-symbols-outlined absolute left-2.5 text-[18px] text-[#757684] pointer-events-none">
             search
@@ -114,7 +120,7 @@ const MockNavbar: React.FC<NavbarProps> = ({
               }
             }}
             className="w-full h-8 pl-8 pr-14 bg-[#eff4ff]/80 text-[13px] text-[#0b1c30] rounded-md placeholder:text-[#757684] focus:outline-none focus:bg-white focus:ring-1.5 focus:ring-[#00288e] border border-transparent focus:border-[#00288e] transition-all"
-            placeholder="Search assets (tag, serial, model), custodians, PO numbers..."
+            placeholder="Search assets"
             type="text"
           />
           <div className="absolute right-2 flex items-center gap-0.5">

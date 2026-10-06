@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './AuthProvider';
-import { queryClient } from '../services/runtime';
+import { queryClient } from '../services/authRuntime';
 import { dataSource } from '../services/config';
 import { LoadingState } from '../components/common/AsyncState';
+import { ChunkLoadBoundary } from '../components/common/ChunkLoadBoundary';
 import { LoginView } from '../views/LoginView';
 import { PublicLandingPage } from '../views/PublicLandingPage';
 const App = lazy(() => import('../App'));
@@ -65,14 +66,14 @@ export function DjangoRoutes() {
   if (loginRoute && !auth.authenticated) return <LoginRoute />;
   if (!auth.authenticated) return <LoadingState label="Opening sign in…" />;
   if (loginRoute || publicRoot || !returnRoute) return <LoadingState label="Opening your workspace…" />;
-  return <Suspense fallback={<LoadingState label="Opening your workspace…" />}><App key={`${auth.user?.id}:${auth.generation}`} /></Suspense>;
+  return <ChunkLoadBoundary><Suspense fallback={<LoadingState label="Opening your workspace…" />}><App key={`${auth.user?.id}:${auth.generation}`} /></Suspense></ChunkLoadBoundary>;
 }
 
 function MockRoutes() {
   const [path, setPath] = useState(hashPath());
   useEffect(() => { const update = () => setPath(hashPath()); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update); }, []);
   if (!path || path === '/' || landingSections.has(path)) return <PublicLandingPage authenticated={false} mockMode />;
-  return <Suspense fallback={<LoadingState label="Opening the demonstration workspace…" />}><App /></Suspense>;
+  return <ChunkLoadBoundary><Suspense fallback={<LoadingState label="Opening the demonstration workspace…" />}><App /></Suspense></ChunkLoadBoundary>;
 }
 
 export function AuthenticatedApplication() {
