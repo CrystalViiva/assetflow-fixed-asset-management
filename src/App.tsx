@@ -36,6 +36,7 @@ import { LocationsView } from './views/LocationsView';
 import { UsersRolesView } from './views/UsersRolesView';
 import { AuditLogView } from './views/AuditLogView';
 import { BackendAuditLogView } from './views/BackendAuditLogView';
+import { BackendOrganizationAdminView } from './views/BackendOrganizationAdminView';
 import { SettingsView } from './views/SettingsView';
 
 // Modals
@@ -373,10 +374,13 @@ export default function App() {
           />
         );
       case 'departments':
+        if (dataSource === 'django') return <BackendOrganizationAdminView section="departments" />;
         return <DepartmentsView onNavigate={navigateTo} />;
       case 'locations':
+        if (dataSource === 'django') return <BackendOrganizationAdminView section="locations" />;
         return <LocationsView onNavigate={navigateTo} />;
       case 'users-and-roles':
+        if (dataSource === 'django') return <BackendOrganizationAdminView section="users" />;
         return <UsersRolesView onNavigate={navigateTo} />;
       case 'audit-log':
         if (dataSource === 'django') return <BackendAuditLogView onSelectAsset={handleSelectAsset} />;

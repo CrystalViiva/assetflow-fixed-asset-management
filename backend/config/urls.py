@@ -43,6 +43,8 @@ urlpatterns = [
     path("api/v1/audit/events/", AuditEventListView.as_view(), name="audit-event-list"),
     # Specific nested routes must precede the assets router's catch-all detail route.
     path("api/v1/", include("transfers.urls")),
+    path("api/v1/", include("accounts.admin_urls")),
+    path("api/v1/", include("organizations.admin_urls")),
     path("api/v1/", include("maintenance.urls")),
     path("api/v1/", include("disposals.urls")),
     path("api/v1/", include("verification.urls")),

@@ -11,6 +11,7 @@ import { DjangoVerificationRepository } from './verificationRepository';
 import { DjangoAssuranceRepository } from './assuranceRepository';
 import { DjangoReportRepository } from './reportRepository';
 import { DjangoAuditRepository } from './auditRepository';
+import { DjangoOrganizationAdminRepository } from './organizationAdminRepository';
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: {
   staleTime: 30_000, gcTime: 5 * 60_000, retry: false, refetchOnWindowFocus: true,
@@ -31,3 +32,4 @@ export const verificationRepository = new DjangoVerificationRepository(apiClient
 export const assuranceRepository = new DjangoAssuranceRepository(apiClient);
 export const reportRepository = new DjangoReportRepository(apiClient);
 export const auditRepository = new DjangoAuditRepository(apiClient);
+export const organizationAdminRepository = new DjangoOrganizationAdminRepository(apiClient);

@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import {ApiClient} from '../src/services/apiClient';
+import {Session} from '../src/services/session';
+import {DjangoOrganizationAdminRepository} from '../src/services/organizationAdminRepository';
+import {DjangoAuditRepository} from '../src/services/auditRepository';
+import {ApiError} from '../src/services/apiError';
+
+let stage='session setup';
+async function run(){
+ const storage=new Map<string,string>(),api=new ApiClient(process.env.F1_SMOKE_URL!);
+ const session=new Session(api,{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},()=>{});
+ await session.initialize();stage='tenant administrator login';await session.login(process.env.F1_SMOKE_EMAIL!,process.env.F1_SMOKE_PASSWORD!);
+ assert.equal(session.getSnapshot().user?.role,'ADMIN');const admin=new DjangoOrganizationAdminRepository(api),audit=new DjangoAuditRepository(api);
+ stage='read organization departments locations and users';
+ const [departments,locations,users]=await Promise.all([
+  admin.departments({page:1,pageSize:100,search:''}),admin.locations({page:1,pageSize:100,search:''}),admin.users({page:1,pageSize:100,search:''}),
+ ]);
+ assert.ok(departments.results.some(x=>x.code==='OPS'));assert.ok(locations.results.some(x=>x.code==='PLANT'));assert.ok(users.results.some(x=>x.email===process.env.F1_SMOKE_EMAIL!.toLowerCase()));
+ stage='create department and location through typed repositories';
+ const department=await admin.createDepartment({name:'Finance',code:'FIN',is_active:true});
+ const location=await admin.createLocation({name:'Regional Office',code:'REG',address:'1 Smoke Way',city:'Abuja',state:'FCT',country:'Nigeria',is_active:true});
+ stage='create user and prove safe credential response';
+ const password=process.env.F1_SMOKE_PASSWORD!;
+ const created=await admin.createUser({email:'new.employee@example.test',password,role:'EMPLOYEE',department_id:department.id});
+ assert.equal(created.role,'EMPLOYEE');assert.equal(created.departmentId,department.id);
+ assert.equal(JSON.stringify(created).includes(password),false);assert.equal(JSON.stringify(created).toLowerCase().includes('password'),false);
+ stage='change role, department, and active state via domain admin action';
+ await admin.updateUser(created.id,{role:'DEPARTMENT_MANAGER',department_id:department.id,is_active:false});
+ const inactive=await admin.users({page:1,pageSize:20,search:created.email,is_active:false});assert.equal(inactive.results[0]?.role,'DEPARTMENT_MANAGER');
+ await admin.updateUser(created.id,{role:'EMPLOYEE',department_id:department.id,is_active:true});
+ const custodians=await api.request('/custodians/') as {results:Array<{id:number;email:string}>};assert.ok(custodians.results.some(row=>row.email===created.email));
+ stage='edit location description without moving an asset';
+ const assetsBefore=await api.request('/assets/',{query:{search:'F11-PLACEMENT-001',page:1,page_size:25}}) as {results:Array<{id:string;location_id:string|null;department_id:string|null}>};
+ assert.equal(assetsBefore.results.length,1);const placement=assetsBefore.results[0]!;
+ await admin.updateLocation(location.id,{name:'Regional Office Updated',code:'REG',address:'2 Smoke Way',city:'Abuja',state:'FCT',country:'Nigeria',is_active:true});
+ const assetAfter=await api.request(`/assets/${placement.id}/`) as {location_id:string|null;department_id:string|null};
+ assert.equal(assetAfter.location_id,placement.location_id);assert.equal(assetAfter.department_id,placement.department_id);
+ stage='verify backend-generated administration audit events and secret absence';
+ const auditRows=await audit.events({page:1,pageSize:100,action:'',entityType:'',entityId:String(created.id),actor:'',search:'',dateFrom:'',dateTo:'',ordering:'-timestamp'});
+ assert.ok(auditRows.results.some(row=>row.action==='USER_CREATED'));assert.ok(auditRows.results.some(row=>row.action==='USER_ADMIN_UPDATED'));
+ assert.ok(auditRows.results.every(row=>row.actorEmail===process.env.F1_SMOKE_EMAIL!.toLowerCase()));
+ assert.equal(JSON.stringify(auditRows).includes(password),false);assert.equal(JSON.stringify(auditRows).toLowerCase().includes('password'),false);
+ stage='verify password is Django-hashed';
+ const stored=await api.request(`/admin/users/${created.id}/`) as Record<string,unknown>;
+ assert.equal('password' in stored,false);assert.equal('is_staff' in stored,false);assert.equal('is_superuser' in stored,false);
+ stage='deny self-role mutation and privileged/organization mass assignment';
+ await assert.rejects(api.request(`/admin/users/${session.getSnapshot().user!.id}/`,{method:'PATCH',body:{role:'EMPLOYEE'}}),e=>e instanceof ApiError&&e.status===400);
+ await assert.rejects(api.request('/admin/departments/',{method:'POST',body:{name:'Spoof',code:'SPOOF',organization_id:department.organizationId}}),e=>e instanceof ApiError&&e.status===400);
+ await assert.rejects(api.request('/admin/users/',{method:'POST',body:{email:'privileged@example.test',password,role:'ADMIN',is_superuser:true,is_staff:true}}),e=>e instanceof ApiError&&e.status===400);
+ stage='deny cross-tenant IDOR and reference assignment';
+ stage='capture foreign identifiers as the foreign tenant administrator';session.logout();await session.login('foreign-admin@example.test',password);
+ const foreignDepartment=(await api.request('/admin/departments/') as {results:Array<{id:string;name:string}>}).results.find(row=>row.name==='Foreign');assert.ok(foreignDepartment);
+ const foreignLocation=(await api.request('/admin/locations/') as {results:Array<{id:string;name:string}>}).results.find(row=>row.name==='Foreign hub');assert.ok(foreignLocation);
+ const foreignUser=(await api.request('/admin/users/') as {results:Array<{id:number;email:string}>}).results.find(row=>row.email==='foreign-employee@example.test');assert.ok(foreignUser);
+ stage='return to tenant A and verify cross-tenant IDs and foreign assignment are rejected';session.logout();await session.login(process.env.F1_SMOKE_EMAIL!,password);
+ await assert.rejects(api.request(`/admin/departments/${foreignDepartment.id}/`),e=>e instanceof ApiError&&e.status===404);
+ await assert.rejects(api.request(`/admin/locations/${foreignLocation.id}/`),e=>e instanceof ApiError&&e.status===404);
+ await assert.rejects(api.request(`/admin/users/${foreignUser.id}/`),e=>e instanceof ApiError&&e.status===404);
+ const foreignDeptId=foreignDepartment.id;
+ assert.ok(foreignDeptId);await assert.rejects(api.request(`/admin/users/${created.id}/`,{method:'PATCH',body:{department_id:foreignDeptId}}),e=>e instanceof ApiError&&e.status===400);
+ stage='deny all admin operations to lower-privileged user';session.logout();await session.login('new.employee@example.test',password);
+ await assert.rejects(api.request('/admin/users/'),e=>e instanceof ApiError&&e.status===403);
+ await assert.rejects(api.request('/admin/departments/',{method:'POST',body:{name:'Nope',code:'NO'}}),e=>e instanceof ApiError&&e.status===403);
+ stage='logout and confirm session storage cleared';session.logout();assert.equal(storage.size,0);assert.equal(session.getSnapshot().user,null);
+ console.log('PASS: isolated TypeScript → authenticated Django → PostgreSQL F11 administration; department/location/user create and update audited; role/department/activation and reference integration verified; password absent from responses/audit and server user response omits privilege fields; organization spoofing, lower-role, self-mutation, cross-tenant IDOR/reference attacks rejected; location edit left asset placement unchanged.');
+}
+void run().catch(error=>{const safe=error instanceof Error?error.name:'runtime failure';const detail=error instanceof Error&&'kind' in error?`${String((error as {kind:unknown}).kind)}${'status' in error?` HTTP ${String((error as {status:unknown}).status)}`:''}${'message' in error?`; ${String((error as {message:unknown}).message)}`:''}`:error instanceof Error&&error.name==='AssertionError'?`; ${error.message.slice(0,400)}`:'';console.log(`SMOKE: failed at ${stage}; ${safe}${detail?`; ${detail}`:''}`);process.exitCode=1;});

@@ -12,7 +12,7 @@ export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'OVE
 export type TransferStatus = 'PENDING' | 'APPROVED' | 'IN_TRANSIT' | 'COMPLETED' | 'REJECTED';
 export type DisposalMethod = 'SALE' | 'SCRAP' | 'DONATION' | 'WRITE_OFF' | 'TRANSFER_OUT';
 export type DisposalStatus = 'PENDING_REVIEW' | 'APPROVED' | 'COMPLETED' | 'REJECTED';
-export type UserRole = 'ADMIN' | 'ASSET_MANAGER' | 'ACCOUNTANT' | 'DEPT_MANAGER' | 'EMPLOYEE';
+export type UserRole = 'ADMIN' | 'ASSET_MANAGER' | 'ACCOUNTANT' | 'DEPARTMENT_MANAGER' | 'EMPLOYEE';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'TRANSFER' | 'MAINTENANCE' | 'DEPRECIATE' | 'DISPOSE' | 'CAPITALIZE';
 export type AuditEntity = 'ASSET' | 'CATEGORY' | 'TRANSFER' | 'MAINTENANCE' | 'DISPOSAL' | 'USER' | 'SETTING';
 
