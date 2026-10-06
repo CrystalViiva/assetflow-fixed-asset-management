@@ -34,7 +34,7 @@ Query keys include authenticated user and session generation. Data uses TanStack
 
 ## Limitations
 
-This operational view is current-state analytics, not a financial close report, an arbitrary historical reconstruction, real-time streaming, or an assurance engine. Per-role access policy is currently endpoint-wide for the four listed roles, with department-manager scoping; it does not dynamically calculate a capability matrix. Cost and book value are asset-level current snapshots, and impairments are represented by the existing asset state/book values rather than recomputed here. The dashboard does not produce monthly periods with no entries.
+This operational view is current-state analytics, not a financial close report, an arbitrary historical reconstruction, real-time streaming, or an assurance engine. Per-role access policy is currently endpoint-wide for the four listed roles, with department-manager scoping; it does not dynamically calculate a capability matrix. The product has an `IMPAIRED` lifecycle status but no impairment accounting ledger/workflow. F13 therefore does not calculate impairment losses: capitalized cost remains the Asset master cost, and carrying amount is the latest posted depreciation ledger closing balance (or cost when no depreciation has posted). An impaired asset's displayed carrying amount must not be read as a separately impairment-adjusted valuation. The dashboard does not produce monthly periods with no entries.
 
 ## Verification
 
