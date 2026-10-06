@@ -19,6 +19,7 @@ import { defaultAssetQuery } from '../services/djangoApiBridge';
 import { useMovementAction } from '../services/movementMutations';
 import { BackendVerificationView } from './BackendVerificationView';
 import { BackendAssuranceView } from './BackendAssuranceView';
+import { BackendReportsView, safeReportFilename } from './BackendReportsView';
 
 afterEach(() => vi.unstubAllGlobals());
 function frame(session: Session, client: QueryClient, children: ReactNode) {
@@ -115,6 +116,25 @@ describe('deterministic assurance integration',()=>{
   c.fetcher.mockImplementation(async (input,init)=>{const parsed=new URL(String(input),'http://localhost');if(parsed.pathname.endsWith('/assurance/runs/')){if(init?.method==='POST')return json({},500);runLists++;return json({count:runLists>=3?1:0,next:null,previous:null,results:runLists>=3?[created]:[]});}if(parsed.pathname.endsWith('/verification/campaigns/'))return json(emptyPage);return json(emptyPage);});
   render(frame(c.session,c.client,<BackendAssuranceView onSelectAsset={vi.fn()}/>));fireEvent.click(await screen.findByRole('button',{name:'Create pending run'}));
   expect(await screen.findByText(/was created; Django confirmed it in run history/)).toBeTruthy();expect(c.fetcher.mock.calls.filter(call=>String(call[0]).endsWith('/assurance/runs/')&&call[1]?.method==='POST')).toHaveLength(1);
+ });
+});
+describe('authoritative reports and durable snapshots',()=>{
+ it('sanitizes Content-Disposition filenames and strips private path components',()=>{expect(safeReportFilename("attachment; filename*=UTF-8''..%2Fsafe%20report.csv",'fallback.csv')).toBe('safe report.csv');expect(safeReportFilename('attachment; filename="..\\private.csv"','fallback.csv')).toBe('private.csv');expect(safeReportFilename(null,'fallback.csv')).toBe('fallback.csv');});
+ it('does not query reporting endpoints for an employee role',async()=>{const c=await authenticated('EMPLOYEE');render(frame(c.session,c.client,<BackendReportsView/>));expect(await screen.findByText(/Your role cannot access reporting/)).toBeTruthy();expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/reports/'))).toBe(false);});
+ it('renders Django live report rows without browser joins and distinguishes a queued capture',async()=>{
+  const c=await authenticated('ASSET_MANAGER');const reportId='11111111-1111-4111-8111-111111111111',snapId='22222222-2222-4222-8222-222222222222',now='2026-10-06T10:00:00Z';
+  const catalog=[{report_type:'asset_register',label:'Asset register',result_url:'/api/v1/reports/asset_register/',snapshot_supported:true,columns:['id','asset_tag','purchase_cost','current_book_value'],filters:['search']}];
+  const captured={id:snapId,report_type:'asset_register',parameters:{},scope_department_id:null,status:'QUEUED',requested_at:now,started_at:null,as_of:null,generated_at:null,failed_at:null,row_count:0,summary:{},schema_version:1,failure_class:'',failure_message:''};
+  c.fetcher.mockImplementation(async (input,init)=>{const url=new URL(String(input),'http://localhost');if(url.pathname==='/api/v1/reports/')return json(catalog);if(url.pathname.endsWith('/reports/asset_register/'))return json({count:1,next:null,previous:null,results:[{id:reportId,asset_tag:'F9-001',purchase_cost:'9007199254740993.10',current_book_value:'12.30'}]});if(url.pathname.endsWith('/report-snapshots/')&&init?.method==='POST')return json(captured,202);if(url.pathname.endsWith('/report-snapshots/'))return json({count:1,next:null,previous:null,results:[captured]});return json(emptyPage);});
+  render(frame(c.session,c.client,<BackendReportsView/>));expect(await screen.findByText('9,007,199,254,740,993.10')).toBeTruthy();expect(screen.getByText(/Live result/)).toBeTruthy();expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/assets/?'))).toBe(false);
+  fireEvent.click(screen.getByRole('button',{name:'Capture snapshot'}));expect(await screen.findByText(/Django accepted snapshot/)).toBeTruthy();expect(await screen.findByText(/QUEUED/)).toBeTruthy();expect(screen.getByRole('status').textContent).toMatch(/captured at request time/i);
+  const create=c.fetcher.mock.calls.find(call=>String(call[0]).endsWith('/report-snapshots/')&&call[1]?.method==='POST');expect(create).toBeTruthy();expect(JSON.parse(String(create?.[1]?.body))).toMatchObject({report_type:'asset_register',filters:{}});
+ });
+ it('does not allow unsupported snapshot schemas to fetch or render snapshot rows',async()=>{
+  const c=await authenticated('ACCOUNTANT');const snapId='22222222-2222-4222-8222-222222222222',now='2026-10-06T10:00:00Z';
+  const catalog=[{report_type:'asset_register',label:'Asset register',result_url:'/api/v1/reports/asset_register/',snapshot_supported:true,columns:['id','asset_tag'],filters:[]}];const unsupported={id:snapId,report_type:'asset_register',parameters:{},scope_department_id:null,status:'COMPLETED',requested_at:now,started_at:now,as_of:now,generated_at:now,failed_at:null,row_count:1,summary:{},schema_version:99,failure_class:'',failure_message:''};
+  c.fetcher.mockImplementation(async input=>{const path=new URL(String(input),'http://localhost').pathname;if(path==='/api/v1/reports/')return json(catalog);if(path==='/api/v1/report-snapshots/')return json({count:1,next:null,previous:null,results:[unsupported]});if(path.includes('/reports/asset_register/'))return json(emptyPage);return json(emptyPage);});
+  render(frame(c.session,c.client,<BackendReportsView/>));fireEvent.click(await screen.findByRole('button',{name:'Snapshots'}));expect(await screen.findByText(/Snapshot schema v99 is unsupported/)).toBeTruthy();expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/rows/'))).toBe(false);
  });
 });
 describe('real asset register', () => {

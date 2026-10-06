@@ -9,6 +9,7 @@ import { DjangoMaintenanceRepository } from './maintenanceRepository';
 import { DjangoDisposalRepository } from './disposalRepository';
 import { DjangoVerificationRepository } from './verificationRepository';
 import { DjangoAssuranceRepository } from './assuranceRepository';
+import { DjangoReportRepository } from './reportRepository';
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: {
   staleTime: 30_000, gcTime: 5 * 60_000, retry: false, refetchOnWindowFocus: true,
@@ -27,3 +28,4 @@ export const maintenanceRepository = new DjangoMaintenanceRepository(apiClient);
 export const disposalRepository = new DjangoDisposalRepository(apiClient);
 export const verificationRepository = new DjangoVerificationRepository(apiClient);
 export const assuranceRepository = new DjangoAssuranceRepository(apiClient);
+export const reportRepository = new DjangoReportRepository(apiClient);

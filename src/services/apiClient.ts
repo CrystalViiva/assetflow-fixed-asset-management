@@ -16,6 +16,7 @@ export interface SessionTransport {
   refresh(): Promise<void>;
   invalidate(): void;
 }
+export interface DownloadResponse { blob: Blob; contentDisposition: string | null; contentType: string | null }
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -76,5 +77,47 @@ export class ApiClient {
     if (!response.ok) throw responseError(response.status, body);
     ensureCurrent();
     return body;
+  }
+
+  async download(path: string, signal?: AbortSignal): Promise<DownloadResponse> {
+    if (!path.startsWith('/') || path.startsWith('//') || /[\\?#\s]/.test(path)) {
+      throw new ApiError('contract', 'Invalid API request path.');
+    }
+    const session = this.session;
+    if (!session) throw new ApiError('authentication', 'Your session has ended. Please sign in again.');
+    const generation = session?.generation;
+    const ensureCurrent = () => {
+      if (session.generation !== generation) throw new ApiError('authentication', 'Your session has ended. Please sign in again.');
+      signal?.throwIfAborted();
+    };
+    const send = async (token: string | null) => {
+      ensureCurrent();
+      const timeout = AbortSignal.timeout(20_000);
+      try {
+        return await this.fetcher(`${this.base}${path}`, { method: 'GET', headers: { Accept: '*/*', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: signal ? AbortSignal.any([signal, timeout]) : timeout, credentials: 'omit', redirect: 'error', cache: 'no-store' });
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        throw new ApiError('network', 'Unable to download this AssetFlow export. Check your connection and try again.');
+      }
+    };
+    const originalToken = session.accessToken;
+    let response = await send(originalToken);
+    ensureCurrent();
+    if (response.status === 401) {
+      if (!session.accessToken || session.accessToken === originalToken) await session.refresh();
+      ensureCurrent();
+      response = await send(session.accessToken);
+      ensureCurrent();
+      if (response.status === 401) session.invalidate();
+    }
+    if (!response.ok) {
+      let body: unknown;
+      try { body = await response.clone().json(); } catch { body = null; }
+      ensureCurrent();
+      throw responseError(response.status, body);
+    }
+    const blob = await response.blob();
+    ensureCurrent();
+    return { blob, contentDisposition: response.headers.get('Content-Disposition'), contentType: response.headers.get('Content-Type') };
   }
 }

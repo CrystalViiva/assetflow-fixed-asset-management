@@ -6,6 +6,7 @@ No credentials, tokens, or database dumps are printed or written to files.
 
 import os
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -36,7 +37,7 @@ def seed():
     from transfers.models import AssetAssignment
 
     # This child must only ever connect to the random database selected by the parent.
-    prefix = "assetflow_f8_" if os.environ.get("F8_SMOKE_MODE") else "assetflow_f7_" if os.environ.get("F7_SMOKE_MODE") else "assetflow_f6_" if os.environ.get("F6_SMOKE_MODE") else "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
+    prefix = "assetflow_f9_" if os.environ.get("F9_SMOKE_MODE") else "assetflow_f8_" if os.environ.get("F8_SMOKE_MODE") else "assetflow_f7_" if os.environ.get("F7_SMOKE_MODE") else "assetflow_f6_" if os.environ.get("F6_SMOKE_MODE") else "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
     assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
     assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
     organization = Organization.objects.create(name=f"{prefix[:-1].upper()} smoke", code=f"{prefix[:-1].upper()}SMOKE")
@@ -47,6 +48,18 @@ def seed():
     category = AssetCategory.objects.create(
         organization=organization, name="Equipment", code="EQ", default_useful_life_months=36,
     )
+    if prefix.endswith("f9_"):
+        department = Department.objects.create(organization=organization, name="Operations", code="OPS")
+        location = Location.objects.create(organization=organization, name="Main Plant", code="PLANT")
+        Asset.objects.create(
+            organization=organization, category=category, asset_tag="F9-REPORT-01",
+            name="F9 report snapshot original", department=department, location=location,
+            status="ACTIVE", condition="GOOD", acquisition_date="2026-01-01",
+            capitalization_date="2026-01-02", available_for_use_date="2026-01-02",
+            purchase_cost="1234.56", residual_value="0.00", useful_life_months=36,
+            depreciation_method="SLM", accumulated_depreciation="34.56", current_book_value="1200.00",
+        )
+        return
     if prefix.endswith(("f2_", "f3_", "f4_", "f5_", "f6_")):
         Department.objects.create(organization=organization, name="Operations", code="OPS")
         Location.objects.create(organization=organization, name="Main Plant", code="PLANT")
@@ -110,13 +123,14 @@ def seed():
         )
 
 
-def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False):
+def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9=False):
     database = settings.DATABASES["default"]
+    f9 = f9 or bool(os.environ.get("F9_SMOKE_MODE"))
     f8 = f8 or bool(os.environ.get("F8_SMOKE_MODE"))
     f7 = f7 or bool(os.environ.get("F7_SMOKE_MODE"))
     f6 = f6 or bool(os.environ.get("F6_SMOKE_MODE"))
     f5 = f5 or bool(os.environ.get("F5_SMOKE_MODE"))
-    prefix = "assetflow_f8_" if f8 else "assetflow_f7_" if f7 else "assetflow_f6_" if f6 else "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
+    prefix = "assetflow_f9_" if f9 else "assetflow_f8_" if f8 else "assetflow_f7_" if f7 else "assetflow_f6_" if f6 else "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
     name = prefix + uuid.uuid4().hex
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -133,13 +147,16 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False):
     db_port = database["PORT"] or 5432
     environment.update({
         "DATABASE_URL": f"postgresql://{user}:{password}@{host}:{db_port}/{name}",
-        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "", "F5_SMOKE_MODE": "1" if f5 else "", "F6_SMOKE_MODE": "1" if f6 else "", "F7_SMOKE_MODE": "1" if f7 else "", "F8_SMOKE_MODE": "1" if f8 else "", "F1_SMOKE_APPROVER_EMAIL": "approver@example.test",
+        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "", "F5_SMOKE_MODE": "1" if f5 else "", "F6_SMOKE_MODE": "1" if f6 else "", "F7_SMOKE_MODE": "1" if f7 else "", "F8_SMOKE_MODE": "1" if f8 else "", "F9_SMOKE_MODE": "1" if f9 else "", "F1_SMOKE_APPROVER_EMAIL": "approver@example.test",
         "F1_SMOKE_EMAIL": "smoke@example.test",
         "F1_SMOKE_PASSWORD": secrets.token_urlsafe(32),
         "F1_SMOKE_URL": f"http://127.0.0.1:{port}/api/v1",
         "DEBUG": "false", "SECURE_SSL_REDIRECT": "false", "ALLOWED_HOSTS": "127.0.0.1,localhost",
     })
-    if f8:
+    private_root = tempfile.mkdtemp(prefix="assetflow_f9_private_") if f9 else None
+    if f9:
+        environment.update({"DJANGO_SETTINGS_MODULE":"config.f9_smoke_settings","F9_SMOKE_PRIVATE_ROOT":private_root})
+    elif f8:
         environment.update({"DJANGO_SETTINGS_MODULE":"config.f8_smoke_settings","ASSURANCE_WORK_UNIT_SIZE":"1"})
     server = None
     created = False
@@ -177,7 +194,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False):
         else:
             raise RuntimeError("Isolated Django server did not become ready.")
         node_command = ["node"]
-        if (f7 or f8) and os.name == "nt":
+        if (f7 or f8 or f9) and os.name == "nt":
             # tsx asks Node for account details when choosing its cache directory; some
             # managed Windows runners deny that OS lookup. Keep the compatibility shim
             # temporary and outside the repository.
@@ -185,7 +202,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False):
                 shim.write("const os=require('node:os');os.userInfo=()=>({uid:-1,gid:-1,username:'assetflow-smoke',homedir:os.homedir(),shell:null});\n")
                 shim_path = shim.name
             node_command.extend(["--require", shim_path])
-        node_command.extend(["--import", "tsx", "scripts/f8-api-smoke.ts" if f8 else "scripts/f7-api-smoke.ts" if f7 else "scripts/f6-api-smoke.ts" if f6 else "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"])
+        node_command.extend(["--import", "tsx", "scripts/f9-api-smoke.ts" if f9 else "scripts/f8-api-smoke.ts" if f8 else "scripts/f7-api-smoke.ts" if f7 else "scripts/f6-api-smoke.ts" if f6 else "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"])
         result = subprocess.run(
             node_command, cwd=ROOT, env=environment,
             capture_output=True, text=True, timeout=60, creationflags=flags, check=False,
@@ -196,7 +213,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False):
                     print(line)
             raise RuntimeError("Frontend API smoke failed; captured output withheld to protect temporary credentials.")
         print(result.stdout.strip())
-        if f2 or f3 or f4 or f5 or f6 or f7 or f8:
+        if f2 or f3 or f4 or f5 or f6 or f7 or f8 or f9:
             result = subprocess.run(
                 [sys.executable, str(Path(__file__).resolve()), "--verify"], cwd=ROOT, env=environment,
                 capture_output=True, text=True, timeout=30, creationflags=flags, check=False,
@@ -221,6 +238,12 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False):
             assert name.startswith(prefix) and len(name) == 45
             admin.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(name)))
             print("Disposable PostgreSQL database removed; application database untouched.")
+        if private_root:
+            private_path = Path(private_root).resolve()
+            assert private_path.parent == Path(tempfile.gettempdir()).resolve()
+            assert private_path.name.startswith("assetflow_f9_private_")
+            shutil.rmtree(private_path)
+            print("Disposable private export storage removed; no export file was written to the repository.")
         admin.close()
 
 
@@ -230,7 +253,47 @@ if __name__ == "__main__":
     elif sys.argv[1:] == ["--verify"]:
         import django
         django.setup()
-        if os.environ.get("F8_SMOKE_MODE"):
+        if os.environ.get("F9_SMOKE_MODE"):
+            from uuid import UUID
+
+            from assets.models import Asset
+            from audit.models import AuditLog
+            from reporting.models import (
+                ExportStatus,
+                ReportExport,
+                ReportSnapshot,
+                SnapshotStatus,
+            )
+            assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
+            assert os.environ["F1_SMOKE_DATABASE"].startswith("assetflow_f9_")
+            print("VERIFY: isolated F9 database boundary confirmed")
+            asset = Asset.objects.get(asset_tag="F9-REPORT-01")
+            snapshot = ReportSnapshot.objects.get(idempotency_key=UUID("11111111-1111-4111-8111-111111111111"))
+            assert snapshot.status == SnapshotStatus.COMPLETED
+            assert snapshot.schema_version == 1 and snapshot.row_count == 1
+            assert snapshot.as_of is not None and snapshot.requested_at <= snapshot.as_of <= snapshot.generated_at
+            assert snapshot.rows.get().payload["name"] == "F9 report snapshot original"
+            assert snapshot.rows.get().payload["purchase_cost"] == "1234.56"
+            print("VERIFY: completed frozen snapshot and original source row confirmed")
+            assert asset.name == "F9 report snapshot changed after capture"
+            assert str(asset.purchase_cost) == "1234.56"
+            csv_export = ReportExport.objects.get(idempotency_key=UUID("22222222-2222-4222-8222-222222222222"))
+            json_export = ReportExport.objects.get(idempotency_key=UUID("33333333-3333-4333-8333-333333333333"))
+            assert csv_export.source_snapshot_id == json_export.source_snapshot_id == snapshot.pk
+            assert csv_export.status == json_export.status == ExportStatus.COMPLETED
+            assert csv_export.row_count == json_export.row_count == snapshot.row_count
+            assert csv_export.byte_size and json_export.byte_size and len(csv_export.sha256) == len(json_export.sha256) == 64
+            print("VERIFY: private completed CSV/JSON exports cite source snapshot with size and hash metadata")
+            events = set(AuditLog.objects.filter(organization=asset.organization).values_list("action", flat=True))
+            assert {"REPORT_SNAPSHOT_REQUESTED", "REPORT_SNAPSHOT_STARTED", "REPORT_SNAPSHOT_COMPLETED", "REPORT_EXPORT_REQUESTED", "REPORT_EXPORT_COMPLETED", "REPORT_EXPORT_DOWNLOADED"}.issubset(events)
+            print("VERIFY: report and authenticated download audit events confirmed")
+            private_path = Path(os.environ["F9_SMOKE_PRIVATE_ROOT"]).resolve()
+            assert private_path.parent == Path(tempfile.gettempdir()).resolve()
+            print("VERIFY: private storage root is a disposable system-temp child")
+            assert any(private_path.rglob("*"))
+            print("VERIFY: isolated F9 captured immutable original report rows, source changed afterward, both completed exports cite that snapshot, private artifacts/audits verified, and only the disposable DB was used")
+            sys.exit(0)
+        elif os.environ.get("F8_SMOKE_MODE"):
             from assets.models import Asset
             from assurance.models import (
                 AssuranceFinding,
@@ -401,9 +464,9 @@ if __name__ == "__main__":
         print("PASS: isolated PostgreSQL holds one tenant asset and acquisition with exact components, ACTIVE lifecycle and capitalization audit.")
     else:
         try:
-            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"], f5=sys.argv[1:] == ["--f5"], f6=sys.argv[1:] == ["--f6"], f7=sys.argv[1:] == ["--f7"], f8=sys.argv[1:] == ["--f8"])
+            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"], f5=sys.argv[1:] == ["--f5"], f6=sys.argv[1:] == ["--f6"], f7=sys.argv[1:] == ["--f7"], f8=sys.argv[1:] == ["--f8"], f9=sys.argv[1:] == ["--f9"])
         except Exception as error:  # noqa: BLE001 -- Do not print exception bodies containing credentials.
-            mode = "F8" if sys.argv[1:] == ["--f8"] else "F7" if sys.argv[1:] == ["--f7"] else "F6" if sys.argv[1:] == ["--f6"] else "F5" if sys.argv[1:] == ["--f5"] else "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
+            mode = "F9" if sys.argv[1:] == ["--f9"] else "F8" if sys.argv[1:] == ["--f8"] else "F7" if sys.argv[1:] == ["--f7"] else "F6" if sys.argv[1:] == ["--f6"] else "F5" if sys.argv[1:] == ["--f5"] else "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
             print(f"{mode} smoke unavailable/failed ({type(error).__name__}); no connection details printed.")
             if isinstance(error, RuntimeError):
                 print(str(error))
