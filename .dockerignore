@@ -8,10 +8,11 @@ node_modules/
 dist/
 build/
 coverage/
+.pytest_cache/
+.ruff_cache/
 **/__pycache__/
 **/*.py[cod]
-**/.pytest_cache/
-**/.ruff_cache/
 *.sqlite3
+*.db
 backend/private_media/
 backend/analytics_data/

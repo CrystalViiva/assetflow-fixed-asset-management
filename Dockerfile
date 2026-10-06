@@ -13,9 +13,10 @@ WORKDIR /app/backend
 # UID/GID 20000 is the explicit shared-volume group for the development stack.
 RUN groupadd --gid 20000 assetflow-analytics \
     && useradd --uid 10001 --gid 20000 --create-home --shell /usr/sbin/nologin assetflow \
-    && mkdir -p /srv/assetflow/analytics /app/backend/private_media \
-    && chown -R assetflow:assetflow-analytics /srv/assetflow/analytics /app/backend/private_media \
-    && chmod 2770 /srv/assetflow/analytics /app/backend/private_media
+    && mkdir -p /srv/assetflow/analytics /srv/assetflow/private /srv/assetflow/static /app/backend/private_media \
+    && chown -R assetflow:assetflow-analytics /srv/assetflow/analytics /srv/assetflow/private /srv/assetflow/static /app/backend/private_media \
+    && chmod 2770 /srv/assetflow/analytics /srv/assetflow/private /app/backend/private_media \
+    && chmod 2775 /srv/assetflow/static
 
 USER 10001:20000
 

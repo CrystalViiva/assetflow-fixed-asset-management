@@ -42,7 +42,7 @@ async function renderRealApp() {
 }
 it('real-mode shell shows real identity, no mock alerts/actions, and logs out', async () => {
   const c = await renderRealApp(); await screen.findByText('Office generator', {}, { timeout: 10000 });
-  expect(screen.getByText(identity.email)).toBeTruthy(); expect(screen.queryByText('Babajide Adeleke')).toBeNull();
+  expect(screen.getByText(identity.email)).toBeTruthy(); expect(screen.queryByText('Demo Finance Lead')).toBeNull();
   for (const text of ['1,284','4 pending','2 overdue','Lagos Corporate Facility']) expect(screen.queryByText(text)).toBeNull();
   expect(screen.queryByRole('button',{ name:'Actions' })).toBeNull(); expect(screen.queryByTitle('Notifications')).toBeNull();
   fireEvent.click(screen.getByRole('button',{ name:'Sign out' }));
@@ -61,7 +61,7 @@ it('Django dashboard API failure stays an error and does not substitute demonstr
   c.fetcher.mockImplementation(async input => String(input).includes('/dashboard/metrics/') ? Response.json({ error:{code:'API_ERROR',message:'failure'} },{status:503}) : json(emptyPage));
   fireEvent.click(screen.getByRole('button',{ name:'Dashboard' }));
   expect(await screen.findByRole('alert')).toHaveProperty('textContent',expect.stringContaining('could not complete'));
-  for (const demo of ['1,284','Babajide Adeleke','₦48.2M','Lagos Corporate Facility']) expect(screen.queryByText(demo)).toBeNull();
+  for (const demo of ['1,284','Demo Finance Lead','₦48.2M','Lagos Corporate Facility']) expect(screen.queryByText(demo)).toBeNull();
 });
 it('Django Audit Log route renders its role-scoped real screen without mock rows', async () => {
   const c = await renderRealApp(); await screen.findByText('Office generator');

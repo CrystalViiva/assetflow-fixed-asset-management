@@ -6,6 +6,28 @@ on:
   pull_request:
 
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Frontend tests
+        run: npm test
+      - name: TypeScript checks
+        run: npm run typecheck
+      - name: Mock production build
+        run: npm run build
+      - name: Django production build
+        run: npm run build
+        env:
+          VITE_DATA_SOURCE: django
+          VITE_BACKEND_API_URL: /api/v1
+
   backend:
     runs-on: ubuntu-latest
     services:

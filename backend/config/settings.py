@@ -100,7 +100,8 @@ TIME_ZONE = env("TIME_ZONE", default="Africa/Lagos")
 USE_I18N = True
 USE_TZ = True
 CELERY_TIMEZONE = TIME_ZONE
-STATIC_URL = "static/"
+STATIC_URL = env("STATIC_URL", default="/static/")
+STATIC_ROOT = Path(env("STATIC_ROOT", default=str(BASE_DIR / "staticfiles")))
 # Private application artifacts are never served through MEDIA_URL or Django URLs.
 PRIVATE_MEDIA_ROOT = env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private_media"))
 ASSETFLOW_PRIVATE_STORAGE_BACKEND = env(
