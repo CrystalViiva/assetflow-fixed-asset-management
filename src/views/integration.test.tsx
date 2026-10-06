@@ -20,6 +20,7 @@ import { useMovementAction } from '../services/movementMutations';
 import { BackendVerificationView } from './BackendVerificationView';
 import { BackendAssuranceView } from './BackendAssuranceView';
 import { BackendReportsView, safeReportFilename } from './BackendReportsView';
+import { BackendAuditLogView } from './BackendAuditLogView';
 
 afterEach(() => vi.unstubAllGlobals());
 function frame(session: Session, client: QueryClient, children: ReactNode) {
@@ -199,7 +200,7 @@ describe('real asset detail and cache security', () => {
     expect(screen.getByRole('status').textContent).toContain('Loading asset details');
     await act(async () => { pending.resolve(json(assetDto)); });
     expect(await screen.findByRole('heading',{ name:'REAL-001 - Office generator' })).toBeTruthy();
-    const tabs = screen.getAllByRole('button',{ name:/Integration pending/ }); expect(tabs).toHaveLength(2);
+    const tabs = screen.getAllByRole('button',{ name:/Integration pending/ }); expect(tabs).toHaveLength(1);
     for (const tab of tabs) expect(tab.hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByRole('button',{ name:'Maintenance' }));
     expect(await screen.findByText('No maintenance plans.')).toBeTruthy();
@@ -247,6 +248,36 @@ describe('real asset detail and cache security', () => {
     await act(async () => { await c.session.login('two@example.test','test-password'); });
     expect(screen.queryByText('User A private asset')).toBeNull(); await screen.findByText('No assets match these filters.');
     expect(c.session.getSnapshot().user?.id).toBe(2);
+  });
+});
+
+describe('backend audit explorer', () => {
+  it('renders authoritative events and sends filters to the paginated API', async () => {
+    const c = await authenticated('ASSET_MANAGER');
+    const auditEvent = { id:'d4e5e2a9-361a-4b2c-b6cb-37c11580d118',timestamp:'2026-05-01T12:30:00Z',actor_email:'manager@example.test',action:'FUTURE_DOMAIN_EVENT',entity_type:'ASSET',entity_id:assetDto.id,changes:{token:'secret',location:{from:'A',to:'B'}},metadata:{} };
+    c.fetcher.mockImplementation(async input => String(input).includes('/audit/events/') ? json({count:1,next:null,previous:null,results:[auditEvent]}) : json(emptyPage));
+    render(frame(c.session,c.client,<BackendAuditLogView />));
+    expect(await screen.findByText('FUTURE DOMAIN EVENT')).toBeTruthy();
+    expect(screen.getByText('manager@example.test · ASSET ·', { exact:false })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Object ID'),{target:{value:assetDto.id}});
+    fireEvent.click(screen.getByRole('button',{name:'Apply filters'}));
+    await waitFor(()=>expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes(`entity_id=${assetDto.id}`))).toBe(true));
+  });
+  it('loads one exact asset-entity audit page on demand in Asset Detail', async () => {
+    const c = await authenticated('ASSET_MANAGER');
+    const auditEvent = { id:'d4e5e2a9-361a-4b2c-b6cb-37c11580d118',timestamp:'2026-05-01T12:30:00Z',actor_email:'manager@example.test',action:'ASSET_UPDATED',entity_type:'ASSET',entity_id:assetDto.id,changes:{},metadata:{} };
+    c.fetcher.mockImplementation(async input => {
+      const url=String(input);
+      if(url.includes(`/assets/${assetDto.id}/`)) return json(assetDto);
+      if(url.includes('/audit/events/')) return json({count:1,next:null,previous:null,results:[auditEvent]});
+      return json(emptyPage);
+    });
+    render(frame(c.session,c.client,<BackendAssetDetail assetId={assetDto.id} onNavigate={() => {}} />));
+    await screen.findByRole('heading',{name:'REAL-001 - Office generator'});
+    fireEvent.click(screen.getByRole('button',{name:'Audit'}));
+    expect(await screen.findByText('ASSET UPDATED')).toBeTruthy();
+    expect(c.fetcher.mock.calls.filter(call=>String(call[0]).includes('/audit/events/'))).toHaveLength(1);
+    expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes(`entity_id=${assetDto.id}`))).toBe(true);
   });
 });
 

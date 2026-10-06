@@ -41,16 +41,16 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ onNavigate }) => {
             <span className="text-slate-300">/</span>
             <span className="text-slate-900 font-bold">Audit Log</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Immutable Audit Ledger (IAS 16)</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Audit Log · Mock preview</h1>
           <p className="text-[13px] text-slate-500">
-            Cryptographically sealed and tamper-evident transaction ledger tracking every capitalization, transfer, and maintenance event.
+            Sample activity from the local mock repository. Switch to Django mode for organization-scoped backend audit events.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 text-[12px] font-bold border border-emerald-200/80">
             <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-            Ledger Immutable & Signed
+            Sample data · not a signed ledger
           </span>
         </div>
       </div>

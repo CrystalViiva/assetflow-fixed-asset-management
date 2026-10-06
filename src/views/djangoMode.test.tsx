@@ -51,6 +51,13 @@ it('real-mode unintegrated routes render pending instead of demo screens', async
   expect(await screen.findByRole('heading',{ name:'Integration pending' })).toBeTruthy();
   expect(screen.queryByText('Office generator')).toBeNull();
 });
+it('Django Audit Log route renders its role-scoped real screen without mock rows', async () => {
+  const c = await renderRealApp(); await screen.findByText('Office generator');
+  fireEvent.click(screen.getByRole('button',{name:'Audit Log'}));
+  expect(await screen.findByRole('heading',{name:'Audit Log'})).toBeTruthy();
+  expect(screen.getByRole('status').textContent).toContain('administrators and asset managers');
+  expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/audit/events/'))).toBe(false);
+});
 it('Django depreciation route loads only backend state and never the mock posting simulator', async () => {
   const c = await renderRealApp(); await screen.findByText('Office generator');
   fireEvent.click(screen.getAllByRole('button',{ name:'Depreciation' }).at(-1)!);
@@ -89,7 +96,7 @@ it('real-mode asset UUID opens only the real detail overview', async () => {
   fireEvent.click(screen.getByRole('button',{ name:'REAL-001' }));
   expect(await screen.findByRole('heading',{ name:'REAL-001 - Office generator' })).toBeTruthy();
   expect(window.location.hash).toBe(`#asset-detail/${assetDto.id}`);
-  expect(screen.getAllByRole('button',{ name:/Integration pending/ })).toHaveLength(2);
+  expect(screen.getAllByRole('button',{ name:/Integration pending/ })).toHaveLength(1);
   fireEvent.click(screen.getAllByRole('button',{ name:'Maintenance' }).at(-1)!);
   expect(await screen.findByText('No maintenance plans.')).toBeTruthy();
   fireEvent.click(screen.getAllByRole('button',{ name:'Depreciation' }).at(-1)!);

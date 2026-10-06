@@ -35,6 +35,7 @@ import { DepartmentsView } from './views/DepartmentsView';
 import { LocationsView } from './views/LocationsView';
 import { UsersRolesView } from './views/UsersRolesView';
 import { AuditLogView } from './views/AuditLogView';
+import { BackendAuditLogView } from './views/BackendAuditLogView';
 import { SettingsView } from './views/SettingsView';
 
 // Modals
@@ -247,7 +248,7 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
-    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals', 'verification', 'assurance', 'reports'].includes(currentRoute)) return <IntegrationPending />;
+    if (dataSource === 'django' && !['all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals', 'verification', 'assurance', 'reports', 'audit-log'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
         return (
@@ -378,6 +379,7 @@ export default function App() {
       case 'users-and-roles':
         return <UsersRolesView onNavigate={navigateTo} />;
       case 'audit-log':
+        if (dataSource === 'django') return <BackendAuditLogView onSelectAsset={handleSelectAsset} />;
         return (
           <AuditLogView
             onNavigate={navigateTo}

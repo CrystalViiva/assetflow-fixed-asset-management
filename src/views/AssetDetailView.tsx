@@ -1092,8 +1092,8 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
       {activeTab === 'audit' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200/80 p-5 space-y-4">
           <div className="pb-3 border-b border-slate-100">
-            <h2 className="text-[16px] font-bold text-slate-900">Immutable Audit Trail (IAS 16 Compliance)</h2>
-            <p className="text-[12px] text-slate-500">Cryptographically sequenced audit trail for asset {asset.tag}</p>
+            <h2 className="text-[16px] font-bold text-slate-900">Mock activity preview</h2>
+            <p className="text-[12px] text-slate-500">Local sample activity for asset {asset.tag}; this is not the Django audit history.</p>
           </div>
 
           <div className="space-y-3">

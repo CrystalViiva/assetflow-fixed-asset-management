@@ -153,40 +153,6 @@ export class MockAssetRepository implements IAssetRepository {
     this.setStorage('disposals', items);
   }
 
-  private get auditLogs(): AuditLogEntry[] {
-    return this.getStorage<AuditLogEntry[]>('audit_logs', DEFAULT_AUDIT_LOGS);
-  }
-  private set auditLogs(items: AuditLogEntry[]) {
-    this.setStorage('audit_logs', items);
-  }
-
-  private logAudit(
-    action: AuditLogEntry['action'],
-    entity: AuditLogEntry['entity'],
-    entityId: string,
-    entityTag: string | undefined,
-    description: string,
-    previousValue?: string,
-    newValue?: string,
-    actorName: string = 'Babajide Adeleke'
-  ): void {
-    const newEntry: AuditLogEntry = {
-      id: 'aud-' + Date.now(),
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19) + ' WAT',
-      user_name: actorName,
-      user_role: 'Head of Asset Accounting & Treasury',
-      action,
-      entity,
-      entity_id: entityId,
-      entity_tag: entityTag,
-      description,
-      previous_value: previousValue,
-      new_value: newValue,
-      ip_address: '105.112.48.91 (Lagos HQ)',
-    };
-    this.auditLogs = [newEntry, ...this.auditLogs];
-  }
-
   async getAssets(params?: AssetFilterParams): Promise<PaginatedResult<Asset>> {
     let result = [...this.assets];
 
@@ -350,16 +316,6 @@ export class MockAssetRepository implements IAssetRepository {
     };
 
     this.assets = [fullAsset, ...this.assets];
-    this.logAudit(
-      'CAPITALIZE',
-      'ASSET',
-      id,
-      tag,
-      `Capitalized new fixed asset ${tag} (${fullAsset.name}) recognized at ₦${cost.toLocaleString('en-NG')}.`,
-      'Draft Creation',
-      `Capitalized (NBV: ₦${fullAsset.net_book_value.toLocaleString('en-NG')})`,
-      actorName
-    );
 
     return fullAsset;
   }
@@ -379,17 +335,6 @@ export class MockAssetRepository implements IAssetRepository {
     list[index] = updated;
     this.assets = list;
 
-    this.logAudit(
-      'UPDATE',
-      'ASSET',
-      id,
-      existing.tag,
-      `Updated asset details for ${existing.tag} (${updated.name}).`,
-      `Status: ${existing.status}, Custodian: ${existing.custodian_name}`,
-      `Status: ${updated.status}, Custodian: ${updated.custodian_name}`,
-      actorName
-    );
-
     return updated;
   }
 
@@ -398,16 +343,6 @@ export class MockAssetRepository implements IAssetRepository {
     if (!existing) return false;
 
     this.assets = this.assets.filter(a => a.id !== id);
-    this.logAudit(
-      'DISPOSE',
-      'ASSET',
-      id,
-      existing.tag,
-      `Removed/De-registered asset ${existing.tag} from primary ledger.`,
-      `Active (Cost: ₦${existing.total_acquisition_cost.toLocaleString('en-NG')})`,
-      'De-registered',
-      actorName
-    );
     return true;
   }
 
@@ -453,17 +388,6 @@ export class MockAssetRepository implements IAssetRepository {
       }
     }
 
-    this.logAudit(
-      'TRANSFER',
-      'TRANSFER',
-      id,
-      newTransfer.asset_tag,
-      `Created transfer request ${transfer_no} for ${newTransfer.asset_tag} from ${newTransfer.from_location_name} to ${newTransfer.to_location_name}.`,
-      'Stationary',
-      `Pending Transfer (${newTransfer.to_location_name})`,
-      actorName
-    );
-
     return newTransfer;
   }
 
@@ -472,7 +396,6 @@ export class MockAssetRepository implements IAssetRepository {
     const index = list.findIndex(t => t.id === id);
     if (index === -1) throw new Error('Transfer not found');
 
-    const prevStatus = list[index].status;
     list[index].status = status;
     this.transfers = list;
 
@@ -491,17 +414,6 @@ export class MockAssetRepository implements IAssetRepository {
         );
       }
     }
-
-    this.logAudit(
-      'TRANSFER',
-      'TRANSFER',
-      id,
-      list[index].asset_tag,
-      `Updated transfer ${list[index].transfer_no} status from ${prevStatus} to ${status}.`,
-      prevStatus,
-      status,
-      actorName
-    );
 
     return list[index];
   }
@@ -540,17 +452,6 @@ export class MockAssetRepository implements IAssetRepository {
       }
     }
 
-    this.logAudit(
-      'MAINTENANCE',
-      'MAINTENANCE',
-      id,
-      newRecord.asset_tag,
-      `Logged maintenance work order ${work_order_no} for ${newRecord.asset_tag} (${newRecord.description}).`,
-      'Active Operation',
-      `In Maintenance (${work_order_no})`,
-      actorName
-    );
-
     return newRecord;
   }
 
@@ -559,7 +460,6 @@ export class MockAssetRepository implements IAssetRepository {
     const index = list.findIndex(m => m.id === id);
     if (index === -1) throw new Error('Maintenance record not found');
 
-    const prev = list[index].status;
     list[index].status = status;
     if (status === 'COMPLETED') {
       list[index].completion_date = new Date().toISOString().substring(0, 10);
@@ -572,17 +472,6 @@ export class MockAssetRepository implements IAssetRepository {
       }
     }
     this.maintenance = list;
-
-    this.logAudit(
-      'MAINTENANCE',
-      'MAINTENANCE',
-      id,
-      list[index].asset_tag,
-      `Updated work order ${list[index].work_order_no} status to ${status}.`,
-      prev,
-      status,
-      actorName
-    );
 
     return list[index];
   }
@@ -628,17 +517,6 @@ export class MockAssetRepository implements IAssetRepository {
       }
     }
 
-    this.logAudit(
-      'DISPOSE',
-      'DISPOSAL',
-      id,
-      newRecord.asset_tag,
-      `Initiated formal disposal / write-off workflow ${disposal_no} for ${newRecord.asset_tag}. Method: ${newRecord.method}, Book Value: ₦${bookVal.toLocaleString('en-NG')}.`,
-      'Active Carrying Asset',
-      `Pending Disposal Board Review (${disposal_no})`,
-      actorName
-    );
-
     return newRecord;
   }
 
@@ -647,7 +525,6 @@ export class MockAssetRepository implements IAssetRepository {
     const index = list.findIndex(d => d.id === id);
     if (index === -1) throw new Error('Disposal not found');
 
-    const prev = list[index].status;
     list[index].status = status;
     this.disposals = list;
 
@@ -657,17 +534,6 @@ export class MockAssetRepository implements IAssetRepository {
         await this.updateAsset(asset.id, { status: 'DISPOSED', net_book_value: 0 }, actorName);
       }
     }
-
-    this.logAudit(
-      'DISPOSE',
-      'DISPOSAL',
-      id,
-      list[index].asset_tag,
-      `Disposal board updated ${list[index].disposal_no} status to ${status}.`,
-      prev,
-      status,
-      actorName
-    );
 
     return list[index];
   }
@@ -742,7 +608,7 @@ export class MockAssetRepository implements IAssetRepository {
   }
 
   async getAuditLogs(params?: { entity?: string; search?: string }): Promise<AuditLogEntry[]> {
-    let logs = [...this.auditLogs];
+    let logs = [...DEFAULT_AUDIT_LOGS];
     if (params?.entity && params.entity !== 'ALL') {
       logs = logs.filter(l => l.entity === params.entity);
     }
