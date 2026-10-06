@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+.landing-nav-link { color: #475569; font-size: .875rem; font-weight: 500; }
+.landing-nav-link:hover, .landing-mobile-link:hover { color: #123b83; }
+.landing-nav-link:focus-visible, .landing-mobile-link:focus-visible, .landing a:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 3px; border-radius: 3px; }
+.landing-mobile-link { display: block; border-radius: .5rem; padding: .65rem .5rem; color: #475569; font-size: .9rem; }
+.section-kicker { color: #315b9b; font-size: .72rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+.section-title { margin-top: .8rem; color: #10294f; font-size: clamp(1.7rem, 3vw, 2.35rem); font-weight: 650; line-height: 1.16; letter-spacing: -.035em; }
+.lifecycle-card, .capability-card { min-width: 0; border: 1px solid #e2e8f0; border-radius: .9rem; background: #fff; padding: 1.1rem; }
+.lifecycle-card { min-height: 10.7rem; }
+.capability-card { min-height: 13rem; }
+.preview-nav { overflow: hidden; color: #64748b; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.preview-kpi { min-width: 0; border: 1px solid #e2e8f0; border-radius: .5rem; padding: .6rem; }
+.preview-kpi span, .preview-kpi small { display: block; overflow: hidden; color: #64748b; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.preview-kpi b { display: block; margin: .25rem 0; color: #1e3a5f; font-size: 1.15rem; }
+.architecture-node { border: 1px solid #dbe3ef; border-radius: 999px; background: #fff; padding: .55rem .75rem; }
+.architecture-row { display: flex; align-items: flex-start; gap: .8rem; border-bottom: 1px solid #f1f5f9; padding: .75rem 0; }
+.architecture-row:last-child { border-bottom: 0; }
+.architecture-row b { color: #1e293b; font-size: .9rem; }
+.architecture-row p { margin-top: .2rem; color: #64748b; font-size: .8rem; line-height: 1.5; }
+.architecture-dot { width: .6rem; height: .6rem; margin-top: .35rem; flex: 0 0 auto; border-radius: 50%; }
+.login-input:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; border-color: #1d4ed8; }
+@media (max-width: 640px) {
+  .landing-hero h1 { font-size: clamp(2.35rem, 11vw, 3rem); }
+  .lifecycle-card { min-height: auto; }
+  .capability-card { min-height: auto; }
+  .login-page section { padding: 1.4rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
 @layer base {
   :root {
     --primary: #00288e;

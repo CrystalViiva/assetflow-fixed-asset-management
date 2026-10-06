@@ -1,9 +1,12 @@
-import { errorMessage } from '../../services/apiError';
+import { ApiError, errorMessage } from '../../services/apiError';
 
 export function LoadingState({ label = 'Loading assets…' }: { label?: string }) {
   return <div role="status" className="p-12 text-center text-slate-600"><span className="material-symbols-outlined animate-spin mr-2 align-middle" aria-hidden="true">progress_activity</span>{label}</div>;
 }
 export function ErrorState({ error, retry }: { error: unknown; retry?: () => void }) {
+  if (error instanceof ApiError && error.kind === 'authorization') return <div role="alert" className="m-6 p-6 rounded-xl border border-amber-200 bg-amber-50 text-amber-950">
+    <p>You don’t have access to this area.</p><a href="#all-assets" className="mt-3 inline-block font-semibold underline">Open Asset Register</a>
+  </div>;
   return <div role="alert" className="m-6 p-6 rounded-xl border border-rose-200 bg-rose-50 text-rose-900">
     <p>{errorMessage(error)}</p>{retry && <button onClick={retry} className="mt-3 rounded border px-4 py-2 font-semibold">Try again</button>}
   </div>;

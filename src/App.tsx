@@ -250,7 +250,7 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
-    if (dataSource === 'django' && !['dashboard', 'all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals', 'verification', 'assurance', 'reports', 'audit-log'].includes(currentRoute)) return <IntegrationPending />;
+    if (dataSource === 'django' && !['dashboard', 'all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals', 'verification', 'assurance', 'reports', 'audit-log', 'departments', 'locations', 'users-and-roles'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
         if (dataSource === 'django') return <BackendDashboardView onNavigate={navigateTo} />;

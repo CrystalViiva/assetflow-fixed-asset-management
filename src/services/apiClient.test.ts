@@ -162,6 +162,11 @@ describe('public error boundary and query encoding', () => {
   it.each([[400,'validation'],[401,'authentication'],[403,'authorization'],[404,'not-found'],[409,'conflict'],[500,'server']])('maps HTTP %s to %s', (status, kind) => {
     expect(responseError(Number(status),{}).kind).toBe(kind);
   });
+  it('keeps a valid login when an authenticated endpoint returns 403', async () => {
+    const c = setup(); await login(c); c.fetcher.mockResolvedValueOnce(json({ detail:'forbidden' },403));
+    await expect(c.api.request('/dashboard/metrics/')).rejects.toMatchObject({ kind:'authorization' });
+    expect(c.session.getSnapshot().user?.email).toBe('one@example.test');
+  });
   it('preserves public validation messages and field errors', () => {
     const error = responseError(400,{ success:false, error:{ code:'VALIDATION_ERROR',message:'The request contains invalid fields.',details:{ name:['Required.'] } } });
     expect(error.fields).toEqual({ name:['Required.'] }); expect(error.message).toBe('The request contains invalid fields.');

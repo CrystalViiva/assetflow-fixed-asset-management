@@ -43,16 +43,16 @@ export class Session {
     this.accessToken = value.access;
     this.refreshToken = value.refresh;
   }
-  invalidate = () => {
+  invalidate = (error: string | null = null) => {
     this.generation++;
     this.accessToken = null;
     this.refreshToken = null;
     this.flight = null;
     try { this.storage.removeItem(REFRESH_KEY); } catch { /* Storage can be disabled by the browser. */ }
     this.clearCache();
-    this.publish({ user: null, initializing: false, error: null });
+    this.publish({ user: null, initializing: false, error });
   };
-  logout = () => this.invalidate();
+  logout = () => this.invalidate('signed-out');
 
   refresh = (): Promise<void> => {
     if (this.flight) return this.flight;
@@ -67,7 +67,7 @@ export class Session {
         this.check(generation);
         this.save(tokens(response));
       } catch (error) {
-        if (generation === this.generation) this.invalidate();
+        if (generation === this.generation) this.invalidate('Your session expired. Please sign in again.');
         throw error;
       }
     })();

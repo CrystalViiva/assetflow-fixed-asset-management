@@ -14,7 +14,7 @@ export interface SessionTransport {
   accessToken: string | null;
   generation: number;
   refresh(): Promise<void>;
-  invalidate(): void;
+  invalidate(error?: string | null): void;
 }
 export interface DownloadResponse { blob: Blob; contentDisposition: string | null; contentType: string | null }
 interface RequestOptions {
@@ -71,7 +71,7 @@ export class ApiClient {
       ensureCurrent();
       response = await send(session.accessToken);
       ensureCurrent();
-      if (response.status === 401) session.invalidate();
+      if (response.status === 401) session.invalidate('Your session expired. Please sign in again.');
     }
     let body: unknown;
     try { body = response.status === 204 ? null : await response.json(); }
@@ -110,7 +110,7 @@ export class ApiClient {
       ensureCurrent();
       response = await send(session.accessToken);
       ensureCurrent();
-      if (response.status === 401) session.invalidate();
+      if (response.status === 401) session.invalidate('Your session expired. Please sign in again.');
     }
     if (!response.ok) {
       let body: unknown;

@@ -22,7 +22,7 @@ import { BackendAssuranceView } from './BackendAssuranceView';
 import { BackendReportsView, safeReportFilename } from './BackendReportsView';
 import { BackendAuditLogView } from './BackendAuditLogView';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); window.location.hash = ''; });
 function frame(session: Session, client: QueryClient, children: ReactNode) {
   return <QueryClientProvider client={client}><AuthProvider value={session}>{children}</AuthProvider></QueryClientProvider>;
 }
@@ -67,8 +67,12 @@ describe('login and application boundary', () => {
     fireEvent.change(screen.getByLabelText('Password'),{ target:{ value:'test-password' } });
     fireEvent.click(screen.getByRole('button',{ name:'Sign in' }));
     expect((await screen.findByRole('alert')).textContent).toContain(mode === 'invalid' ? 'Check your email and password' : 'Unable to reach');
+    expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');
+    expect(window.location.href).not.toContain('test-password');
+    expect(sessionStorage.getItem('assetflow_refresh')).toBeNull();
   });
   it('does not flash the protected shell during session restoration, including StrictMode', async () => {
+    window.location.hash = '#dashboard';
     const pending = deferred<Response>(); const fetcher = vi.fn<typeof fetch>().mockReturnValue(pending.promise);
     sessionStorage.setItem(REFRESH_KEY,'test-refresh'); const client = new QueryClient();
     const session = new Session(new ApiClient('/api/v1',fetcher),sessionStorage,() => client.clear());

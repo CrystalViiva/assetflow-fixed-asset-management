@@ -18,7 +18,7 @@ export function BackendDashboardView({ onNavigate }: { onNavigate: (route: strin
   const { role } = useAuth();
   const authorized = readableRoles.includes(role ?? '');
   const query = useDashboardMetrics(authorized);
-  if (!authorized) return <section className="p-6"><h1 className="text-2xl font-bold">Operational dashboard</h1><p role="alert" className="mt-3 rounded border bg-white p-4">Your role cannot access organization financial analytics.</p></section>;
+  if (!authorized) return <section className="p-6"><h1 className="text-2xl font-bold">Operational dashboard</h1><p role="alert" className="mt-3 rounded border bg-white p-4">You don’t have access to organization financial analytics.</p><button type="button" onClick={() => onNavigate('all-assets')} className="mt-4 rounded bg-blue-900 px-4 py-2 text-sm font-semibold text-white">Open Asset Register</button></section>;
   if (query.isPending) return <LoadingState label="Loading live organization dashboard…" />;
   if (query.isError) return <section className="space-y-4 p-4 md:p-6"><h1 className="text-2xl font-bold">Operational dashboard</h1><ErrorState error={query.error} retry={() => void query.refetch()} /></section>;
   const data = query.data;

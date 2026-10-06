@@ -21,12 +21,13 @@ export const Navbar: React.FC<NavbarProps> = (props) => dataSource === 'django' 
 
 function AuthenticatedNavbar({ onNavigate, globalSearch, setGlobalSearch }: NavbarProps) {
   const { user, role, logout } = useAuth();
+  const signOut = () => { logout(); window.location.hash = '#/'; };
   return <header className="fixed top-0 left-0 right-0 h-12 bg-white z-50 flex items-center justify-between gap-3 px-4 border-b border-slate-200">
     <button onClick={() => onNavigate('all-assets')} className="flex items-center gap-2 font-bold text-[#00288e]"><AssetFlowLogo className="w-7 h-7" />AssetFlow</button>
     <span className="hidden lg:inline text-xs text-blue-700">Django API</span>
     <input aria-label="Global asset search" className="rounded border bg-slate-50 p-1.5 text-sm min-w-0 max-w-md flex-1" placeholder="Search assets" value={globalSearch} onChange={e => { setGlobalSearch(e.target.value); onNavigate('all-assets'); }} />
     <div className="hidden md:block text-right text-xs"><div>{user?.email}</div><div className="text-slate-500">{role?.replaceAll('_', ' ')}</div></div>
-    <button onClick={logout} className="border rounded px-3 py-1.5 text-sm">Sign out</button>
+    <button onClick={signOut} className="border rounded px-3 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Sign out</button>
   </header>;
 }
 

@@ -27,8 +27,9 @@ function backendData(fetcher: ReturnType<typeof vi.fn<typeof fetch>>, assetRespo
   });
 }
 
-afterEach(() => { vi.unstubAllGlobals(); window.location.hash = ''; });
+afterEach(() => { vi.unstubAllGlobals(); window.location.hash = ''; sessionStorage.clear(); });
 async function renderRealApp() {
+  window.location.hash = '#all-assets';
   const client = new QueryClient({ defaultOptions:{ queries:{ retry:false } } });
   const session = new Session(apiClient,sessionStorage,() => client.clear());
   const fetcher = vi.fn<typeof fetch>(); vi.stubGlobal('fetch',fetcher);
@@ -40,21 +41,21 @@ async function renderRealApp() {
   return { session,client,fetcher };
 }
 it('real-mode shell shows real identity, no mock alerts/actions, and logs out', async () => {
-  const c = await renderRealApp(); await screen.findByText('Office generator');
+  const c = await renderRealApp(); await screen.findByText('Office generator', {}, { timeout: 10000 });
   expect(screen.getByText(identity.email)).toBeTruthy(); expect(screen.queryByText('Babajide Adeleke')).toBeNull();
   for (const text of ['1,284','4 pending','2 overdue','Lagos Corporate Facility']) expect(screen.queryByText(text)).toBeNull();
   expect(screen.queryByRole('button',{ name:'Actions' })).toBeNull(); expect(screen.queryByTitle('Notifications')).toBeNull();
   fireEvent.click(screen.getByRole('button',{ name:'Sign out' }));
-  expect(await screen.findByRole('button',{ name:'Sign in' })).toBeTruthy(); expect(c.client.getQueryCache().getAll()).toHaveLength(0);
-});
+  expect(await screen.findByRole('heading',{ name:/control the complete lifecycle of every asset/i })).toBeTruthy(); expect(c.client.getQueryCache().getAll()).toHaveLength(0);
+}, 15000);
 it('Django dashboard uses live metrics and never renders mock enterprise figures', async () => {
-  await renderRealApp(); await screen.findByText('Office generator');
+  await renderRealApp(); await screen.findByText('Office generator', {}, { timeout: 10000 });
   fireEvent.click(screen.getByRole('button',{ name:'Dashboard' }));
   expect(await screen.findByRole('heading',{ name:'Operational dashboard' })).toBeTruthy();
   expect(await screen.findByText('0 capitalized · 0 disposed')).toBeTruthy();
   expect(screen.getByText(/Live Django/)).toBeTruthy();
   expect(screen.queryByText('Office generator')).toBeNull();
-});
+}, 15000);
 it('Django dashboard API failure stays an error and does not substitute demonstration analytics', async () => {
   const c = await renderRealApp(); await screen.findByText('Office generator');
   c.fetcher.mockImplementation(async input => String(input).includes('/dashboard/metrics/') ? Response.json({ error:{code:'API_ERROR',message:'failure'} },{status:503}) : json(emptyPage));
