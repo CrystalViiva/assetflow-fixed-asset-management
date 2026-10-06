@@ -37,7 +37,7 @@ def seed():
     from transfers.models import AssetAssignment
 
     # This child must only ever connect to the random database selected by the parent.
-    prefix = "assetflow_f14_" if os.environ.get("F14_SMOKE_MODE") else "assetflow_f13_" if os.environ.get("F13_SMOKE_MODE") else "assetflow_f12_" if os.environ.get("F12_SMOKE_MODE") else "assetflow_f11_" if os.environ.get("F11_SMOKE_MODE") else "assetflow_f10_" if os.environ.get("F10_SMOKE_MODE") else "assetflow_f9_" if os.environ.get("F9_SMOKE_MODE") else "assetflow_f8_" if os.environ.get("F8_SMOKE_MODE") else "assetflow_f7_" if os.environ.get("F7_SMOKE_MODE") else "assetflow_f6_" if os.environ.get("F6_SMOKE_MODE") else "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
+    prefix = "assetflow_f16_" if os.environ.get("F16_SMOKE_MODE") else "assetflow_f14_" if os.environ.get("F14_SMOKE_MODE") else "assetflow_f13_" if os.environ.get("F13_SMOKE_MODE") else "assetflow_f12_" if os.environ.get("F12_SMOKE_MODE") else "assetflow_f11_" if os.environ.get("F11_SMOKE_MODE") else "assetflow_f10_" if os.environ.get("F10_SMOKE_MODE") else "assetflow_f9_" if os.environ.get("F9_SMOKE_MODE") else "assetflow_f8_" if os.environ.get("F8_SMOKE_MODE") else "assetflow_f7_" if os.environ.get("F7_SMOKE_MODE") else "assetflow_f6_" if os.environ.get("F6_SMOKE_MODE") else "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
     assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
     assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
     organization = Organization.objects.create(name=f"{prefix[:-1].upper()} smoke", code=f"{prefix[:-1].upper()}SMOKE")
@@ -48,6 +48,20 @@ def seed():
     category = AssetCategory.objects.create(
         organization=organization, name="Equipment", code="EQ", default_useful_life_months=36,
     )
+    if prefix.endswith("f16_"):
+        Department.objects.create(organization=organization, name="Operations", code="OPS")
+        Department.objects.create(organization=organization, name="Destination Operations", code="OPS-DST")
+        Location.objects.create(organization=organization, name="Main Plant", code="PLANT")
+        Location.objects.create(organization=organization, name="Destination Plant", code="PLANT-DST")
+        User.objects.create_user(
+            os.environ["F1_SMOKE_APPROVER_EMAIL"], os.environ["F1_SMOKE_PASSWORD"],
+            organization=organization, role="ADMIN",
+        )
+        User.objects.create_user(
+            "f16-custodian@example.test", os.environ["F1_SMOKE_PASSWORD"],
+            organization=organization, role="EMPLOYEE",
+        )
+        return
     if prefix.endswith("f14_"):
         department = Department.objects.create(organization=organization, name="F14 Operations", code="OPS")
         location = Location.objects.create(organization=organization, name="F14 Main Plant", code="PLANT")
@@ -225,7 +239,8 @@ def seed():
         )
 
 
-def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9=False, f10=False, f11=False, f12=False, f13=False, f14=False):
+def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9=False, f10=False, f11=False, f12=False, f13=False, f14=False, f16=False):
+    f16 = f16 or bool(os.environ.get("F16_SMOKE_MODE"))
     f14 = f14 or bool(os.environ.get("F14_SMOKE_MODE"))
     f13 = f13 or bool(os.environ.get("F13_SMOKE_MODE"))
     f12 = f12 or bool(os.environ.get("F12_SMOKE_MODE"))
@@ -237,7 +252,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
     f7 = f7 or bool(os.environ.get("F7_SMOKE_MODE"))
     f6 = f6 or bool(os.environ.get("F6_SMOKE_MODE"))
     f5 = f5 or bool(os.environ.get("F5_SMOKE_MODE"))
-    prefix = "assetflow_f14_" if f14 else "assetflow_f13_" if f13 else "assetflow_f12_" if f12 else "assetflow_f11_" if f11 else "assetflow_f10_" if f10 else "assetflow_f9_" if f9 else "assetflow_f8_" if f8 else "assetflow_f7_" if f7 else "assetflow_f6_" if f6 else "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
+    prefix = "assetflow_f16_" if f16 else "assetflow_f14_" if f14 else "assetflow_f13_" if f13 else "assetflow_f12_" if f12 else "assetflow_f11_" if f11 else "assetflow_f10_" if f10 else "assetflow_f9_" if f9 else "assetflow_f8_" if f8 else "assetflow_f7_" if f7 else "assetflow_f6_" if f6 else "assetflow_f5_" if f5 else "assetflow_f4_" if f4 else "assetflow_f3_" if f3 else "assetflow_f2_" if f2 else "assetflow_f1_"
     name = prefix + uuid.uuid4().hex
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
@@ -254,14 +269,14 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
     db_port = database["PORT"] or 5432
     environment.update({
         "DATABASE_URL": f"postgresql://{user}:{password}@{host}:{db_port}/{name}",
-        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "", "F5_SMOKE_MODE": "1" if f5 else "", "F6_SMOKE_MODE": "1" if f6 else "", "F7_SMOKE_MODE": "1" if f7 else "", "F8_SMOKE_MODE": "1" if f8 else "", "F9_SMOKE_MODE": "1" if f9 else "", "F10_SMOKE_MODE": "1" if f10 else "", "F11_SMOKE_MODE": "1" if f11 else "", "F12_SMOKE_MODE": "1" if f12 else "", "F13_SMOKE_MODE": "1" if f13 else "", "F14_SMOKE_MODE": "1" if f14 else "", "F1_SMOKE_APPROVER_EMAIL": "approver@example.test",
+        "F1_SMOKE_DATABASE": name, "F2_SMOKE_MODE": "1" if f2 else "", "F3_SMOKE_MODE": "1" if f3 else "", "F4_SMOKE_MODE": "1" if f4 else "", "F5_SMOKE_MODE": "1" if f5 else "", "F6_SMOKE_MODE": "1" if f6 else "", "F7_SMOKE_MODE": "1" if f7 else "", "F8_SMOKE_MODE": "1" if f8 else "", "F9_SMOKE_MODE": "1" if f9 else "", "F10_SMOKE_MODE": "1" if f10 else "", "F11_SMOKE_MODE": "1" if f11 else "", "F12_SMOKE_MODE": "1" if f12 else "", "F13_SMOKE_MODE": "1" if f13 else "", "F14_SMOKE_MODE": "1" if f14 else "", "F16_SMOKE_MODE": "1" if f16 else "", "F1_SMOKE_APPROVER_EMAIL": "approver@example.test",
         "F1_SMOKE_EMAIL": "smoke@example.test",
         "F1_SMOKE_PASSWORD": secrets.token_urlsafe(32),
         "F1_SMOKE_URL": f"http://127.0.0.1:{port}/api/v1",
         "DEBUG": "false", "SECURE_SSL_REDIRECT": "false", "ALLOWED_HOSTS": "127.0.0.1,localhost",
     })
-    private_root = tempfile.mkdtemp(prefix="assetflow_f12_private_") if f12 else tempfile.mkdtemp(prefix="assetflow_f9_private_") if f9 else None
-    if f9 or f12:
+    private_root = tempfile.mkdtemp(prefix="assetflow_f16_private_") if f16 else tempfile.mkdtemp(prefix="assetflow_f12_private_") if f12 else tempfile.mkdtemp(prefix="assetflow_f9_private_") if f9 else None
+    if f9 or f12 or f16:
         environment.update({"DJANGO_SETTINGS_MODULE":"config.f9_smoke_settings","F9_SMOKE_PRIVATE_ROOT":private_root})
     elif f8:
         environment.update({"DJANGO_SETTINGS_MODULE":"config.f8_smoke_settings","ASSURANCE_WORK_UNIT_SIZE":"1"})
@@ -301,7 +316,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
         else:
             raise RuntimeError("Isolated Django server did not become ready.")
         node_command = ["node"]
-        if (f7 or f8 or f9 or f10 or f11 or f12 or f13 or f14) and os.name == "nt":
+        if (f7 or f8 or f9 or f10 or f11 or f12 or f13 or f14 or f16) and os.name == "nt":
             # tsx asks Node for account details when choosing its cache directory; some
             # managed Windows runners deny that OS lookup. Keep the compatibility shim
             # temporary and outside the repository.
@@ -309,7 +324,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
                 shim.write("const os=require('node:os');os.userInfo=()=>({uid:-1,gid:-1,username:'assetflow-smoke',homedir:os.homedir(),shell:null});\n")
                 shim_path = shim.name
             node_command.extend(["--require", shim_path])
-        node_command.extend(["--import", "tsx", "scripts/f14-api-smoke.ts" if f14 else "scripts/f13-api-smoke.ts" if f13 else "scripts/f12-api-smoke.ts" if f12 else "scripts/f11-api-smoke.ts" if f11 else "scripts/f10-api-smoke.ts" if f10 else "scripts/f9-api-smoke.ts" if f9 else "scripts/f8-api-smoke.ts" if f8 else "scripts/f7-api-smoke.ts" if f7 else "scripts/f6-api-smoke.ts" if f6 else "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"])
+        node_command.extend(["--import", "tsx", "scripts/f16-api-smoke.ts" if f16 else "scripts/f14-api-smoke.ts" if f14 else "scripts/f13-api-smoke.ts" if f13 else "scripts/f12-api-smoke.ts" if f12 else "scripts/f11-api-smoke.ts" if f11 else "scripts/f10-api-smoke.ts" if f10 else "scripts/f9-api-smoke.ts" if f9 else "scripts/f8-api-smoke.ts" if f8 else "scripts/f7-api-smoke.ts" if f7 else "scripts/f6-api-smoke.ts" if f6 else "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"])
         result = subprocess.run(
             node_command, cwd=ROOT, env=environment,
             capture_output=True, text=True, timeout=60, creationflags=flags, check=False,
@@ -320,7 +335,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
                     print(line)
             raise RuntimeError("Frontend API smoke failed; captured output withheld to protect temporary credentials.")
         print(result.stdout.strip())
-        if f2 or f3 or f4 or f5 or f6 or f7 or f8 or f9 or f10 or f11 or f12 or f13:
+        if f2 or f3 or f4 or f5 or f6 or f7 or f8 or f9 or f10 or f11 or f12 or f13 or f16:
             result = subprocess.run(
                 [sys.executable, str(Path(__file__).resolve()), "--verify"], cwd=ROOT, env=environment,
                 capture_output=True, text=True, timeout=30, creationflags=flags, check=False,
@@ -348,9 +363,9 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
         if private_root:
             private_path = Path(private_root).resolve()
             assert private_path.parent == Path(tempfile.gettempdir()).resolve()
-            assert private_path.name.startswith("assetflow_f12_private_" if f12 else "assetflow_f9_private_")
+            assert private_path.name.startswith("assetflow_f16_private_" if f16 else "assetflow_f12_private_" if f12 else "assetflow_f9_private_")
             shutil.rmtree(private_path)
-            print("Disposable private verification evidence storage removed; no uploaded file was written to the repository." if f12 else "Disposable private export storage removed; no export file was written to the repository.")
+            print("Disposable F16 private evidence/export storage removed; no private files were written to the repository." if f16 else "Disposable private verification evidence storage removed; no uploaded file was written to the repository." if f12 else "Disposable private export storage removed; no export file was written to the repository.")
         admin.close()
 
 
@@ -360,6 +375,62 @@ if __name__ == "__main__":
     elif sys.argv[1:] == ["--verify"]:
         import django
         django.setup()
+        if os.environ.get("F16_SMOKE_MODE"):
+            import hashlib
+
+            from accounts.models import User
+            from assets.models import Acquisition, Asset
+            from audit.models import AuditLog
+            from assurance.models import AssuranceRun
+            from depreciation.models import DepreciationEntry
+            from disposals.models import Disposal
+            from django.core.files.storage import storages
+            from maintenance.models import MaintenanceRecord
+            from organizations.models import Organization
+            from reporting.models import ExportStatus, ReportExport, ReportSnapshot, SnapshotStatus
+            from transfers.models import AssetAssignment, AssetTransfer
+            from verification.models import PhysicalVerification, VerificationEvidence
+
+            assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
+            assert os.environ["F1_SMOKE_DATABASE"].startswith("assetflow_f16_")
+            organization = Organization.objects.get(code="ASSETFLOW_F16SMOKE")
+            asset = Asset.objects.get(organization=organization, asset_tag="F16-GOLDEN-001")
+            assert asset.status == "DISPOSED"
+            assert [str(asset.purchase_cost), str(asset.accumulated_depreciation), str(asset.current_book_value)] == ["1001.00", "25.03", "975.97"]
+            acquisition = Acquisition.objects.get(asset=asset)
+            assert acquisition.status == "CAPITALIZED" and acquisition.total_cost == asset.purchase_cost
+            entry = DepreciationEntry.objects.get(asset=asset)
+            assert [str(entry.opening_book_value), str(entry.depreciation_amount), str(entry.accumulated_depreciation), str(entry.closing_book_value)] == ["1001.00", "25.03", "25.03", "975.97"]
+            assert MaintenanceRecord.objects.filter(asset=asset, total_cost="33.43").count() == 1
+            assert PhysicalVerification.objects.filter(asset=asset).count() == 1
+            evidence = VerificationEvidence.objects.get(verification__asset=asset, integrity_status="VERIFIED")
+            snapshot = ReportSnapshot.objects.get(organization=organization, report_type="asset_register", status=SnapshotStatus.COMPLETED)
+            assert snapshot.row_count == 1 and snapshot.schema_version == 1
+            assert snapshot.rows.get().payload["status"] == "ACTIVE"
+            exports = list(ReportExport.objects.filter(organization=organization, source_snapshot=snapshot, status=ExportStatus.COMPLETED))
+            assert {item.format for item in exports} == {"CSV", "JSON"}
+            private_root = Path(os.environ["F9_SMOKE_PRIVATE_ROOT"]).resolve()
+            assert private_root.parent == Path(tempfile.gettempdir()).resolve()
+            storage = storages["assetflow_private"]
+            for item in [evidence, *exports]:
+                key = item.binary_storage_key if item is evidence else item.storage_key
+                with storage.open(key, "rb") as stream:
+                    content = stream.read()
+                expected_size = evidence.byte_size if item is evidence else item.byte_size
+                expected_hash = evidence.sha256 if item is evidence else item.sha256
+                assert len(content) == expected_size and hashlib.sha256(content).hexdigest() == expected_hash
+                assert not key.startswith("/") and ".." not in key
+            transfer = AssetTransfer.objects.get(asset=asset)
+            assignment = AssetAssignment.objects.get(asset=asset)
+            disposal = Disposal.objects.get(asset=asset, status="COMPLETED")
+            assert transfer.status == "COMPLETED" and assignment.returned_at is not None
+            assert [str(disposal.carrying_amount), str(disposal.gain_or_loss)] == ["975.97", "224.03"]
+            assert AssuranceRun.objects.filter(organization=organization, status="COMPLETED").count() == 1
+            assert User.objects.filter(organization=organization, role="ADMIN").count() == 1
+            actions = set(AuditLog.objects.filter(organization=organization).values_list("action", flat=True))
+            assert {"ASSET_CAPITALIZED", "DEPRECIATION_POSTED", "ASSET_TRANSFER_COMPLETED", "WORK_ORDER_COMPLETED", "VERIFICATION_EVIDENCE_VERIFIED", "ASSET_DERECOGNIZED", "REPORT_SNAPSHOT_COMPLETED", "REPORT_EXPORT_COMPLETED"}.issubset(actions)
+            print("PASS: single-asset F16 PostgreSQL lifecycle reconciles exact ledger/disposal values, transfer/custody separation, maintenance and verification history, completed assurance/snapshot/exports, verified private bytes and domain audit events.")
+            sys.exit(0)
         if os.environ.get("F12_SMOKE_MODE"):
             import hashlib
 
@@ -657,9 +728,9 @@ if __name__ == "__main__":
         print("PASS: isolated PostgreSQL holds one tenant asset and acquisition with exact components, ACTIVE lifecycle and capitalization audit.")
     else:
         try:
-            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"], f5=sys.argv[1:] == ["--f5"], f6=sys.argv[1:] == ["--f6"], f7=sys.argv[1:] == ["--f7"], f8=sys.argv[1:] == ["--f8"], f9=sys.argv[1:] == ["--f9"], f10=sys.argv[1:] == ["--f10"], f11=sys.argv[1:] == ["--f11"], f12=sys.argv[1:] == ["--f12"], f13=sys.argv[1:] == ["--f13"], f14=sys.argv[1:] == ["--f14"])
+            run(f2=sys.argv[1:] == ["--f2"], f3=sys.argv[1:] == ["--f3"], f4=sys.argv[1:] == ["--f4"], f5=sys.argv[1:] == ["--f5"], f6=sys.argv[1:] == ["--f6"], f7=sys.argv[1:] == ["--f7"], f8=sys.argv[1:] == ["--f8"], f9=sys.argv[1:] == ["--f9"], f10=sys.argv[1:] == ["--f10"], f11=sys.argv[1:] == ["--f11"], f12=sys.argv[1:] == ["--f12"], f13=sys.argv[1:] == ["--f13"], f14=sys.argv[1:] == ["--f14"], f16=sys.argv[1:] == ["--f16"])
         except Exception as error:  # noqa: BLE001 -- Do not print exception bodies containing credentials.
-            mode = "F14" if sys.argv[1:] == ["--f14"] else "F13" if sys.argv[1:] == ["--f13"] else "F11" if sys.argv[1:] == ["--f11"] else "F10" if sys.argv[1:] == ["--f10"] else "F9" if sys.argv[1:] == ["--f9"] else "F8" if sys.argv[1:] == ["--f8"] else "F7" if sys.argv[1:] == ["--f7"] else "F6" if sys.argv[1:] == ["--f6"] else "F5" if sys.argv[1:] == ["--f5"] else "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
+            mode = "F16" if sys.argv[1:] == ["--f16"] else "F14" if sys.argv[1:] == ["--f14"] else "F13" if sys.argv[1:] == ["--f13"] else "F11" if sys.argv[1:] == ["--f11"] else "F10" if sys.argv[1:] == ["--f10"] else "F9" if sys.argv[1:] == ["--f9"] else "F8" if sys.argv[1:] == ["--f8"] else "F7" if sys.argv[1:] == ["--f7"] else "F6" if sys.argv[1:] == ["--f6"] else "F5" if sys.argv[1:] == ["--f5"] else "F4" if sys.argv[1:] == ["--f4"] else "F3" if sys.argv[1:] == ["--f3"] else "F2" if sys.argv[1:] == ["--f2"] else "F1"
             print(f"{mode} smoke unavailable/failed ({type(error).__name__}); no connection details printed.")
             if isinstance(error, RuntimeError):
                 print(str(error))

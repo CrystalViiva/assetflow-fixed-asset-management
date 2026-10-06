@@ -46,7 +46,10 @@ export function parseAssuranceOccurrence(value:unknown):AssuranceOccurrence{if(!
 export function parseAssuranceFinding(value:unknown):AssuranceFinding{
  if(!isRecord(value)||!Array.isArray(value.occurrences))return fail();
  const result:AssuranceFinding={id:id(value.id),organizationId:id(value.organization_id),assuranceRunId:id(value.assurance_run),lastDetectedRunId:id(value.last_detected_run),assetId:nullableId(value.asset),assetTag:nullableText(value.asset_tag),assetName:nullableText(value.asset_name),physicalVerificationId:nullableId(value.physical_verification),departmentName:nullableText(value.department_name),locationName:nullableText(value.location_name),identityKey:str(value.identity_key),type:choice(value.finding_type,assuranceFindingTypes),severity:choice(value.severity,assuranceSeverities),status:choice(value.status,assuranceFindingStatuses),source:choice(value.source,assuranceFindingSources),expectedValue:str(value.expected_value),observedValue:str(value.observed_value),description:str(value.description),occurrenceCount:positive(value.occurrence_count),firstDetectedAt:time(value.first_detected_at),lastDetectedAt:time(value.last_detected_at),resolvedAt:nullableTime(value.resolved_at),resolvedByEmail:nullableText(value.resolved_by_email),resolutionNotes:str(value.resolution_notes),occurrences:value.occurrences.map(parseAssuranceOccurrence),createdAt:time(value.created_at),updatedAt:time(value.updated_at)};
- if((result.assetId===null)===(result.physicalVerificationId===null))return fail();
+ // A registered-asset finding may legitimately reference both its asset and
+ // the physical observation that exposed the discrepancy. Only reject an
+ // orphan finding with neither public reference.
+ if(result.assetId===null&&result.physicalVerificationId===null)return fail();
  if(result.occurrences.length>result.occurrenceCount)return fail();
  if(['OPEN','UNDER_REVIEW'].includes(result.status)&&(result.resolvedAt!==null||result.resolvedByEmail!==null))return fail();
  if(['RESOLVED','ACCEPTED','REJECTED'].includes(result.status)&&(!result.resolvedAt||!result.resolvedByEmail))return fail();
