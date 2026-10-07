@@ -1,7 +1,7 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Institutional Financial Reports Center View
+ * Fixed Asset Reports View
  * Covers all 8 requested fixed asset management reports with realistic filters,
  * live preview table, and export capabilities.
  */
@@ -53,10 +53,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onNavigate, onSelectAs
 
   const reportList: Array<{ id: ReportType; title: string; desc: string; icon: string }> = [
     { id: 'asset_register', title: 'Asset Register Report', desc: 'Complete master inventory schedule with carrying book values', icon: 'table_rows' },
-    { id: 'depreciation', title: 'Depreciation Amortization Report', desc: 'Statutory straight-line monthly & annual write-downs under IAS 16', icon: 'calculate' },
+    { id: 'depreciation', title: 'Depreciation Report', desc: 'Straight-line monthly and annual depreciation schedules', icon: 'calculate' },
     { id: 'department', title: 'Department Asset Report', desc: 'Capital allocation & carrying NBV breakdown by department', icon: 'corporate_fare' },
     { id: 'location', title: 'Location / Operating Hub Report', desc: 'Geographic capitalization across Nigerian operational bases', icon: 'location_city' },
-    { id: 'category', title: 'Category Valuation Report', desc: 'Class-by-class capital asset breakdown & useful life compliance', icon: 'category' },
+    { id: 'category', title: 'Category Valuation Report', desc: 'Capital asset breakdown by class and configured useful life', icon: 'category' },
     { id: 'maintenance_cost', title: 'Maintenance Cost Report', desc: 'Preventive vs corrective spend analysis across vendors and assets', icon: 'handyman' },
     { id: 'disposal', title: 'Disposal & Derecognition Report', desc: 'Realized gain/loss ledger for auction sales and scrap write-offs', icon: 'archive' },
     { id: 'acquisition', title: 'Acquisitions & Capex Report', desc: 'Gross additions, shipping freight, and installation capitalized base', icon: 'payments' },
@@ -92,9 +92,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onNavigate, onSelectAs
             <span className="text-slate-300">/</span>
             <span className="text-slate-900 font-bold">Reports</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Institutional Financial Reports Center</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Fixed Asset Reports</h1>
           <p className="text-[13px] text-slate-500">
-            IFRS IAS 16 statutory schedules, capital expenditure variances, and balance sheet reconciliation reports.
+            Asset register, depreciation, operational, disposal, and capital expenditure reports.
           </p>
         </div>
 
@@ -191,7 +191,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onNavigate, onSelectAs
         </div>
 
         <div className="text-right text-[12px] text-slate-500">
-          Status: <span className="font-bold text-emerald-700">Verified PwC Audit Compliant</span>
+          Status: <span className="font-bold text-emerald-700">Live report preview</span>
         </div>
       </div>
 

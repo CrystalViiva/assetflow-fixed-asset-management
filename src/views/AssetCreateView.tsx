@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  * Register Fixed Asset View
  * Faithfully matches the Stitch multi-section form with real-time reactive Capitalization Ledger,
- * IAS 16 calculations, amortization curve, and journal preview.
+ * IAS 16-aligned straight-line depreciation calculation and capitalization preview.
  */
 
 import React, { useState, useMemo } from 'react';
@@ -52,12 +52,12 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
   const [locationId, setLocationId] = useState('LOC-02');
   const [subLocation, setSubLocation] = useState('Power House Yard B, Trans-Amadi');
   const [costCenter, setCostCenter] = useState('CC-4020 Plant Maintenance');
-  const [custodianName, setCustodianName] = useState('Engr. Ifeanyi Okeke (Senior Plant Manager) - EMP-0482');
+  const [custodianName, setCustodianName] = useState('Demo User 02 (Plant Manager) - DEMO-EMP-02');
 
   // Accounting / Cost Components
-  const [vendor, setVendor] = useState('Mikano International Limited');
-  const [vendorInvoice, setVendorInvoice] = useState('INV-MK-2025-0419');
-  const [poRef, setPoRef] = useState('PO-2025-0182');
+  const [vendor, setVendor] = useState('Demo Equipment Supplier');
+  const [vendorInvoice, setVendorInvoice] = useState('DEMO-INV-2025-0419');
+  const [poRef, setPoRef] = useState('DEMO-PO-2025-0182');
   const [acquisitionDate, setAcquisitionDate] = useState('2025-03-15');
   const [capitalizationDate, setCapitalizationDate] = useState('2025-03-20');
 
@@ -69,7 +69,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
   const [costOther, setCostOther] = useState<number>(500_000);
 
   // Depreciation
-  const [depMethod, setDepMethod] = useState<'SLM' | 'RBM' | 'UOP' | 'SYD'>('SLM');
+  const [depMethod, setDepMethod] = useState<'SLM'>('SLM');
   const [usefulYears, setUsefulYears] = useState<number>(8);
   const [residualRate, setResidualRate] = useState<number>(10);
   const [commencementDate, setCommencementDate] = useState('2025-04-01');
@@ -187,7 +187,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
     }
 
     setSubmitting(true);
-    setSuccessMessage('Validating against IAS 16 thresholds and capitalization ledger...');
+    setSuccessMessage('Validating asset details and capitalization entries...');
 
     setTimeout(async () => {
       try {
@@ -263,7 +263,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
               Register Fixed Asset
             </h1>
             <p className="text-[13px] text-slate-500 max-w-3xl">
-              Complete capitalization details, assign organizational custodian, and configure IFRS-compliant depreciation parameters.
+              Complete capitalization details, assign organizational custodian, and configure straight-line depreciation parameters. The workflow is IAS 16-aligned and does not represent full IFRS compliance.
             </p>
           </div>
 
@@ -309,7 +309,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
                 Capitalization Validation Failed ({Object.keys(errors).length} issue{Object.keys(errors).length > 1 ? 's' : ''})
               </div>
               <p className="text-rose-800 text-xs leading-relaxed">
-                Please correct the highlighted fields per IAS 16 statutory capitalization guidelines:
+                Please correct the highlighted fields to meet the configured capitalization requirements:
               </p>
               <ul className="list-disc pl-4 text-xs text-rose-800 space-y-0.5 pt-1">
                 {Object.values(errors).map((err, idx) => (
@@ -535,9 +535,9 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
                     src="https://lh3.googleusercontent.com/aida-public/AB6AXuARkC1Wlvx9Ay6CnusCTKpVnMoikv2jHnwXTymqXs2qBxbMMAKFQTjdlQ1IHnNoHlbW6x2-rN60RT8qVazfUhoc2laoSuBH5TLHyMK9md4u9tBpcm5P_HMql97FKiWYTWmRpNjySGxI9bQ_-ZY3slWJoM12u7tNA2kZ-sO6juTnycIk8Z2kq5LrtlVrtXurYIFIZxHiumYNXX6dihJkhD5sh-MahSGaVdMYezsQjAkud1-_jk7EqCqhsQ"
                   />
                   <div>
-                    <span className="block font-bold text-slate-900 text-[13px]">Physical Asset Image Verified</span>
+                    <span className="block font-bold text-slate-900 text-[13px]">Sample Asset Image</span>
                     <span className="block text-[11px] text-slate-500">
-                      IMG-PERK-2025-01.jpg • 3.4 MB • Geo-tagged at Lagos Yard B
+                      Illustrative preview only · no uploaded image metadata
                     </span>
                   </div>
                 </div>
@@ -642,17 +642,17 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
                     onChange={e => setCustodianName(e.target.value)}
                     className="w-full h-10 pl-9 pr-3 bg-[#eff4ff]/60 text-slate-900 rounded-md border border-slate-200 focus:outline-none focus:ring-1.5 focus:ring-[#00288e] font-medium"
                   >
-                    <option>Engr. Ifeanyi Okeke (Senior Plant Manager) - EMP-0482</option>
-                    <option>Babatunde Adeleke (Senior Site Engineer) - AF-ENG-084</option>
-                    <option>Amina Mohammed (Chief Maintenance Officer) - EMP-0199</option>
-                    <option>Femi Balogun (Head of Facilities) - EMP-0814</option>
+                    <option>Demo User 02 (Plant Manager) - DEMO-EMP-02</option>
+                    <option>Demo User 05 (Site Engineer) - DEMO-EMP-05</option>
+                    <option>Demo User 07 (Maintenance Lead) - DEMO-EMP-07</option>
+                    <option>Demo User 09 (Facilities Lead) - DEMO-EMP-09</option>
                   </select>
                   <span className="material-symbols-outlined absolute left-2.5 top-2.5 text-[20px] text-[#00288e]">
                     badge
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 pt-0.5">
-                  Custodian holds physical fiduciary duty and countersigns periodic balance sheet audit verifications.
+                  Custodian records identify the person assigned to the asset in this sample workspace.
                 </p>
               </div>
             </div>
@@ -666,7 +666,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
                   3
                 </span>
                 <h2 className="text-[15px] font-bold text-slate-900">
-                  Acquisition & Capitalization Accounting (IAS 16)
+                  Acquisition & Capitalization Accounting
                 </h2>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white text-slate-800 border border-slate-200">
@@ -893,7 +893,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
                         Total Capitalized Acquisition Cost
                       </span>
                       <span className="text-[11px] text-slate-600">
-                        Recognized under IAS 16 Non-Current Asset Register
+                        Added to the fixed asset register
                       </span>
                       {errors.cost && (
                         <p className="text-[11px] font-semibold text-rose-700 flex items-center gap-1 mt-1">
@@ -921,11 +921,11 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
                   4
                 </span>
                 <h2 className="text-[15px] font-bold text-slate-900">
-                  Depreciation Policy & Amortization Schedule
+                  Depreciation Policy & Schedule
                 </h2>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-white text-[#00288e] border border-slate-200">
-                IFRS Compliance
+                IAS 16-Aligned Method
               </span>
             </div>
 
@@ -945,10 +945,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
                     errors.depMethod ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-50/20' : 'border-slate-200 focus:ring-1.5 focus:ring-[#00288e]'
                   }`}
                 >
-                  <option value="SLM">Straight Line Method (SLM)</option>
-                  <option value="RBM">Reducing Balance Method (20% DBM)</option>
-                  <option value="UOP">Units of Production (Running Hours)</option>
-                  <option value="SYD">Sum of Years Digits</option>
+                  <option value="SLM">Straight-Line Method</option>
                 </select>
                 {errors.depMethod && (
                   <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
@@ -1046,7 +1043,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
               {/* Commencement Date */}
               <div className="space-y-1">
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Amortization Commencement Date
+                  Depreciation Commencement Date
                 </label>
                 <input
                   type="date"
@@ -1063,7 +1060,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
                     Prorate First Month Depreciation
                   </span>
                   <span className="text-[11px] text-slate-500">
-                    Calculate partial statutory amortization based on operational days remaining in March 2025.
+                    Calculate partial depreciation based on operational days in the first month.
                   </span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -1137,7 +1134,7 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
               </div>
             </div>
 
-            {/* Visual Multi-Year Amortization Micro-Chart */}
+            {/* Visual Multi-Year Depreciation Micro-Chart */}
             <div className="p-3 bg-[#eff4ff]/60 rounded-xl border border-slate-200/80 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
@@ -1172,26 +1169,26 @@ const MockAssetCreateView: React.FC<AssetCreateViewProps> = ({
               </div>
             </div>
 
-            {/* IFRS IAS 16 Standard Verification Checklist */}
+            {/* Capitalization record checks */}
             <div className="space-y-1.5 pt-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                IFRS IAS 16 Standard Verification
+                Capitalization Record Checks
               </span>
               <div className="flex items-center gap-2 p-2 rounded bg-[#eff4ff]/60 text-[11px] border border-slate-200/60">
                 <span className="material-symbols-outlined text-[16px] text-emerald-700">check_circle</span>
-                <span className="text-slate-800">In-service capitalization date verified</span>
+                <span className="text-slate-800">Capitalization date entered</span>
               </div>
               <div className="flex items-center gap-2 p-2 rounded bg-[#eff4ff]/60 text-[11px] border border-slate-200/60">
                 <span className="material-symbols-outlined text-[16px] text-emerald-700">check_circle</span>
-                <span className="text-slate-800">Conforms to capitalization threshold (&gt;₦500k)</span>
+                <span className="text-slate-800">Configured capitalization threshold (&gt;₦500k)</span>
               </div>
               <div className="flex items-center gap-2 p-2 rounded bg-[#eff4ff]/60 text-[11px] border border-slate-200/60">
                 <span className="material-symbols-outlined text-[16px] text-emerald-700">check_circle</span>
-                <span className="text-slate-800">Designated custodian signed & assigned</span>
+                <span className="text-slate-800">Custodian assigned to the record</span>
               </div>
               <div className="flex items-center gap-2 p-2 rounded bg-[#eff4ff]/60 text-[11px] border border-slate-200/60">
                 <span className="material-symbols-outlined text-[16px] text-emerald-700">check_circle</span>
-                <span className="text-slate-800">Auto-linked asset tag & RFID code registered</span>
+                <span className="text-slate-800">Asset tag and RFID identifier recorded</span>
               </div>
             </div>
 

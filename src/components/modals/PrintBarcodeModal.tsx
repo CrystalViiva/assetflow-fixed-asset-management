@@ -46,7 +46,7 @@ export const PrintBarcodeModal: React.FC<PrintBarcodeModalProps> = ({ isOpen, on
         {/* Printable Label Preview Box */}
         <div id="printable-tag" className="p-4 bg-white rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-center shadow-inner">
           <div className="text-[10px] font-bold uppercase tracking-widest text-[#00288e] mb-0.5">
-            AssetFlow Verified Asset
+            AssetFlow Asset Tag
           </div>
           <div className="font-mono text-sm font-bold text-slate-900">{asset.tag}</div>
 

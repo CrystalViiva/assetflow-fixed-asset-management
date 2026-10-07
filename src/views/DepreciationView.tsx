@@ -1,7 +1,7 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Statutory Depreciation Engine View (IAS 16 Straight-Line Amortization)
+ * Fixed asset straight-line depreciation schedule view.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -52,7 +52,7 @@ export const DepreciationView: React.FC<DepreciationViewProps> = ({ onNavigate, 
   const [postingSuccess, setPostingSuccess] = useState<string | null>(null);
 
   const handleRunPosting = () => {
-    setPostingSuccess('Monthly Depreciation Posting Run executed successfully! ₦32,400,000 amortized to General Ledger.');
+    setPostingSuccess('Monthly depreciation posting run executed successfully! ₦32,400,000 posted to the ledger.');
     setTimeout(() => setPostingSuccess(null), 4000);
   };
 
@@ -80,10 +80,10 @@ export const DepreciationView: React.FC<DepreciationViewProps> = ({ onNavigate, 
             <span className="text-slate-900 font-bold">Depreciation</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900">
-            Statutory Depreciation Engine (IAS 16)
+            Depreciation
           </h1>
           <p className="text-[13px] text-slate-500">
-            Standard straight-line amortization calculations, residual floors, and full multi-year schedules.
+            Straight-line depreciation schedules using cost less residual value over useful life.
           </p>
         </div>
 
@@ -107,9 +107,9 @@ export const DepreciationView: React.FC<DepreciationViewProps> = ({ onNavigate, 
         </div>
 
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200/80">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Accumulated Amortization</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Accumulated Depreciation</span>
           <div className="text-[22px] font-mono font-bold text-amber-700 mt-1">{formatNaira(totalPortfolioAcc)}</div>
-          <span className="text-[11px] text-slate-500">Statutory wear write-down</span>
+          <span className="text-[11px] text-slate-500">Depreciation recorded to date</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200/80">
@@ -137,7 +137,7 @@ export const DepreciationView: React.FC<DepreciationViewProps> = ({ onNavigate, 
                 <h2 className="text-lg font-bold text-slate-900">{activeAsset.name}</h2>
               </div>
               <p className="text-[12px] text-slate-500">
-                Formula: Depreciable Amount = Cost (₦) − Residual Value (₦) • Monthly Amortization = Depreciable Amount / Useful Life in Months
+                Formula: Depreciable Amount = Cost (₦) − Residual Value (₦) • Monthly Depreciation = Depreciable Amount / Useful Life in Months
               </p>
             </div>
 
@@ -218,7 +218,7 @@ export const DepreciationView: React.FC<DepreciationViewProps> = ({ onNavigate, 
                   <th className="py-2.5 px-3">Period</th>
                   <th className="py-2.5 px-3">Calendar Month</th>
                   <th className="py-2.5 px-3 text-right">Opening NBV (₦)</th>
-                  <th className="py-2.5 px-3 text-right">Monthly Amortization (₦)</th>
+                  <th className="py-2.5 px-3 text-right">Monthly Depreciation (₦)</th>
                   <th className="py-2.5 px-3 text-right">Accumulated Deprec (₦)</th>
                   <th className="py-2.5 px-3 text-right">Closing Book Value (₦)</th>
                 </tr>

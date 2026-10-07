@@ -14,6 +14,10 @@ describe('public product experience', () => {
     expect(screen.getByText(/the browser dashboard does not read parquet marts/i)).toBeTruthy();
     expect(screen.queryByText(/fully ifrs compliant|ai-powered|predictive maintenance|malware scanned/i)).toBeNull();
     expect(screen.getAllByRole('link', { name: /sign in to assetflow/i }).length).toBeGreaterThan(0);
+    const github = screen.getByRole('link', { name: /github/i });
+    expect(github.getAttribute('href')).toBe('https://github.com/CrystalViiva/assetflow-fixed-asset-management');
+    expect(github.getAttribute('target')).toBe('_blank');
+    expect(github.getAttribute('rel')).toContain('noopener');
     expect(screen.queryByRole('link', { name: /free trial|pricing|forgot password/i })).toBeNull();
   });
 
@@ -29,6 +33,8 @@ describe('public product experience', () => {
   it('exposes section navigation without requesting authenticated data', () => {
     render(<PublicLandingPage authenticated={false} />);
     expect(screen.getAllByRole('link', { name: 'Capabilities' })[0].getAttribute('href')).toBe('#capabilities');
+    expect(screen.getAllByRole('link', { name: 'Controls' })[0].getAttribute('href')).toBe('#controls');
+    expect(screen.getAllByRole('link', { name: 'Architecture' })[0].getAttribute('href')).toBe('#architecture');
     expect(screen.getByRole('heading', { name: /from acquisition record to accountable disposition/i })).toBeTruthy();
   });
 });

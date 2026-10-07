@@ -30,6 +30,8 @@ const DisposalsView = lazy(() => import('./views/DisposalsView').then(m => ({ de
 const BackendDisposalsView = lazy(() => import('./views/BackendDisposalsView').then(m => ({ default: m.BackendDisposalsView })));
 const BackendVerificationView = lazy(() => import('./views/BackendVerificationView').then(m => ({ default: m.BackendVerificationView })));
 const BackendAssuranceView = lazy(() => import('./views/BackendAssuranceView').then(m => ({ default: m.BackendAssuranceView })));
+const MockVerificationView = lazy(() => import('./views/MockVerificationView').then(m => ({ default: m.MockVerificationView })));
+const MockAssuranceView = lazy(() => import('./views/MockAssuranceView').then(m => ({ default: m.MockAssuranceView })));
 const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
 const BackendReportsView = lazy(() => import('./views/BackendReportsView').then(m => ({ default: m.BackendReportsView })));
 const DepartmentsView = lazy(() => import('./views/DepartmentsView').then(m => ({ default: m.DepartmentsView })));
@@ -368,9 +370,9 @@ export default function App() {
           />
         );
       case 'verification':
-        return dataSource === 'django' ? <BackendVerificationView /> : <IntegrationPending />;
+        return dataSource === 'django' ? <BackendVerificationView /> : <MockVerificationView />;
       case 'assurance':
-        return dataSource === 'django' ? <BackendAssuranceView onSelectAsset={handleSelectAsset} /> : <IntegrationPending />;
+        return dataSource === 'django' ? <BackendAssuranceView onSelectAsset={handleSelectAsset} /> : <MockAssuranceView />;
       case 'reports':
         if (dataSource === 'django') return <BackendReportsView />;
         return (

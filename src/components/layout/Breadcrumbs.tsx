@@ -53,7 +53,7 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentRoute, subTitle
       case 'assignments':
         return 'Asset Custody & Assignment Register';
       case 'depreciation':
-        return 'Statutory Depreciation Engine (IAS 16)';
+        return 'Depreciation';
       case 'maintenance':
         return 'Maintenance & Overhaul Work Orders';
       case 'disposals':
@@ -67,7 +67,7 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentRoute, subTitle
       case 'users-and-roles':
         return 'Users, Roles & RBAC Matrix';
       case 'audit-log':
-        return 'Immutable Audit Ledger';
+        return 'Audit Log';
       case 'settings':
         return 'System & Accounting Configuration';
       default:

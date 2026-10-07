@@ -20,6 +20,7 @@ const capabilities = [
   { icon: LockKeyhole, title: 'Traceable controls', text: 'Tenant-scoped permissions, role-aware workflows, application audit events and private verification evidence.' },
   { icon: ChartNoAxesCombined, title: 'Useful reporting', text: 'Live operational aggregates, durable report snapshots and CSV or JSON exports from completed snapshots.' },
 ];
+const repositoryUrl = 'https://github.com/CrystalViiva/assetflow-fixed-asset-management';
 
 export function PublicLandingPage({ authenticated, mockMode = false }: { authenticated: boolean; mockMode?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -33,6 +34,7 @@ export function PublicLandingPage({ authenticated, mockMode = false }: { authent
         </a>
         <nav aria-label="Main navigation" className="hidden items-center gap-7 md:flex">
           <a className="landing-nav-link" href="#capabilities">Capabilities</a><a className="landing-nav-link" href="#controls">Controls</a><a className="landing-nav-link" href="#architecture">Architecture</a>
+          <a className="landing-nav-link rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-700" href={repositoryUrl} target="_blank" rel="noopener noreferrer">GitHub<span className="sr-only"> (opens in a new tab)</span></a>
           <a className="rounded-lg bg-[#123b83] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0d2e69] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" href={appLink}>{signInText}</a>
         </nav>
         <button type="button" className="rounded-md p-2 text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 md:hidden" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
@@ -40,7 +42,7 @@ export function PublicLandingPage({ authenticated, mockMode = false }: { authent
         </button>
       </div>
       {menuOpen && <nav aria-label="Mobile navigation" className="grid gap-1 border-t border-slate-200 px-5 py-3 md:hidden">
-        <a onClick={() => setMenuOpen(false)} className="landing-mobile-link" href="#capabilities">Capabilities</a><a onClick={() => setMenuOpen(false)} className="landing-mobile-link" href="#controls">Controls</a><a onClick={() => setMenuOpen(false)} className="landing-mobile-link" href="#architecture">Architecture</a><a onClick={() => setMenuOpen(false)} className="landing-mobile-link font-semibold text-blue-800" href={appLink}>{signInText}</a>
+        <a onClick={() => setMenuOpen(false)} className="landing-mobile-link" href="#capabilities">Capabilities</a><a onClick={() => setMenuOpen(false)} className="landing-mobile-link" href="#controls">Controls</a><a onClick={() => setMenuOpen(false)} className="landing-mobile-link" href="#architecture">Architecture</a><a className="landing-mobile-link rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700" href={repositoryUrl} target="_blank" rel="noopener noreferrer">GitHub<span className="sr-only"> (opens in a new tab)</span></a><a onClick={() => setMenuOpen(false)} className="landing-mobile-link font-semibold text-blue-800" href={appLink}>{signInText}</a>
       </nav>}
     </header>
 

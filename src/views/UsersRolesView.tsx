@@ -26,7 +26,7 @@ export const UsersRolesView: React.FC<UsersRolesViewProps> = ({ onNavigate }) =>
   const rolesMatrix = [
     { role: 'Administrator', desc: 'Full control over capitalization, accounting parameters, user roles, and system configuration.', users: '1 User' },
     { role: 'Asset Manager', desc: 'Can create assets, authorize inter-facility transfers, schedule maintenance, and update telematics.', users: '3 Users' },
-    { role: 'Accountant', desc: 'Can view ledgers, trigger depreciation posting schedules, verify journal entries, and run financial audits.', users: '2 Users' },
+    { role: 'Accountant', desc: 'Can view ledgers, trigger depreciation posting schedules, verify journal entries, and review financial reports.', users: '2 Users' },
     { role: 'Department Manager', desc: 'Departmental custodian management, initiates asset transfers, and signs off verification checklists.', users: '6 Users' },
     { role: 'Employee', desc: 'View assigned assets, counter-sign physical handover acknowledgments, and report maintenance issues.', users: '42 Users' },
   ];

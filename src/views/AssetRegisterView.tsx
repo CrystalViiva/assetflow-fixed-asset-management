@@ -366,7 +366,7 @@ const MockAssetRegisterView: React.FC<AssetRegisterViewProps> = ({
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${quickFilter === 'needs-audit' ? 'bg-white' : 'bg-red-600'}`}></span>
-                Needs Audit
+                Needs Review
               </button>
 
               <button

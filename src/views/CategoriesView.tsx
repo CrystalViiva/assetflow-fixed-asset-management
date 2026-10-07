@@ -42,7 +42,7 @@ const MockCategoriesView: React.FC<CategoriesViewProps> = ({ onNavigate }) => {
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Asset Categories & Classification</h1>
           <p className="text-[13px] text-slate-500">
-            IAS 16 statutory useful life standards, residual value minimums, and balance sheet classifications.
+            Configure category defaults for useful life, residual value, and ledger classification.
           </p>
         </div>
 

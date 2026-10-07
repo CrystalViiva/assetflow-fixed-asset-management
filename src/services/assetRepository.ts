@@ -434,7 +434,7 @@ export class MockAssetRepository implements IAssetRepository {
       asset_name: data.asset_name || '',
       maintenance_type: data.maintenance_type || 'PREVENTIVE',
       description: data.description || 'Scheduled inspection & overhaul',
-      vendor: data.vendor || 'Mantrac Certified Services',
+      vendor: data.vendor || 'Demo Equipment Services',
       start_date: data.start_date || new Date().toISOString().substring(0, 10),
       expected_completion_date: data.expected_completion_date || new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10),
       budget_cost: data.budget_cost || 500_000,

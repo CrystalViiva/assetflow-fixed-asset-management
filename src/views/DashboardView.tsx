@@ -40,7 +40,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const fiscalPeriods = [
     'Q1 2025 (Jan - Mar)',
-    'FY 2024 Audited',
+    'FY 2024',
     'Q4 2024 (Oct - Dec)',
     'Q3 2024 (Jul - Sep)',
   ];
@@ -70,9 +70,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase bg-[#e5eeff] text-[#00288e] tracking-wider border border-[#d3e4fe]">
-                IAS 16 / IFRS Certified
+                IAS 16-Aligned Workflow
               </span>
-              <span className="text-slate-500 text-[11px]">• Institutional Asset Ledger</span>
+              <span className="text-slate-500 text-[11px]">• Portfolio Accounting View</span>
             </div>
             <h1 className="text-2xl md:text-[26px] font-bold text-slate-900 tracking-tight">
               Executive Asset Dashboard
@@ -194,8 +194,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="font-bold text-slate-900">{metrics.transferred_assets}</span>
             </div>
             <div className="bg-[#eff4ff] px-2 py-1 rounded flex items-center justify-between">
-              <span className="text-slate-600">Impaired</span>
-              <span className="font-bold text-rose-700">{metrics.impaired_assets}</span>
+              <span className="text-slate-600">Disposed</span>
+              <span className="font-bold text-slate-700">{metrics.disposed_assets}</span>
             </div>
           </div>
         </div>
@@ -241,9 +241,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="bg-[#eff4ff] px-2.5 py-1.5 rounded flex items-center justify-between text-[11px]">
             <span className="text-slate-600 flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px] text-emerald-700">verified</span>
-              External Audit
+              Accounting Record
             </span>
-            <span className="font-semibold text-slate-900">PwC FY24 Cleared</span>
+            <span className="font-semibold text-slate-900">Posted records</span>
           </div>
         </div>
 
@@ -276,7 +276,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="bg-[#eff4ff] px-2.5 py-1.5 rounded flex items-center justify-between text-[11px]">
             <span className="text-slate-600">Standard</span>
-            <span className="font-semibold text-[#00288e]">IAS 16 Revalued Method</span>
+            <span className="font-semibold text-[#00288e]">Straight-Line Depreciation</span>
           </div>
         </div>
 
@@ -290,7 +290,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="text-[21px] font-bold text-slate-900 mt-1 leading-none font-mono">
                 {formatNaira(metrics.accumulated_depreciation)}
               </div>
-              <span className="text-[11px] text-slate-500">29.6% Amortized to date</span>
+              <span className="text-[11px] text-slate-500">29.6% depreciated to date</span>
             </div>
             <div className="w-10 h-10 rounded-lg bg-[#dae2fd] flex items-center justify-center text-slate-800">
               <span className="material-symbols-outlined text-[22px]">calculate</span>
@@ -486,7 +486,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </h2>
             </div>
             <p className="text-[12px] text-slate-500">
-              Capital expenditure additions compared directly against recurring statutory amortization
+              Capital expenditure additions compared with recurring depreciation
             </p>
           </div>
 
@@ -609,7 +609,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     Recent Asset Activity & Movement
                   </h2>
                   <p className="text-[12px] text-slate-500">
-                    Live audit ledger of transfers, capitalization, and lifecycle events
+                    Recent activity log of transfers, capitalization, and lifecycle events
                   </p>
                 </div>
               </div>
@@ -871,7 +871,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-200/60">
                   <span>Rec: <strong className="text-slate-800">Auction Sale</strong></span>
-                  <span className="text-amber-800 font-bold">Approver: CFO Review</span>
+                  <span className="text-amber-800 font-bold">Approver: Demo Finance Lead</span>
                 </div>
               </div>
 
@@ -888,7 +888,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                   </div>
                   <span className="font-mono text-[12px] text-slate-500 font-medium">
-                    NBV: ₦0 (Amortized)
+                    NBV: ₦0 (Fully depreciated)
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-200/60">

@@ -30,7 +30,7 @@ export const LogMaintenanceModal: React.FC<LogMaintenanceModalProps> = ({
 
   const [type, setType] = useState<MaintenanceType>('PREVENTIVE');
   const [description, setDescription] = useState<string>('Scheduled OEM preventive servicing & mechanical overhaul');
-  const [vendor, setVendor] = useState<string>('Mantrac Certified Field Services');
+  const [vendor, setVendor] = useState<string>('Demo Equipment Services');
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().substring(0, 10));
   const [expectedCompletionDate, setExpectedCompletionDate] = useState<string>(
     new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10)

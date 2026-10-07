@@ -425,7 +425,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-2 bg-[#eff4ff]/80 border-t border-slate-200">
           <div className="flex items-center justify-between px-2 py-1 rounded bg-white text-[11px] mb-1 border border-slate-200/60 shadow-2xs">
             <span className="text-slate-500 font-medium">Period:</span>
-            <span className="text-emerald-700 font-bold">{dataSource === 'django' ? 'Integration pending' : 'FY 2025 - Q1 Active'}</span>
+            <span className="text-emerald-700 font-bold">{dataSource === 'django' ? 'Not provided by API' : 'FY 2025 - Q1 Active'}</span>
           </div>
 
           <div className="flex items-center justify-between px-2 py-1 rounded bg-white text-[11px] mb-2 border border-slate-200/60 shadow-2xs">

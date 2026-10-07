@@ -43,7 +43,7 @@ const MockAcquisitionsView: React.FC<AcquisitionsViewProps> = ({ onNavigate, onS
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Capex & Acquisitions Ledger</h1>
           <p className="text-[13px] text-slate-500">
-            Purchase orders, vendor invoicing, and capitalization approvals under IAS 16.
+            Record asset acquisition costs and manage capitalization approvals. Straight-line depreciation workflows are IAS 16-aligned; this is not a claim of full IFRS compliance.
           </p>
         </div>
 
@@ -67,8 +67,8 @@ const MockAcquisitionsView: React.FC<AcquisitionsViewProps> = ({ onNavigate, onS
           <div className="text-2xl font-bold text-slate-900 mt-0.5">{assets.length} In-Service Orders</div>
         </div>
         <div>
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Audited Compliance</span>
-          <div className="text-2xl font-bold text-emerald-700 mt-0.5">100% Verified Threshold</div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Capitalization Records</span>
+          <div className="text-2xl font-bold text-emerald-700 mt-0.5">Configured Thresholds</div>
         </div>
       </div>
 

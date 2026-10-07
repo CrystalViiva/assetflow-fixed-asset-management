@@ -59,7 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
         </div>
         <h1 className="text-2xl font-bold text-slate-900">System & Accounting Configuration</h1>
         <p className="text-[13px] text-slate-500">
-          IAS 16 capitalization policies, statutory thresholds, currency rules, and future Django REST Framework API gateway.
+          Configure capitalization defaults, thresholds, and currency display for the workspace.
         </p>
       </div>
 
@@ -103,7 +103,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
                 onChange={e => setSettings({ ...settings, default_depreciation_method: e.target.value as any })}
                 className="w-full h-9 px-3 bg-[#eff4ff] text-slate-900 font-semibold rounded-md border border-slate-200 focus:ring-1.5 focus:ring-[#00288e]"
               >
-                <option value="SLM">Straight Line Method (SLM) - IAS 16</option>
+                <option value="SLM">Straight-Line Method (SLM)</option>
                 <option value="RBM">Reducing Balance Method (20% DBM)</option>
               </select>
             </div>
@@ -146,7 +146,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onNavigate }) => {
 
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Appointed Statutory Auditor
+                Demo Reviewer
               </label>
               <input
                 type="text"

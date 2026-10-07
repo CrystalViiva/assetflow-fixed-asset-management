@@ -67,7 +67,7 @@ export const InitiateTransferModal: React.FC<InitiateTransferModalProps> = ({
         reason,
         notes,
         requested_by: requestedBy,
-        approved_by: 'Babajide Adeleke (CFO)',
+        approved_by: 'Demo Finance Lead',
         status: 'PENDING',
       });
       onClose();

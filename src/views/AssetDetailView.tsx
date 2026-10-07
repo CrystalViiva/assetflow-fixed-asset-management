@@ -131,7 +131,7 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-[12px] text-slate-600 flex items-center gap-1 mr-2">
               <span className="material-symbols-outlined text-[15px] text-[#00288e]">verified</span>
-              IAS 16 Capital Asset Verified
+              Capitalized Asset
             </span>
             <span className="px-2 py-0.5 rounded bg-[#eff4ff] text-slate-700 font-mono text-[11px] uppercase tracking-wider font-bold border border-slate-200">
               Ledger Code: {asset.ledger_code}
@@ -186,7 +186,7 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
               <span>Asset Tag ID: <span className="font-mono text-slate-700">{asset.tag}</span></span>
               <span className="text-slate-300">•</span>
               <span className="text-emerald-700 font-semibold">
-                Insured by {asset.insurance_carrier || 'Leadway Assurance'} (Active)
+                Sample insurance record · no insurer validation implied
               </span>
             </p>
           </div>
@@ -337,7 +337,7 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
             </div>
             <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
               <span>Floor Limit: {asset.residual_rate_pct}% Residual</span>
-              <span className="text-slate-800 font-bold">IAS 16 Bound</span>
+              <span className="text-slate-800 font-bold">Configured Residual Value</span>
             </div>
           </div>
           <div className="mt-2.5 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -627,10 +627,10 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
                   </span>
                   <span className="text-[12px] font-bold text-emerald-700 flex items-center sm:justify-end gap-1 mt-0.5">
                     <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                    Physical RFID Tag Active
+                    RFID Identifier Recorded
                   </span>
                   <span className="text-[11px] text-slate-500 block mt-0.5">
-                    Scanned during Q4 Fixed Asset Audit
+                    Sample tag record · local demo data
                   </span>
                 </div>
               </div>
@@ -853,7 +853,7 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-slate-100">
                   <span className="text-slate-500">Assigned Contractor</span>
-                  <span className="font-semibold text-slate-900">Mantrac Certified Field Services</span>
+                  <span className="font-semibold text-slate-900">Demo Equipment Services</span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-slate-100">
                   <span className="text-slate-500">Revised Est. Completion</span>
@@ -898,15 +898,15 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
                   </div>
                   <h2 className="text-[16px] font-bold text-slate-900">Documents & Warranties</h2>
                 </div>
-                <span className="text-[11px] text-slate-500 font-bold">4 Critical Files</span>
+                <span className="text-[11px] text-slate-500 font-bold">4 Sample Records</span>
               </div>
 
               <div className="space-y-2">
                 {[
-                  { name: 'OEM Warranty Certificate (Cat Standard)', sub: 'Valid through Jun 2025 • 2.4 MB' },
-                  { name: 'Mantrac Purchase Invoice & Bill of Lading', sub: 'Signed & Stamped • 5.1 MB' },
-                  { name: 'Physical Verification & Tagging Signoff', sub: 'Internal Audit Lagos HQ • 1.8 MB' },
-                  { name: 'Comprehensive Insurance Policy Certificate', sub: 'Policy #PLA-882910 • Active' },
+                  { name: 'OEM Warranty Record (Sample)', sub: 'Sample record • 2.4 MB' },
+                  { name: 'Sample Purchase Invoice & Bill of Lading', sub: 'Demo record • 5.1 MB' },
+                  { name: 'Physical Verification Record (Sample)', sub: 'Demo internal review • 1.8 MB' },
+                  { name: 'Insurance Record (Sample)', sub: 'Sample metadata • no validation implied' },
                 ].map((doc, idx) => (
                   <div
                     key={idx}
@@ -933,7 +933,7 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
               </div>
 
               <button
-                onClick={() => alert('File uploader opened: Select PDF or Certificate to attach to this asset.')}
+                onClick={() => alert('File uploader opened: Select a PDF or image to attach to this asset.')}
                 className="w-full mt-3 py-2 rounded-lg bg-[#eff4ff] hover:bg-[#dce9ff] text-[#00288e] text-[12px] font-bold transition-colors flex items-center justify-center gap-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]">upload_file</span>
@@ -950,10 +950,10 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
               <h2 className="text-[16px] font-bold text-slate-900">
-                Straight-Line Amortization Schedule (IAS 16)
+                Straight-Line Depreciation Schedule
               </h2>
               <p className="text-[12px] text-slate-500">
-                Useful life: {asset.useful_life_years} years ({asset.useful_life_months} periods) • Monthly Amortization: {formatNaira(asset.monthly_depreciation)}
+                Useful life: {asset.useful_life_years} years ({asset.useful_life_months} periods) • Monthly Depreciation: {formatNaira(asset.monthly_depreciation)}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -989,7 +989,7 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
             </table>
           </div>
           <div className="text-[11px] text-slate-500 italic">
-            Showing first 48 of {asset.useful_life_months} amortization periods. Schedule dynamically recalculates upon capitalization updates.
+            Showing first 48 of {asset.useful_life_months} depreciation periods. Schedule dynamically recalculates upon capitalization updates.
           </div>
         </div>
       )}
@@ -1000,7 +1000,7 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h2 className="text-[16px] font-bold text-slate-900">Inter-Facility Movement History</h2>
-              <p className="text-[12px] text-slate-500">Immutable audit log of all physical relocations and waybill manifests</p>
+              <p className="text-[12px] text-slate-500">Recorded transfers and movement history for this asset</p>
             </div>
             <button
               onClick={() => onTriggerTransfer(asset)}
@@ -1036,7 +1036,7 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
                   </div>
                   <div className="text-right">
                     <span className="font-mono text-[11px] text-slate-500 block">{t.transfer_date}</span>
-                    <span className="text-[11px] text-emerald-700 font-bold">Verified Signoff</span>
+                    <span className="text-[11px] text-emerald-700 font-bold">Recorded Signoff</span>
                   </div>
                 </div>
               ))}
@@ -1127,13 +1127,13 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-[11px] uppercase font-bold text-slate-500">Current Custody Record</span>
               <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                Active & Verified
+                Active Assignment
               </span>
             </div>
             <div className="text-[14px] font-bold text-slate-900">{asset.custodian_name} ({asset.custodian_staff_id})</div>
             <div className="text-slate-600">{asset.custodian_title} — {asset.department_name}</div>
             <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-200">
-              Countersigned physical inspection during Q4 Audit. Location: {asset.location_name} ({asset.sub_location}).
+              Sample physical check recorded for this demo. Location: {asset.location_name} ({asset.sub_location}).
             </div>
           </div>
         </div>
@@ -1144,8 +1144,8 @@ const MockAssetDetailView: React.FC<AssetDetailViewProps> = ({
         <div className="bg-white rounded-xl shadow-sm border border-slate-200/80 p-5 space-y-4">
           <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h2 className="text-[16px] font-bold text-slate-900">Governance & Warranty Archive</h2>
-              <p className="text-[12px] text-slate-500">All scanned invoices, OEM warranties, and insurance certificates</p>
+              <h2 className="text-[16px] font-bold text-slate-900">Supporting Records</h2>
+              <p className="text-[12px] text-slate-500">Sample supporting-record metadata for invoices, warranties, and insurance documents</p>
             </div>
             <button
               onClick={() => alert('Opening document upload portal...')}

@@ -163,7 +163,7 @@ const MockNavbar: React.FC<NavbarProps> = ({
                 </span>
                 <div>
                   <div className="font-semibold text-slate-900 leading-tight">Register Fixed Asset</div>
-                  <div className="text-[11px] text-slate-500">IAS 16 Capitalization Form</div>
+                  <div className="text-[11px] text-slate-500">Capitalization Form</div>
                 </div>
               </button>
 
@@ -258,7 +258,7 @@ const MockNavbar: React.FC<NavbarProps> = ({
                   <div className="font-semibold text-slate-800 mt-0.5 text-[12px]">
                     CAT 336 Hydraulic Excavator Service
                   </div>
-                  <div className="text-[11px] text-slate-500">Mantrac certified seal replacement delayed.</div>
+                  <div className="text-[11px] text-slate-500">Demo service provider seal replacement delayed.</div>
                 </div>
 
                 <div

@@ -51,7 +51,7 @@ export const DisposalsView: React.FC<DisposalsViewProps> = ({
             Executive Disposal & Derecognition Board
           </h1>
           <p className="text-[13px] text-slate-500">
-            IAS 16 / IFRS 5 derecognition governance, gain/loss accounting, and asset write-off authorizations.
+            Asset disposal, derecognition, gain/loss accounting, and approval controls.
           </p>
         </div>
 

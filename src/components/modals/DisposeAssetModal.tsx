@@ -1,7 +1,7 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- * Asset Disposal & Write-Off Governance Modal
+ * Asset disposal and write-off dialog
  */
 
 import React, { useState, useEffect } from 'react';
@@ -35,8 +35,8 @@ export const DisposeAssetModal: React.FC<DisposeAssetModalProps> = ({
     currentAsset ? Math.round(currentAsset.net_book_value * 1.1) : 0
   );
   const [reason, setReason] = useState<string>('Surplus to requirements / economic lifecycle obsolescence.');
-  const [recommendation, setRecommendation] = useState<string>('Competitive executive auction to certified bidders');
-  const [approvedBy, setApprovedBy] = useState<string>('Babajide Adeleke (CFO Review)');
+  const [recommendation, setRecommendation] = useState<string>('Competitive sale to selected buyers');
+  const [approvedBy, setApprovedBy] = useState<string>('Demo Finance Lead (Review)');
   const [submitting, setSubmitting] = useState(false);
   const dialogRef = useModalAccessibility(isOpen, onClose);
 
@@ -91,7 +91,7 @@ export const DisposeAssetModal: React.FC<DisposeAssetModalProps> = ({
             </div>
             <div>
               <h3 id="disposal-dialog-title" className="text-[16px] font-bold text-slate-900">Initiate Asset Disposal</h3>
-              <p className="text-[11px] text-slate-500">IAS 16 / IFRS 5 Derecognition and Gain/Loss Assessment</p>
+              <p className="text-[11px] text-slate-500">Asset disposal and gain/loss assessment</p>
             </div>
           </div>
           <button
