@@ -1,3 +1,5 @@
+import re
+
 import pytest
 import yaml
 from django.urls import reverse
@@ -8,6 +10,13 @@ from rest_framework.test import APIClient, APIRequestFactory
 from accounts.models import User
 from common.exceptions import api_exception_handler
 from common.pagination import StandardResultsPagination
+from organizations.models import Organization
+
+
+def test_health_response_includes_a_generated_correlation_id(client):
+    response = client.get(reverse("health-check"))
+
+    assert re.fullmatch(r"[0-9a-f]{32}", response["X-Request-ID"])
 
 
 @pytest.mark.django_db
@@ -92,6 +101,29 @@ def test_protected_endpoint_rejects_anonymous_and_accepts_jwt():
 
     assert authenticated_response.status_code == 200
     assert authenticated_response.data["email"] == user.email
+
+
+@pytest.mark.django_db
+def test_suspended_organization_rejects_existing_access_tokens():
+    organization = Organization.objects.create(name="Suspension test", code="SUSPEND")
+    user = User.objects.create_user(
+        "suspended@example.com", "strong-password", organization=organization
+    )
+    client = APIClient()
+    tokens = client.post(
+        reverse("token-obtain-pair"),
+        {"email": user.email, "password": "strong-password"},
+        format="json",
+    )
+    assert tokens.status_code == 200
+    organization.is_active = False
+    organization.save(update_fields=("is_active", "updated_at"))
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens.data['access']}")
+
+    response = client.get(reverse("authenticated-user"))
+
+    assert response.status_code == 401
+    assert response.data["error"]["code"] == "AUTHENTICATION_ERROR"
 
 
 def test_pagination_has_default_and_bounded_client_page_size():

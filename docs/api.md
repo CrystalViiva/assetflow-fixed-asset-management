@@ -6,7 +6,7 @@ AssetFlow API routes are versioned under `/api/v1/`. OpenAPI is available at `/a
 
 Private API views require a SimpleJWT bearer access token. Obtain an access/refresh pair with `POST /api/v1/auth/token/` using `email` and `password`. Refresh the access token with `POST /api/v1/auth/token/refresh/` and the current refresh token. Access tokens are short lived; refresh tokens rotate and the consumed refresh token is blacklisted.
 
-`GET /api/v1/auth/me/` is a protected foundation endpoint and returns the authenticated user's id, email, and role. `GET /api/v1/health/` is a public process health check and does not disclose database or secret configuration.
+`GET /api/v1/auth/me/` is a protected foundation endpoint and returns the authenticated user's id, email, and role. `GET /api/v1/health/` is a public process liveness check. `GET /api/v1/ready/` checks the transactional PostgreSQL connection and returns 503 when it is unavailable; neither endpoint returns configuration or credentials. Responses include a generated `X-Request-ID` suitable for support/log correlation.
 
 ## Error response
 

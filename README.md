@@ -205,6 +205,7 @@ SLM is the only implemented depreciation method. There is no component depreciat
 - [Accounting](docs/accounting.md) · [Security](docs/security.md) · [Deployment](docs/deployment.md)
 - [Assurance](docs/F8-assurance-reconciliation.md) · [Reports and exports](docs/F9-reports-snapshots-exports.md) · [Data pipeline](docs/analytics.md)
 - [F16 release evidence](docs/F16-full-system-release-gate.md) · [Portfolio case study](docs/portfolio-case-study.md) · [Interview guide](docs/interview-guide.md) · [Resume bullets](docs/resume-bullets.md)
+- [Commercial readiness audit, customer guides, operations, and SaaS decision](docs/commercial/README.md)
 
 ## License
 

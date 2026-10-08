@@ -17,12 +17,23 @@ environ.Env.read_env(ROOT_DIR / ".env", overwrite=False)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="")
 DEBUG = env.bool("DEBUG", default=False)
+ASSETFLOW_ENV = env("ASSETFLOW_ENV", default="development").strip().lower()
 if not SECRET_KEY and not DEBUG:
     raise environ.ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DEBUG is false.")
 if not SECRET_KEY:
     SECRET_KEY = "assetflow-insecure-local-development-only"
+if not DEBUG:
+    if len(SECRET_KEY) < 50 or "replace-with" in SECRET_KEY.lower():
+        raise environ.ImproperlyConfigured(
+            "Production DJANGO_SECRET_KEY must be a unique random value of at least 50 characters."
+        )
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+if not DEBUG and (not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS):
+    raise environ.ImproperlyConfigured(
+        "Production ALLOWED_HOSTS must list explicit public host names and cannot contain '*'."
+    )
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -50,6 +61,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "common.request_id.RequestIdMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -161,7 +173,7 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "common.pagination.StandardResultsPagination",
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "accounts.authentication.OrganizationJWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "EXCEPTION_HANDLER": "common.exceptions.api_exception_handler",
@@ -179,6 +191,37 @@ CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:6379/1")
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    default=(
+        "django.core.mail.backends.smtp.EmailBackend"
+        if env("EMAIL_HOST", default="")
+        else "django.core.mail.backends.console.EmailBackend"
+    ),
+)
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="AssetFlow <no-reply@localhost>")
+FRONTEND_BASE_URL = env("FRONTEND_BASE_URL", default="http://localhost:3000")
+if ASSETFLOW_ENV == "production" and EMAIL_BACKEND in {
+    "django.core.mail.backends.console.EmailBackend",
+    "django.core.mail.backends.locmem.EmailBackend",
+    "django.core.mail.backends.dummy.EmailBackend",
+}:
+    raise environ.ImproperlyConfigured(
+        "Production must use a configured transactional email backend, not a development backend."
+    )
+if (
+    ASSETFLOW_ENV == "production"
+    and EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend"
+    and not EMAIL_HOST
+):
+    raise environ.ImproperlyConfigured("EMAIL_HOST is required for production SMTP delivery.")
 
 # Provisional work-unit size, not a demonstrated production population limit.
 ASSURANCE_WORK_UNIT_SIZE = env.int("ASSURANCE_WORK_UNIT_SIZE", default=500)
@@ -213,8 +256,20 @@ SPECTACULAR_SETTINGS = {
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {"standard": {"format": "{levelname} {asctime} {name}: {message}", "style": "{"}},
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "standard"}},
+    "filters": {"request_id": {"()": "common.request_id.RequestIdFilter"}},
+    "formatters": {
+        "standard": {
+            "format": "{levelname} {asctime} request_id={request_id} {name}: {message}",
+            "style": "{",
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+            "filters": ["request_id"],
+        }
+    },
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
 }
 
@@ -224,3 +279,7 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False)
+    SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
+    X_FRAME_OPTIONS = "DENY"

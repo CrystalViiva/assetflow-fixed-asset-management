@@ -25,8 +25,11 @@ The production Compose file requires:
 - `DJANGO_SECRET_KEY`: unique high-entropy Django signing key.
 - `POSTGRES_PASSWORD`: unique URL-safe PostgreSQL password; the Compose file inserts it into DATABASE_URL.
 - `ALLOWED_HOSTS`: comma-separated exact host names serving the application.
+- `CSRF_TRUSTED_ORIGINS`: explicit HTTPS origins used by Django admin/session CSRF checks.
+- `FRONTEND_BASE_URL`: public HTTPS URL used when generating customer links.
+- Transactional email: backend, SMTP host, credentials, TLS mode, and sender identity.
 
-Optional settings include `ASSETFLOW_HTTP_PORT`, `TIME_ZONE`, `DB_CONN_MAX_AGE`, `LOG_LEVEL`, Celery worker concurrency, evidence/export limits, and analytics bounds. Compose fixes DEBUG false and defaults HTTPS redirect on. If copying `.env.example`, change its local `SECURE_SSL_REDIRECT=false` to true before production.
+Optional settings include `ASSETFLOW_HTTP_PORT`, `TIME_ZONE`, `DB_CONN_MAX_AGE`, `LOG_LEVEL`, Celery worker concurrency, evidence/export limits, and analytics bounds. Compose fixes DEBUG false and defaults HTTPS redirect on. Production rejects a short/example signing key and wildcard/empty hosts. Set `SECURE_SSL_REDIRECT=true`, and configure trusted origins with `https://` values. The sample email backend logs messages to the console and is not a production delivery service; explicitly configure and test a transactional provider before onboarding customers.
 
 Generate secrets locally without committing them:
 
@@ -59,7 +62,7 @@ docker compose --env-file .env.production -f docker-compose.production.yml ps
 docker compose --env-file .env.production -f docker-compose.production.yml logs --tail=100 web worker beat
 ```
 
-The API health endpoint is `/api/v1/health/`. It is a Django process liveness response and does not probe PostgreSQL or Redis; Compose separately gates initial service startup on database/broker health. API documentation routes are `/api/v1/schema/`, `/api/v1/docs/`, and `/api/v1/redoc/`. The sample Nginx proxy forwards these paths to Django. Restrict documentation/admin routes at the edge if required by deployment policy.
+The API liveness endpoint is `/api/v1/health/`; readiness is `/api/v1/ready/` and checks PostgreSQL. Compose uses readiness for the web healthcheck and separately gates startup on DB/Redis health. Neither endpoint probes Celery queue progress or external object storage; add provider-specific monitoring. API responses include a generated request ID and application logs include it for support correlation. API documentation routes are `/api/v1/schema/`, `/api/v1/docs/`, and `/api/v1/redoc/`. Restrict documentation/admin routes at the edge if required by deployment policy.
 
 ## Private files and durability
 
@@ -75,7 +78,7 @@ The mock frontend is the safe zero-credential product demo. There is no built-in
 
 ### First organization bootstrap
 
-The API intentionally does not provide public organization provisioning. For a new private installation, an operator with database-backed shell access must create the first organization and initial accounts once. Enter the following in the Django shell using interactive prompts rather than putting passwords in shell history:
+The API intentionally does not provide public organization provisioning. For a new private installation, an operator with database-backed shell access must create the first organization and initial accounts once. Enter the following in the Django shell using interactive prompts rather than putting passwords in shell history. This bootstrap technique is for initial private installation only; it is not an auditable repeatable customer onboarding or invitation workflow:
 
 ```python
 from getpass import getpass
