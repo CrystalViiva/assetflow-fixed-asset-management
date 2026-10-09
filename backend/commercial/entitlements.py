@@ -1,6 +1,7 @@
 """Server authority for subscription access. Expiry is evaluated on every request."""
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
@@ -49,18 +50,41 @@ def usage(organization):
     }
 
 
-def require_capacity(organization, dimension):
-    """Caller holds this organization lock through the consequential insert."""
+def write_enabled_organizations(queryset):
+    """Filter automation candidates; posting rechecks under lock at execution time."""
+    now = timezone.now()
+    return queryset.filter(is_active=True).filter(
+        Q(subscription__isnull=True)
+        | Q(subscription__state="MANAGED")
+        | Q(subscription__state="TRIAL", subscription__trial_ends_at__gt=now)
+        | Q(subscription__state="ACTIVE", subscription__period_ends_at__gt=now)
+        | Q(subscription__state="PAST_DUE", subscription__grace_ends_at__gt=now)
+    )
+
+
+def require_write_access(organization):
+    """Serialize write authorization against suspension and subscription changes."""
     if not transaction.get_connection().in_atomic_block:
         raise RuntimeError("Entitlement checks require the surrounding write transaction.")
-    Organization.objects.select_for_update().get(pk=organization.pk)
+    # NO KEY UPDATE permits unrelated audit FK inserts while serializing state changes.
+    locked = Organization.objects.select_for_update(no_key=True).get(
+        pk=getattr(organization, "pk", organization)
+    )
+    if not locked.is_active:
+        raise PermissionDenied("This organization is currently unavailable.")
     subscription = (
         Subscription.objects.select_related("plan").filter(organization=organization).first()
     )
+    if subscription and not writable(subscription):
+        raise PermissionDenied("This subscription is read-only.")
+    return subscription
+
+
+def require_capacity(organization, dimension):
+    """Caller holds this organization lock through the consequential insert."""
+    subscription = require_write_access(organization)
     if subscription is None:  # Existing/managed organizations retain their agreed access.
         return
-    if not writable(subscription):
-        raise PermissionDenied("This subscription is read-only.")
     limit = getattr(subscription.plan, dimension)
     if limit is not None and usage(organization)[dimension] >= limit:
         raise PermissionDenied(

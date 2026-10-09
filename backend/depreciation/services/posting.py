@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from assets.models import Asset, AssetStatus, DepreciationMethod
 from audit.services import record_event
+from commercial.entitlements import require_write_access
 from depreciation.models import (
     AccountingPeriod,
     DepreciationEntry,
@@ -172,6 +173,7 @@ def post_depreciation(*, asset_id, period_id, actor, organization=None, ip_addre
     organization = _organization(actor, organization)
     try:
         with transaction.atomic():
+            require_write_access(organization)
             try:
                 period = AccountingPeriod.objects.select_for_update(of=("self",)).get(
                     pk=period_id, organization=organization

@@ -112,6 +112,9 @@ def schedule_organization_depreciation(organization, *, window):
         organization = (
             type(organization).objects.select_for_update().get(pk=organization.pk, is_active=True)
         )
+        from commercial.entitlements import require_write_access
+
+        require_write_access(organization)
         period = AccountingPeriod.objects.filter(
             organization=organization, year=scheduled_for.year, month=scheduled_for.month
         ).first()

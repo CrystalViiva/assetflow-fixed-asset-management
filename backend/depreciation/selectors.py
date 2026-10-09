@@ -1,6 +1,7 @@
 """Tenant-scoped and eager-loaded depreciation queries."""
 
 from assets.models import AssetStatus
+from commercial.entitlements import write_enabled_organizations
 from depreciation.models import (
     AccountingPeriod,
     DepreciationEntry,
@@ -31,8 +32,8 @@ def entries_for_organization(organization):
 
 
 def active_organizations_for_depreciation():
-    """Organizations enabled for scheduled depreciation by the existing active flag."""
-    return Organization.objects.filter(is_active=True).order_by("pk")
+    """Active organizations whose current commercial access permits financial writes."""
+    return write_enabled_organizations(Organization.objects.all()).order_by("pk")
 
 
 def schedules_due_for_period(organization, period):

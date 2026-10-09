@@ -1,11 +1,13 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
 from django.db import transaction
+from django.utils import timezone
 
 from audit.models import AuditLog
+from commercial.models import Plan, Subscription
 from depreciation.constants import MONTHLY_DEPRECIATION_SCHEDULE_ID
 from depreciation.models import (
     AccountingPeriod,
@@ -20,6 +22,51 @@ from depreciation.services import (
     schedule_monthly_depreciation,
     schedule_organization_depreciation,
 )
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize(
+    "restriction", ["suspended", "expired_trial", "expired_paid", "expired_grace"]
+)
+def test_queued_posting_rechecks_tenant_and_subscription_access(
+    accountant, asset_factory, restriction
+):
+    asset = asset_factory()
+    starting_balance = asset.current_book_value
+    generate_depreciation_schedule(asset_id=asset.pk, actor=accountant)
+    create_accounting_period(actor=accountant, year=2025, month=2)
+    with patch("depreciation.tasks.execute_monthly_depreciation_run.delay"):
+        run, _ = schedule_organization_depreciation(
+            accountant.organization, window=date(2025, 2, 1)
+        )
+    if restriction == "suspended":
+        accountant.organization.is_active = False
+        accountant.organization.save(update_fields=["is_active"])
+    else:
+        plan = Plan.objects.create(
+            code="automation-trial", version=1, name="Trial", monthly_amount=Decimal("100.00")
+        )
+        expired = timezone.now() - timedelta(seconds=1)
+        Subscription.objects.create(
+            organization=accountant.organization,
+            plan=plan,
+            owner=accountant,
+            billing_email=accountant.email,
+            state={"expired_trial": "TRIAL", "expired_paid": "ACTIVE", "expired_grace": "PAST_DUE"}[
+                restriction
+            ],
+            trial_ends_at=expired,
+            period_ends_at=expired,
+            grace_ends_at=expired,
+        )
+    result = execute_monthly_run(run_id=run.pk)
+    assert result["status"] == "FAILED"
+    run.refresh_from_db()
+    assert run.failure_class == "PermissionDenied"
+    assert not DepreciationEntry.objects.exists()
+    asset.refresh_from_db()
+    assert asset.current_book_value == starting_balance
+    assert schedule_monthly_depreciation(window=date(2025, 3, 1))["organizations_considered"] == 0
 
 
 @pytest.mark.django_db(transaction=True)

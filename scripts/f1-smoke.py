@@ -347,6 +347,11 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
                 if result.stderr:
                     last = result.stderr.strip().splitlines()[-1]
                     print(f"VERIFY: verifier raised {last.split(':', maxsplit=1)[0]}")
+                    import re
+
+                    locations = re.findall(r'File "[^"\n]*f1-smoke\.py", line (\d+)', result.stderr)
+                    if locations:
+                        print(f"VERIFY: assertion location scripts/f1-smoke.py:{locations[-1]}")
                 raise RuntimeError("Isolated PostgreSQL state and audit verification failed; details withheld.")
             print(result.stdout.strip())
     finally:
