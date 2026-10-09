@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from accounts.models import User, UserRole
 from audit.services import record_event
 from common.pagination import StandardResultsPagination
-from organizations.models import Department
+from organizations.models import Department, Organization
 
 
 class TenantAdminPermission(IsAuthenticated):
@@ -24,6 +24,7 @@ class TenantAdminPermission(IsAuthenticated):
             and user.organization_id
             and user.role == UserRole.ADMIN
             and not user.is_superuser
+            and not user.is_platform_operator
         )
 
 
@@ -161,6 +162,9 @@ class UserAdminList(ListCreateAPIView):
 
     @transaction.atomic
     def perform_create(self, serializer):
+        from commercial.entitlements import require_capacity
+
+        require_capacity(self.request.user.organization, "active_users")
         department = serializer.validated_data.get("department_id")
         if department is not None:
             try:
@@ -207,6 +211,7 @@ class UserAdminDetail(RetrieveUpdateAPIView):
 
     @transaction.atomic
     def perform_update(self, serializer):
+        Organization.objects.select_for_update().get(pk=self.request.user.organization_id)
         target = User.objects.select_for_update().get(
             pk=serializer.instance.pk, organization_id=self.request.user.organization_id
         )
@@ -239,6 +244,12 @@ class UserAdminDetail(RetrieveUpdateAPIView):
             values["department_id"] = department
         next_role = values.get("role", target.role)
         next_active = values.get("is_active", target.is_active)
+        if next_active and not target.is_active:
+            from commercial.entitlements import require_capacity
+
+            require_capacity(self.request.user.organization, "active_users")
+        if not next_active and target.is_active:
+            target.session_version += 1
         if (
             target.role == UserRole.ADMIN
             and target.is_active

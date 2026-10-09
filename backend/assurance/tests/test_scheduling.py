@@ -215,7 +215,10 @@ def test_celery_beat_retains_daily_full_assurance_schedule():
 
     assert DAILY_FULL_SCHEDULE_ID in schedule
     assert MONTHLY_DEPRECIATION_SCHEDULE_ID in schedule
-    assert len(schedule) == 6
+    assert len(schedule) == 9
+    assert schedule["identity-mail"]["task"] == "accounts.tasks.deliver_identity_mail"
+    assert schedule["billing-reconciliation"]["task"] == "commercial.tasks.reconcile_billing"
+    assert schedule["operational-heartbeat"]["task"] == "operations.tasks.heartbeat"
     assert schedule["recover-report-exports"]["task"] == "reporting.tasks.recover_report_exports"
     assert schedule["expire-report-exports"]["task"] == "reporting.tasks.expire_report_exports"
     assert schedule["clean-stale-evidence-uploads"]["task"] == (

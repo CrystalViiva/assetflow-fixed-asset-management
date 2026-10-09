@@ -9,6 +9,7 @@ from django.db import IntegrityError, transaction
 from assets.models import Asset, AssetStatus
 from assets.services.validation import validate_organization_relationships
 from audit.services import record_event
+from commercial.entitlements import require_capacity
 
 ASSET_MASTER_FIELDS = {
     "asset_tag",
@@ -119,6 +120,7 @@ def create_asset(*, actor, data, ip_address=None):
 
     try:
         with transaction.atomic():
+            require_capacity(organization, "registered_assets")
             asset.full_clean()
             asset.save()
             record_event(

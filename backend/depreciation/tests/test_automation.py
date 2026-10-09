@@ -308,7 +308,7 @@ def test_monthly_beat_schedule_is_registered_once_with_project_cadence():
         if key == MONTHLY_DEPRECIATION_SCHEDULE_ID
     ]
     assert len(matches) == 1
-    assert len(app.conf.beat_schedule) == 6
+    assert len(app.conf.beat_schedule) == 9
     assert app.conf.beat_schedule["recover-unfinished-assurance"] == {
         "task": "assurance.tasks.recover_assurance_runs",
         "schedule": 60.0,

@@ -21,6 +21,18 @@ app = Celery("assetflow")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
 app.conf.beat_schedule = {
+    "billing-reconciliation": {
+        "task": "commercial.tasks.reconcile_billing",
+        "schedule": 60.0,
+    },
+    "operational-heartbeat": {
+        "task": "operations.tasks.heartbeat",
+        "schedule": 60.0,
+    },
+    "identity-mail": {
+        "task": "accounts.tasks.deliver_identity_mail",
+        "schedule": 30.0,
+    },
     "recover-unfinished-assurance": {
         "task": "assurance.tasks.recover_assurance_runs",
         "schedule": 60.0,

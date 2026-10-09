@@ -2,7 +2,9 @@
 
 import json
 from datetime import timedelta
+from ipaddress import ip_network
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import environ
 
@@ -18,6 +20,12 @@ environ.Env.read_env(ROOT_DIR / ".env", overwrite=False)
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="")
 DEBUG = env.bool("DEBUG", default=False)
 ASSETFLOW_ENV = env("ASSETFLOW_ENV", default="development").strip().lower()
+if ASSETFLOW_ENV not in {"development", "test", "staging", "production"}:
+    raise environ.ImproperlyConfigured(
+        "ASSETFLOW_ENV must be development, test, staging or production."
+    )
+if ASSETFLOW_ENV == "production" and DEBUG:
+    raise environ.ImproperlyConfigured("Production cannot run with DEBUG enabled.")
 if not SECRET_KEY and not DEBUG:
     raise environ.ImproperlyConfigured("DJANGO_SECRET_KEY must be set when DEBUG is false.")
 if not SECRET_KEY:
@@ -34,6 +42,14 @@ if not DEBUG and (not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS):
         "Production ALLOWED_HOSTS must list explicit public host names and cannot contain '*'."
     )
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+TRUSTED_PROXY_NETWORKS = env.list("TRUSTED_PROXY_NETWORKS", default=[])
+try:
+    for proxy_network in TRUSTED_PROXY_NETWORKS:
+        ip_network(proxy_network)
+except ValueError:
+    raise environ.ImproperlyConfigured(
+        "TRUSTED_PROXY_NETWORKS must contain valid CIDR networks."
+    ) from None
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -57,6 +73,8 @@ INSTALLED_APPS = [
     "assurance.apps.AssuranceConfig",
     "reporting.apps.ReportingConfig",
     "analytics.apps.AnalyticsConfig",
+    "operations.apps.OperationsConfig",
+    "commercial.apps.CommercialConfig",
 ]
 
 MIDDLEWARE = [
@@ -191,6 +209,23 @@ CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:6379/1")
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+EMAIL_TIMEOUT = 15
+SELF_SERVICE_ENABLED = env.bool("SELF_SERVICE_ENABLED", default=ASSETFLOW_ENV != "production")
+BILLING_PROVIDER = env(
+    "BILLING_PROVIDER", default="disabled" if ASSETFLOW_ENV == "production" else "local_sandbox"
+)
+PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY", default="")
+if BILLING_PROVIDER not in {"disabled", "local_sandbox", "paystack_test"}:
+    raise environ.ImproperlyConfigured("Only disabled or sandbox billing adapters are supported.")
+if ASSETFLOW_ENV == "production" and BILLING_PROVIDER != "disabled":
+    raise environ.ImproperlyConfigured(
+        "Payment collection is disabled in production for this release."
+    )
+if BILLING_PROVIDER == "paystack_test" and not PAYSTACK_SECRET_KEY.startswith("sk_test_"):
+    raise environ.ImproperlyConfigured(
+        "Paystack sandbox requires an sk_test_ key; live keys are rejected."
+    )
 
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
@@ -208,13 +243,37 @@ EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="AssetFlow <no-reply@localhost>")
 FRONTEND_BASE_URL = env("FRONTEND_BASE_URL", default="http://localhost:3000")
+if ASSETFLOW_ENV == "production":
+    origin = urlsplit(FRONTEND_BASE_URL)
+    if (
+        origin.scheme != "https"
+        or not origin.hostname
+        or origin.username
+        or origin.query
+        or origin.fragment
+    ):
+        raise environ.ImproperlyConfigured(
+            "Production FRONTEND_BASE_URL must be a trusted HTTPS origin."
+        )
+    if "localhost" in DEFAULT_FROM_EMAIL:
+        raise environ.ImproperlyConfigured(
+            "Production DEFAULT_FROM_EMAIL must use a verified sender domain."
+        )
+if ASSETFLOW_ENV == "staging" and EMAIL_BACKEND not in {
+    "django.core.mail.backends.locmem.EmailBackend",
+    "django.core.mail.backends.console.EmailBackend",
+    "django.core.mail.backends.filebased.EmailBackend",
+}:
+    raise environ.ImproperlyConfigured("Staging email must use a capture backend.")
+EMAIL_FILE_PATH = env("EMAIL_FILE_PATH", default=str(BASE_DIR / "local_email"))
 if ASSETFLOW_ENV == "production" and EMAIL_BACKEND in {
     "django.core.mail.backends.console.EmailBackend",
     "django.core.mail.backends.locmem.EmailBackend",
     "django.core.mail.backends.dummy.EmailBackend",
+    "django.core.mail.backends.filebased.EmailBackend",
 }:
     raise environ.ImproperlyConfigured(
-        "Production must use a configured transactional email backend, not a development backend."
+        "Production EMAIL_BACKEND must use a configured transactional email backend."
     )
 if (
     ASSETFLOW_ENV == "production"
@@ -259,8 +318,7 @@ LOGGING = {
     "filters": {"request_id": {"()": "common.request_id.RequestIdFilter"}},
     "formatters": {
         "standard": {
-            "format": "{levelname} {asctime} request_id={request_id} {name}: {message}",
-            "style": "{",
+            "()": "common.logging.JsonFormatter",
         }
     },
     "handlers": {

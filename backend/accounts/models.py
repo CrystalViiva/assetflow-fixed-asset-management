@@ -64,6 +64,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     role = models.CharField(max_length=32, choices=UserRole.choices, default=UserRole.EMPLOYEE)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_platform_operator = models.BooleanField(default=False)
+    session_version = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -93,3 +95,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+from accounts.identity_models import (  # noqa: E402,F401
+    IdentityDelivery,
+    IdentityTicket,
+    ManagedProvision,
+    PlatformEvent,
+    RateBucket,
+)

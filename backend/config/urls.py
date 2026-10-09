@@ -22,12 +22,14 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from accounts.identity_api import LoginView as TokenObtainPairView
+from accounts.identity_api import RefreshView as TokenRefreshView
 from accounts.serializers import AuthenticatedUserSerializer
 from assets.dashboard_api import DashboardMetricsView
 from audit.api import AuditEventListView
 from config.views import health_check, readiness_check
+from operations.api import OperationalHealth
 from organizations.api import CustodianReferenceList, DepartmentReferenceList, LocationReferenceList
 
 
@@ -40,12 +42,15 @@ class AuthenticatedUserView(APIView):
 
 
 urlpatterns = [
+    path("api/v1/platform/health/", OperationalHealth.as_view()),
     path("admin/", admin.site.urls),
     path("api/v1/audit/events/", AuditEventListView.as_view(), name="audit-event-list"),
     path("api/v1/dashboard/metrics/", DashboardMetricsView.as_view(), name="dashboard-metrics"),
     # Specific nested routes must precede the assets router's catch-all detail route.
     path("api/v1/", include("transfers.urls")),
     path("api/v1/", include("accounts.admin_urls")),
+    path("api/v1/", include("accounts.identity_urls")),
+    path("api/v1/", include("commercial.urls")),
     path("api/v1/", include("organizations.admin_urls")),
     path("api/v1/", include("maintenance.urls")),
     path("api/v1/", include("disposals.urls")),
