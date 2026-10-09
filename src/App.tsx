@@ -1,3 +1,5 @@
+import { BillingView, OnboardingView } from './views/SaasViews';
+import { AccountSettings } from './views/IdentityViews';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -256,7 +258,7 @@ export default function App() {
 
   // Render current view
   const renderCurrentView = () => {
-    if (dataSource === 'django' && !['dashboard', 'all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals', 'verification', 'assurance', 'reports', 'audit-log', 'departments', 'locations', 'users-and-roles'].includes(currentRoute)) return <IntegrationPending />;
+    if (dataSource === 'django' && !['dashboard', 'all-assets', 'asset-detail', 'asset-create', 'asset-categories', 'acquisitions', 'depreciation', 'assignments', 'transfers', 'maintenance', 'disposals', 'verification', 'assurance', 'reports', 'audit-log', 'departments', 'locations', 'users-and-roles', 'settings', 'billing', 'onboarding'].includes(currentRoute)) return <IntegrationPending />;
     switch (currentRoute) {
       case 'dashboard':
         if (dataSource === 'django') return <BackendDashboardView onNavigate={navigateTo} />;
@@ -398,7 +400,12 @@ export default function App() {
             onSelectAsset={handleSelectAsset}
           />
         );
+      case 'billing':
+        return <BillingView />;
+      case 'onboarding':
+        return <OnboardingView />;
       case 'settings':
+        if (dataSource === 'django') return <AccountSettings />;
         return <SettingsView onNavigate={navigateTo} />;
       default:
         return (

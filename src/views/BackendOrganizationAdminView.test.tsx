@@ -32,12 +32,14 @@ it('keeps administration server-gated for an employee without falling back to mo
  const c=await setup('EMPLOYEE');renderView(c.client,c.session,'users');expect(await screen.findByRole('status')).toHaveProperty('textContent',expect.stringContaining('current role does not have access'));
  expect(c.fetcher.mock.calls.some(call=>String(call[0]).includes('/admin/'))).toBe(false);expect(screen.queryByText('Babajide Adeleke')).toBeNull();
 });
-it('keeps an initial password out of TanStack mutation/query state',async()=>{
- const c=await setup('ADMIN');const department=ref(dept,'Finance','FIN');
- const ownUser={id:7,email:'admin@example.test',role:'ADMIN',department_id:null,department_name:null,is_active:true,created_at:now,last_login:null};
- const created={...ownUser,id:8,email:'new.user@example.test',role:'EMPLOYEE',department_id:dept,department_name:'Finance'};
- c.fetcher.mockImplementation(async(input,init)=>{const url=String(input);if(url.endsWith('/departments/'))return Response.json({count:1,next:null,previous:null,results:[department]});if(url.includes('/admin/users/')&&init?.method==='POST')return Response.json(created,{status:201});if(url.includes('/admin/users/'))return Response.json({count:1,next:null,previous:null,results:[ownUser]});return Response.json(empty);});
- renderView(c.client,c.session,'users');await screen.findByText('admin@example.test');
- fireEvent.change(screen.getByLabelText('Email'),{target:{value:'new.user@example.test'}});fireEvent.change(screen.getByLabelText('Initial password'),{target:{value:'Secure-initial-password-2026!'}});fireEvent.click(screen.getByRole('button',{name:'Create user'}));
- expect(await screen.findByText(/User created/)).toBeTruthy();expect(JSON.stringify(c.client.getMutationCache().getAll()).includes('Secure-initial-password-2026!')).toBe(false);expect(screen.getByLabelText('Initial password')).toHaveProperty('value','');
+it('invites colleagues without collecting a password or choosing their tenant',async()=>{
+ const c=await setup('ADMIN');
+ c.fetcher.mockImplementation(async(input,init)=>{const url=String(input);if(url.includes('/admin/invitations/'))return Response.json(init?.method==='POST'?{detail:'Requested'}:[]);return Response.json(empty);});
+ renderView(c.client,c.session,'users');
+ fireEvent.change(screen.getByLabelText('Invitation email'),{target:{value:'new.user@example.test'}});
+ fireEvent.click(screen.getByRole('button',{name:'Send invitation'}));
+ expect(await screen.findByText(/Invitation requested/)).toBeTruthy();
+ expect(screen.queryByLabelText('Initial password')).toBeNull();
+ const write=c.fetcher.mock.calls.find(call=>String(call[0]).includes('/admin/invitations/')&&call[1]?.method==='POST')!;
+ expect(JSON.parse(String(write[1]?.body))).toEqual({email:'new.user@example.test',role:'EMPLOYEE',department_id:null});
 });

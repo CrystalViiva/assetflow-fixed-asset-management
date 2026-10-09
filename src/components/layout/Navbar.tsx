@@ -27,7 +27,7 @@ function AuthenticatedNavbar({ onNavigate, globalSearch, setGlobalSearch, onTogg
   return <header className="fixed top-0 left-0 right-0 h-12 bg-white z-50 flex items-center justify-between gap-2 px-2 sm:px-4 border-b border-slate-200">
     <button id="mobile-nav-toggle" type="button" onClick={onToggleMobileNav} aria-label={isMobileNavOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={isMobileNavOpen} className="rounded p-2 text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700 md:hidden"><span aria-hidden="true" className="material-symbols-outlined">{isMobileNavOpen ? 'close' : 'menu'}</span></button>
     <button onClick={() => onNavigate('all-assets')} className="flex items-center gap-1.5 whitespace-nowrap font-bold text-[#00288e]"><AssetFlowLogo className="w-7 h-7" /><span className="hidden min-[430px]:inline">AssetFlow</span></button>
-    <span className="hidden lg:inline text-xs text-blue-700">Django API</span>
+    <span className="hidden lg:inline text-xs text-blue-700">Customer workspace</span>
     <input aria-label="Global asset search" className="rounded border bg-slate-50 p-1.5 text-sm min-w-0 max-w-md flex-1" placeholder="Search assets" value={globalSearch} onChange={e => { setGlobalSearch(e.target.value); onNavigate('all-assets'); }} />
     <div className="hidden md:block text-right text-xs"><div>{user?.email}</div><div className="text-slate-500">{role?.replaceAll('_', ' ')}</div></div>
     <button onClick={signOut} className="shrink-0 rounded border px-2 sm:px-3 py-1.5 text-xs sm:text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Sign out</button>

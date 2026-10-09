@@ -11,14 +11,14 @@ describe('public product experience', () => {
     expect(screen.getByText(/illustrative interface only/i)).toBeTruthy();
     expect(screen.getByText(/straight-line depreciation workflows/i)).toBeTruthy();
     expect(screen.getByText(/impairment accounting and other depreciation methods are not represented/i)).toBeTruthy();
-    expect(screen.getByText(/the browser dashboard does not read parquet marts/i)).toBeTruthy();
+    expect(screen.getByText(/preserve a report as a dated snapshot/i)).toBeTruthy();
     expect(screen.queryByText(/fully ifrs compliant|ai-powered|predictive maintenance|malware scanned/i)).toBeNull();
     expect(screen.getAllByRole('link', { name: /sign in to assetflow/i }).length).toBeGreaterThan(0);
     const github = screen.getByRole('link', { name: /github/i });
     expect(github.getAttribute('href')).toBe('https://github.com/CrystalViiva/assetflow-fixed-asset-management');
     expect(github.getAttribute('target')).toBe('_blank');
     expect(github.getAttribute('rel')).toContain('noopener');
-    expect(screen.queryByRole('link', { name: /free trial|pricing|forgot password/i })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Pricing' }).getAttribute('href')).toBe('#pricing');
   });
 
   it('uses an internal dashboard CTA for an authenticated user and provides keyboard-operated mobile navigation', () => {
@@ -34,7 +34,7 @@ describe('public product experience', () => {
     render(<PublicLandingPage authenticated={false} />);
     expect(screen.getAllByRole('link', { name: 'Capabilities' })[0].getAttribute('href')).toBe('#capabilities');
     expect(screen.getAllByRole('link', { name: 'Controls' })[0].getAttribute('href')).toBe('#controls');
-    expect(screen.getAllByRole('link', { name: 'Architecture' })[0].getAttribute('href')).toBe('#architecture');
+    expect(screen.getByRole('link', { name: 'Features' }).getAttribute('href')).toBe('#features');
     expect(screen.getByRole('heading', { name: /from acquisition record to accountable disposition/i })).toBeTruthy();
   });
 });

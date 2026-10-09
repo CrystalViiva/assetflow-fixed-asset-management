@@ -1,7 +1,7 @@
 import { ApiClient } from './apiClient';
 import { ApiError, isRecord } from './apiError';
 
-export interface SessionUser { id: number; email: string; role: string }
+export interface SessionUser { id: number; email: string; role: string; isPlatformOperator?: boolean }
 export interface SessionSnapshot { user: SessionUser | null; initializing: boolean; error: string | null }
 export const REFRESH_KEY = 'assetflow_refresh';
 
@@ -17,7 +17,7 @@ function user(value: unknown): SessionUser {
     throw new ApiError('contract', 'The session service returned an invalid response.');
   }
   // Preserve unfamiliar roles without granting any client-side privileges.
-  return { id: value.id, email: value.email, role: value.role };
+  return { id: value.id, email: value.email, role: value.role, ...(value.is_platform_operator === true ? { isPlatformOperator: true } : {}) };
 }
 
 export class Session {
@@ -52,7 +52,11 @@ export class Session {
     this.clearCache();
     this.publish({ user: null, initializing: false, error });
   };
-  logout = () => this.invalidate('signed-out');
+  logout = () => {
+    // Capture the request before clearing local credentials. Local sign-out always completes.
+    if (this.accessToken) void this.api.request('/auth/logout/', { method: 'POST', retryUnauthorized: false }).catch(() => {});
+    this.invalidate('signed-out');
+  };
 
   refresh = (): Promise<void> => {
     if (this.flight) return this.flight;

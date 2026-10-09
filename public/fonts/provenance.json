@@ -1,0 +1,31 @@
+{
+  "retrieved_at": "2026-10-09T05:49:51.484389+00:00",
+  "css_sources": {
+    "inter": "https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap",
+    "symbols": "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@0..1&display=block"
+  },
+  "license_sources": {
+    "Inter-OFL.txt": "https://raw.githubusercontent.com/google/fonts/main/ofl/inter/OFL.txt",
+    "Material-Symbols-LICENSE.txt": "https://raw.githubusercontent.com/google/material-design-icons/master/LICENSE"
+  },
+  "files": [
+    {
+      "file": "inter-34b9c504cab7.woff2",
+      "source": "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa25L7SUc.woff2",
+      "sha256": "34b9c504cab7a73e37b746343a449132e56cf7b5481af2cb81dc74dcff25c956",
+      "bytes": 85068
+    },
+    {
+      "file": "inter-3100e775e861.woff2",
+      "source": "https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2",
+      "sha256": "3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62",
+      "bytes": 48256
+    },
+    {
+      "file": "symbols-0fc01c0b6d5e.woff2",
+      "source": "https://fonts.gstatic.com/s/materialsymbolsoutlined/v377/kJF4BvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oDMzBwG-RpA6RzaxHMPdY40KH8nGzv3fzfVJU22ZZLsYEpzC_1ver5Y0.woff2",
+      "sha256": "0fc01c0b6d5eea44993d561ad5bb9e04059550246ea90b8bb766006e562a83ae",
+      "bytes": 462444
+    }
+  ]
+}

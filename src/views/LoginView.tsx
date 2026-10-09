@@ -30,7 +30,7 @@ export function LoginView({ sessionExpired = false }: { sessionExpired?: boolean
         <label className="block text-sm font-medium">Password<input id="login-password" name="password" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} disabled={busy} className="login-input block mt-2 w-full border border-slate-300 rounded-lg p-3" /></label>
         {error && <p role="alert" aria-live="polite" className="text-sm text-rose-700">{error}</p>}
         <button type="submit" disabled={busy} className="w-full bg-[#00288e] text-white rounded-lg p-3 font-semibold disabled:opacity-60">{busy ? 'Signing in…' : 'Sign in'}</button>
-      </form><div className="mt-6 flex items-center justify-between gap-4"><a href="#/" className="text-sm font-medium text-blue-800 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Back to AssetFlow</a><p className="text-right text-xs text-slate-500">Authenticated workspace</p></div>
+      </form><a href="#forgot-password" className="mt-5 block text-sm text-blue-900 underline">Forgot password?</a><div className="mt-6 flex items-center justify-between gap-4"><a href="#/" className="text-sm font-medium text-blue-800 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Back to AssetFlow</a><p className="text-right text-xs text-slate-500">Authenticated workspace</p></div>
     </section>
   </main>;
 }

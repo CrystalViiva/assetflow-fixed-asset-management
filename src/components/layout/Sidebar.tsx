@@ -423,15 +423,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Bottom Period & Base Currency Panel */}
       {!isCollapsed ? (
         <div className="p-2 bg-[#eff4ff]/80 border-t border-slate-200">
+          {dataSource === 'django' ? <div className="mb-2 flex justify-between px-2 py-1 text-xs text-blue-800"><button onClick={() => onNavigate('onboarding')}>Getting started</button><a href="#help">Help & support</a></div> : <>
           <div className="flex items-center justify-between px-2 py-1 rounded bg-white text-[11px] mb-1 border border-slate-200/60 shadow-2xs">
             <span className="text-slate-500 font-medium">Period:</span>
-            <span className="text-emerald-700 font-bold">{dataSource === 'django' ? 'Not provided by API' : 'FY 2025 - Q1 Active'}</span>
+            <span className="text-emerald-700 font-bold">FY 2025 - Q1 Active</span>
           </div>
 
           <div className="flex items-center justify-between px-2 py-1 rounded bg-white text-[11px] mb-2 border border-slate-200/60 shadow-2xs">
             <span className="text-slate-500 font-medium">Base Currency:</span>
-            <span className="font-mono font-bold text-slate-900">{dataSource === 'django' ? 'Not provided by API' : 'NGN (₦)'}</span>
+            <span className="font-mono font-bold text-slate-900">NGN (₦)</span>
           </div>
+          </>}
 
           <button
             onClick={onToggleCollapse}
