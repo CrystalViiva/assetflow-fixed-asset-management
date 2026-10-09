@@ -16,3 +16,7 @@ venv/
 *.db
 backend/private_media/
 backend/analytics_data/
+.codex-*/
+.codex-*.ps1
+.codex-*.json
+.codex-*.xml

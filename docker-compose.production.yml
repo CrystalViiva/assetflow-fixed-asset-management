@@ -11,6 +11,7 @@ x-backend-environment: &backend-environment
   CELERY_RESULT_BACKEND: redis://redis:6379/1
   DB_CONN_MAX_AGE: ${DB_CONN_MAX_AGE:-60}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  TRUSTED_PROXY_NETWORKS: ${TRUSTED_PROXY_NETWORKS:?Set the internal reverse proxy network CIDR for client throttling}
   PRIVATE_MEDIA_ROOT: /srv/assetflow/private
   STATIC_ROOT: /srv/assetflow/static
   ANALYTICS_MEDIA_ROOT: /srv/assetflow/analytics
@@ -26,7 +27,7 @@ x-backend-environment: &backend-environment
   EMAIL_HOST_USER: ${EMAIL_HOST_USER:?Set EMAIL_HOST_USER for SMTP email delivery}
   EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:?Set EMAIL_HOST_PASSWORD outside source control}
   EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
-  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-AssetFlow <no-reply@localhost>}
+  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:?Set DEFAULT_FROM_EMAIL to a verified sender}
   FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?Set FRONTEND_BASE_URL to the HTTPS customer application URL}
 
 services:
@@ -47,6 +48,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - production_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -78,7 +82,7 @@ services:
       - production_analytics_data:/srv/assetflow/analytics
       - production_static_data:/srv/assetflow/static:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/api/v1/ready/', headers={'X-Forwarded-Proto':'https'}); urllib.request.urlopen(req, timeout=3)"]
+      test: ["CMD", "python", "-c", "import os,urllib.request; req=urllib.request.Request('http://127.0.0.1:8000/api/v1/ready/', headers={'Host':os.environ['ALLOWED_HOSTS'].split(',')[0].strip(),'X-Forwarded-Proto':'https'}); urllib.request.urlopen(req, timeout=3)"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -122,6 +126,8 @@ services:
     restart: unless-stopped
 
   frontend:
+    environment:
+      ASSETFLOW_INGRESS_PROXY_CIDR: ${ASSETFLOW_INGRESS_PROXY_CIDR:?Set the CIDR of the TLS ingress as seen by the frontend container}
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -139,6 +145,7 @@ services:
 
 volumes:
   production_postgres_data:
+  production_redis_data:
   production_private_data:
   production_analytics_data:
   production_static_data:

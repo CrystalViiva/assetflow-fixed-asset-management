@@ -16,3 +16,4 @@ coverage/
 *.db
 backend/private_media/
 backend/analytics_data/
+.codex-*

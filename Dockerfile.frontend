@@ -11,7 +11,8 @@ ENV VITE_DATA_SOURCE=${VITE_DATA_SOURCE} \
     VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}
 RUN npm run build
 
-FROM nginx:1.27-alpine
-COPY nginx.assetflow.conf /etc/nginx/conf.d/default.conf
+FROM nginx:1.30.5-alpine
+ENV ASSETFLOW_INGRESS_PROXY_CIDR=127.0.0.1/32
+COPY nginx.assetflow.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist/ /usr/share/nginx/html/
 EXPOSE 80

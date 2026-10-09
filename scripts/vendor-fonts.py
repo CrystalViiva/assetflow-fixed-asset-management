@@ -4,14 +4,13 @@ Run explicitly when updating fonts; review assets, licenses and provenance chang
 Builds never contact a font service.
 """
 
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import re
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from pathlib import Path
 from urllib.request import Request, urlopen
-
 
 ROOT = Path(__file__).resolve().parent.parent / "public/fonts"
 AGENT = (
