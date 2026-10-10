@@ -6,6 +6,24 @@ on:
   pull_request:
 
 jobs:
+  production-compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Disposable production image and service acceptance
+        run: python scripts/ops/production_compose_smoke.py --output .codex-compose-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-compose-evidence
+          path: .codex-compose-evidence/
+          include-hidden-files: true
+          retention-days: 7
+
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -90,7 +108,7 @@ jobs:
         working-directory: backend
         run: ruff format --check .
       - name: Operational scripts lint
-        run: ruff check scripts/commercial-smoke.py scripts/ops/recovery_drill.py scripts/vendor-fonts.py
+        run: ruff check scripts/commercial-smoke.py scripts/commercial-lifecycle-smoke.py scripts/ops/recovery_drill.py scripts/ops/production_compose_smoke.py scripts/vendor-fonts.py
 
   commercial-browser:
     runs-on: ubuntu-latest
