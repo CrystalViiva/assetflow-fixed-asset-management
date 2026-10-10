@@ -22,7 +22,7 @@ AssetFlow helps finance and operations teams manage asset acquisition, capitaliz
 
 **Accounting note:** These are IAS 16-aligned workflows, not a claim of full IAS 16/IFRS compliance. Current scope does not include component depreciation, impairment ledger, revaluation, estimate revisions, decommissioning accounting, or multi-currency accounting.
 
-**Next step:** Request a guided demonstration and discuss a managed onboarding pilot. No public self-service checkout is currently available.
+**Next step:** Request a guided demonstration and discuss a managed onboarding pilot. Self-service trials and local sandbox billing can be demonstrated where configured. No live collection is enabled.
 
 ## Demo script (20 minutes)
 
@@ -36,7 +36,7 @@ AssetFlow helps finance and operations teams manage asset acquisition, capitaliz
 8. Generate a report snapshot and private export; explain snapshot as-of semantics.
 9. Close with onboarding requirements, data migration scope, support model, security limitations, and a pilot proposal.
 
-Use synthetic demo data. Do not present mock content as a customer tenant or claim unimplemented invitation, recovery, billing, or hosted controls.
+Use synthetic demo data. Do not present mock content as a customer tenant or describe sandbox transactions as live payments or claim hosted controls without deployment evidence.
 
 ## Discovery questionnaire
 

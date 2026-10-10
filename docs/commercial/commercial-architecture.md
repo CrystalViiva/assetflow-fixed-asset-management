@@ -6,7 +6,7 @@ Keep the current React/TypeScript browser and Django REST/PostgreSQL domain arch
 
 ## Managed onboarding and SaaS convergence
 
-Managed onboarding and self-service registration must converge on the same organization and membership model. Provisioning creates an organization plus an inactive initial administrator and a single-use expiring activation token, then activates membership only after identity verification. Managed provisioning is restricted to an explicit platform operator or CLI command; tenant admins may invite users only into their own organization. Public signup never accepts an operator role or organization identifier as authority. Subscription and entitlement state belongs in server-side records/configuration and is checked by Django at the service/API boundary.
+Managed onboarding and self-service registration must converge on the same organization and membership model. Managed provisioning creates an inactive organization and a single-use expiring activation ticket; the administrator account is created only when activation is accepted. Self-service stores a pending registration, then creates organization, administrator and trial subscription atomically after email verification. Managed provisioning is restricted to an explicit platform operator or CLI command; tenant admins may invite users only into their own organization. Public signup never accepts an operator role or organization identifier as authority. Subscription and entitlement state belongs in server-side records/configuration and is checked by Django at the service/API boundary.
 
 ## Operator and tenant boundaries
 
@@ -29,3 +29,7 @@ Use a managed PostgreSQL service with point-in-time/automated backups, one small
 - Obtain qualified legal review for Nigeria Data Protection Act obligations, international transfer terms, privacy notice, DPA, service terms, and cancellation/refund policy.
 
 No external cloud account, DNS zone, mail provider credentials, or live payment credentials are configured in this repository. No public deployment or live billing is claimed.
+
+## Implemented continuation
+
+The original lifecycle above records the C1 design. Current state transitions, shared subscription model, server entitlements, plan rules and provider limitations are documented in [the implemented SaaS architecture](../saas/implementation.md). Operator and customer procedures are in [managed onboarding](../operations/customer-onboarding.md).

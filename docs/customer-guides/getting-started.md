@@ -21,4 +21,4 @@ The current accounting implementation provides componentized acquisition costs, 
 
 Do not share passwords or use another person's account. Ask your administrator to invite or deactivate users and assign roles/departments. Contact your designated AssetFlow support contact with the workspace, approximate time, affected workflow, and any request ID; do not email passwords, reset links, tokens, or asset documents unless an approved secure support channel is provided.
 
-Some commercial onboarding flows (email activation, self-service registration, and subscription billing) are not available in the current release. The onboarding administrator will explain the configured access process.
+Managed customers receive an administrator activation invitation. Where enabled, Get started also supports self-service company registration and email verification. Billing controls are explicitly sandbox-only. See [common workflows](workflows.md) for invitation, recovery, setup and export instructions.

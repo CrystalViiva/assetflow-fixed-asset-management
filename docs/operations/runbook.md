@@ -49,6 +49,30 @@ Use a reviewed operator-only workflow that records the organization, reason, act
 - Email failure: inspect provider message identifiers and rate limits; safely retry only idempotent notification requests.
 - Suspected tenant isolation issue: disable affected access, preserve logs, investigate selectors and background task tenant arguments, and do not inspect unrelated tenant content without authorization.
 
+## Monitoring integration
+
+Poll public `/api/v1/health/` for process liveness and `/api/v1/ready/` for PostgreSQL readiness. Use `python manage.py check_operations` from a restricted monitoring job every minute; nonzero exit means investigation is required. Forward this exit status to the selected alert service. It reports worker heartbeat freshness (three-minute threshold), a private storage write/read/delete probe, pending/exhausted mail deliveries, and failed tasks in the last 24 hours. The same metadata is visible only to operators at `/api/v1/platform/health/`.
+
+Run one Beat scheduler. It enqueues identity mail every 30 seconds and worker heartbeat/billing reconciliation every 60 seconds, alongside the six original domain schedules. A missing/stalled worker or broker becomes visible through an aging heartbeat. This is not a direct queue-depth metric or HA guarantee. Failed-task records contain task ID/name and exception type; task arguments and exception messages are excluded. Structured logs retain request correlation IDs and redact credential patterns. Configure log retention and alert recipients at the host; neither is an external service provisioned by this repository.
+
+## Environment and ingress setup
+
+Production must set `ASSETFLOW_ENV=production`, a unique long secret, explicit hosts, an HTTPS frontend URL, a verified sender and transactional email configuration. Development, test, staging and production must use distinct databases, private storage, secrets and mail behavior. Staging accepts captured mail only. Payment collection is forced off in production; the local sandbox cannot be enabled there.
+
+The production frontend binds to loopback on the Docker host, behind the owner's TLS ingress. The ingress must overwrite forwarded protocol/client headers. Set `ASSETFLOW_INGRESS_PROXY_CIDR` to its actual peer network as observed by nginx, and `TRUSTED_PROXY_NETWORKS` to the internal frontend proxy network as observed by Django. Never trust `0.0.0.0/0` or arbitrary forwarded headers. Verify two independent clients receive distinct throttling identities after deployment. Keep the web/database/Redis services private. Nginx's `/api/v1/` location applies an ingress request limit; Django applies atomic identity limits independently.
+
+Backend dependencies are pinned in `backend/requirements.lock` to the tested environment. Regenerate from `requirements.txt`, review, audit and rerun regressions before upgrades. Frontend builds use `npm ci`. Exclude `.codex-*`, environment files and private data from image contexts. Resolve/tag image digests in the actual release registry after container validation; base-image vulnerabilities have not been scanned in this Docker-less environment.
+
+## Reproducible local staging exercise
+
+Create a dedicated loopback PostgreSQL cluster on a nondefault port with an `assetflow` role. Run `python scripts/commercial-smoke.py --port <port>` after installing the locked backend and frontend dependencies and Playwright Chromium. On Windows a known installed Chrome can be selected with `E2E_BROWSER_EXECUTABLE`. The script generates synthetic credentials, migrates its own uniquely named database, starts local Django and Vite, runs four browser journeys, writes evidence, and stops/drops only its own resources. No real SMTP, payment collection or customer database is used. It does not start Redis or validate production Gunicorn/containers.
+
+Adding `--nginx <executable>` builds the Django-mode frontend, syntax-checks a local adaptation of the repository nginx configuration, then runs the same journeys through that real proxy, including security header assertions. This remains a local HTTP test with Django runserver, not a TLS/Gunicorn/Linux deployment.
+
+The production nginx image was updated to upstream stable 1.30.5 after checking the [official release page](https://nginx.org/en/download.html) and [official image source](https://github.com/nginx/docker-nginx). Redis uses a durable AOF volume. Application fonts are vendored with license/provenance records, and nginx sends a same-origin Content Security Policy. Container image scanning and Linux runtime validation remain required on the deployment host.
+
+See [managed onboarding](customer-onboarding.md), [recovery](backup-restore.md), and [release evidence](../commercial/release-decision.md) before accepting a customer.
+
 ## Hosting options for evaluation
 
 Two realistic patterns are a managed application platform with managed PostgreSQL/object storage, or a small cloud VM running containers plus separately managed PostgreSQL/object storage. Managed services reduce database backup, patching, failover, and TLS operations; the VM pattern can reduce initial hosting cost but concentrates patching, monitoring, and recovery responsibility on the operator. A single Compose host is not HA and local volumes are not off-site backup. Nigerian-region services may be limited, so compare West Africa latency from intended customer sites with provider support, data location, restore, and export capabilities. Current prices change; obtain quotes from official provider pricing pages at decision time. No pricing estimate or region-specific guarantee is made here.

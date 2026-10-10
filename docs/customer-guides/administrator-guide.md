@@ -8,7 +8,7 @@ Agree naming conventions for asset tags, departments, locations, and asset categ
 
 ## User access
 
-Use the organization user directory to review roles, active status, and department assignment. Keep at least one active organization administrator. Disable access promptly when a user's employment or responsibility ends. Password-based invitation/activation and account recovery are not part of the audited baseline; until those flows are deployed, follow the onboarding process supplied by the service operator and never transmit passwords in ordinary email or chat.
+Use the organization user directory to review roles, active status, and department assignment. Keep at least one active organization administrator. Disable access promptly when a user's employment or responsibility ends. Use the invitation form in Users & Roles to select the email, role and department. Recipients choose their own password through a single-use email link. Revoke unused invitations when access is no longer appropriate. Password recovery is available from the sign-in screen. See [common workflows](workflows.md).
 
 ## Operational controls
 
@@ -16,4 +16,4 @@ Review pending accounting periods and approvals, reconcile asset records with ph
 
 ## Limitations
 
-An organization administrator cannot access another tenant, grant platform operator privileges, or directly change subscription entitlements. Billing and self-service plan management are not available in the current product baseline.
+An organization administrator cannot access another tenant, grant platform operator privileges, or directly change subscription entitlements. Settings links to billing status, usage and billing contact. Self-service trial and sandbox plan flows are available where configured; live payments are disabled. Managed service terms remain with the operator.

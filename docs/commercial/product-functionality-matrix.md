@@ -1,11 +1,11 @@
 # Product functionality matrix
 
-This matrix describes the reviewed repository baseline. Django means a real authenticated API backed by PostgreSQL. Mock means fictional browser-local/demo data and is not a customer workspace.
+This matrix describes the implemented commercial continuation; see the release decision for validation scope. Django means a real authenticated API backed by PostgreSQL. Mock means fictional browser-local/demo data and is not a customer workspace.
 
 | Surface | Django customer mode | Mock/demo mode | Status and user-facing caveat |
 |---|---|---|---|
-| Public landing | Public product description and login entry | Same page | Functional presentation; no lead capture/signup at audit start. Preview is labeled illustrative. |
-| Login/session | JWT login, `/me`, in-memory access token, session refresh, sign out | Demo authentication/session behavior | Functional, but recovery/verification/invite flows absent. |
+| Public landing | Public pages, contact/demo forms and login/signup entry | Marketing and labeled illustration; lead submission disabled in mock builds | Django leads persist with consent, throttling and operator status inbox. |
+| Login/session | JWT login/refresh, password recovery/change, immediate session version revocation and suspension checks | Demo session behavior | Real identity flows use signed, expiring, single-use email tickets. |
 | Dashboard | Live scoped Django/PostgreSQL aggregates | Seeded illustrative data | Real customer data in Django mode. |
 | Asset register/details | API-backed search, pagination, detail | Mock repository | Real in Django mode. |
 | Acquisition/capitalization | Domain API and Decimal services | Mock workflow | Backend authoritative in Django mode. |
@@ -17,14 +17,14 @@ This matrix describes the reviewed repository baseline. Django means a real auth
 | Assurance | Async, durable assurance jobs and findings | Mock assurance | Control checks do not mutate accounting/asset records. |
 | Reports/snapshots/exports | Current reports, immutable snapshots, async private exports | Mock reports | Exports are snapshot-derived and authenticated. |
 | Audit | Read-only, tenant-scoped API | Mock history | Application audit trail, not cryptographic tamper evidence. |
-| User administration | Tenant-admin API for role/department/status and directory | Mock users/roles screen | Real but initial-password creation is unsuitable for managed onboarding. |
-| Departments/locations/settings | Real reference APIs where exposed | Mock settings/reference data | Organization profile administration is incomplete. |
-| Password change/recovery | No recovery routes at audit start | Demo behavior only | Not commercially complete. |
-| Company provisioning | No product flow; installation bootstrap is operator-managed | Demo data | Requires secure managed provisioning. |
-| Contact/demo request | No persisted server workflow at audit start | Static presentation | Not a functioning lead capture workflow. |
-| Self-service signup/verification | Absent | Absent | No public tenant creation. |
-| Plans/subscriptions/payments | Absent | Absent | No billing capability; do not imply checkout. |
-| Hosting/backup/restore | Compose deployment files only | N/A | No external staging/production evidence. |
+| User administration | Directory, role/department/status updates and invitations | Mock users/roles screen | Invitations replace initial-password creation in the customer UI; last-admin controls retained. |
+| Departments/locations/settings | Reference CRUD, account profile, company name/legal name and password change | Mock settings/reference data | Currency/timezone selected on provisioning; historical accounting currency is not casually editable. |
+| Password change/recovery | Forgot/reset/change forms and APIs; generic response and shared throttling | No fake account recovery | Captured-email browser and PostgreSQL replay/session tests pass. |
+| Company provisioning | Unscoped operator API, CLI and console; idempotent request and activation | No mock customer provisioning | Pending company activates only after invitation acceptance. |
+| Contact/demo request | Persisted enquiries, consent/honeypot/throttling, operator inbox/status and retention review | Clearly unavailable submission | No live sales email sent during tests. |
+| Self-service signup/verification | Company registration, resend verification, atomic activation/trial | Signup unavailable in mock mode | Configurable; disabled by default in production. |
+| Plans/subscriptions/payments | Server plans, limits, usage/history, cancellation and billing contact | No mock fallback | Local sandbox tested; Paystack test transaction adapter contract-tested only; production charges disabled. |
+| Hosting/backup/restore | Hardened Compose, readiness, worker/storage/mail health, encrypted application recovery drill | N/A | Local API/browser/recovery validated. Docker containers and public hosting not validated. |
 
 ## Request path
 

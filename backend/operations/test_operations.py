@@ -63,11 +63,13 @@ def test_log_redaction():
 @pytest.mark.django_db(transaction=True)
 def test_real_celery_worker_heartbeat_and_failed_task():
     """Exercise task delivery/signals through a worker; memory transport, not Redis."""
-    from celery import Celery
+    from celery import Celery, _state, current_app
     from celery.contrib.testing.worker import start_worker
     from celery.signals import task_postrun
     from django.db import connections
 
+    previous_app = current_app._get_current_object()
+    previous_default = _state.default_app
     app = Celery(
         "operations_probe",
         broker="memory://",
@@ -97,3 +99,7 @@ def test_real_celery_worker_heartbeat_and_failed_task():
     finally:
         task_postrun.disconnect(close_worker_connection)
         app.close()
+        # start_worker calls set_current even with set_as_current=False above.
+        # Restore the application so later shared tasks resolve their real registry.
+        previous_app.set_current()
+        _state.set_default_app(previous_default)

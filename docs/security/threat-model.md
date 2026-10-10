@@ -9,17 +9,17 @@ Assets include customer asset/accounting records, identity credentials and JWTs,
 | Threat | Existing/required control | Residual risk / verification |
 |---|---|---|
 | Cross-tenant object access / IDOR | Organization derived from authenticated membership; scoped selectors/querysets; authenticated private downloads. | Run negative API, worker, report, and storage tests for every new endpoint. |
-| Tenant admin privilege escalation | Serializer allowlists; separate role checks; no client-supplied org authority. | Explicit platform operator boundary and automated negative tests remain required. |
-| Credential theft/replay | JWT short access lifetime, rotating refresh tokens with blacklist; HTTPS and secure production cookies. | Access JWT revocation is not immediate; no MFA/SSO; protect browser/device and operator credentials. |
-| Invitation/reset abuse | Must use cryptographically strong one-time expiring tokens, generic public responses, throttling, and audit without token material. | Those workflows are absent at the audited baseline. |
+| Tenant admin privilege escalation | Serializer allowlists; explicit unscoped operator capability; no client-supplied org authority. | Provisioning/invitation privilege injection and tenant isolation tests pass; local operator-host access remains privileged. |
+| Credential theft/replay | JWT short access lifetime, serialized rotating refresh tokens with blacklist; per-request session version and active-tenant checks. | Reset/change/logout revoke sessions; no application MFA/SSO. Browser storage and XSS remain risks. Restrict operators through an MFA-protected access gateway before hosting. |
+| Invitation/reset abuse | Django-signed random tickets, database expiry/revocation/consumption, generic reset/signup responses, atomic throttling and token-free audit. | PostgreSQL concurrency/replay and captured-email browser tests pass; distributed abuse still requires deployed ingress monitoring. |
 | Private file exposure | Private storage and authenticated endpoints; size/hash verification. | No malware scanning; provider policy and backup access need validation. |
 | Worker tenant confusion/duplicate delivery | Explicit tenant IDs, transactional domain services, task fencing/idempotency where implemented. | New tasks need duplicate, replay, and tenant-context tests. |
-| Payment forgery/replay | Future adapter must authenticate signatures, deduplicate events, reconcile server-side state. | Billing is absent; browser redirects cannot establish payment. |
+| Payment forgery/replay | Signed raw-body events, durable deduplication, locked transitions and independent provider verification; redirects cannot establish payment. | Local sandbox adversarial tests pass. Paystack contracts are mocked; merchant sandbox and provider recurring/refund/dispute behavior are not proven. Production payment collection fails closed. |
 | Secret leakage | Environment configuration and ignored local env files; no secrets should enter bundles/logs/commits. | Validate secret scanning and provider key rotation process. |
-| Database/storage loss | PostgreSQL and private file backups, encryption, access restriction, isolated restore drills. | No validated operational restore evidence yet. |
+| Database/storage loss | PostgreSQL/private-file encryption and isolated application restoration passed, including tenant denial and wrong-key rejection. | No off-host backup, production-volume restoration or owner key-recovery evidence. |
 | Malicious upload | Restrict type/size and verify file content/integrity; private storage. | Malware scanning/CDR is not implemented. |
-| Operator error/insider access | Minimal operator metadata, reasoned/audited actions, dry-run destructive workflows. | Operator/support access design and staffing process remain incomplete. |
-| Denial of service/account enumeration | Generic auth/reset responses, throttling, bounded uploads/reports, upstream rate limits. | Explicit auth throttling and infrastructure protection need implementation/configuration. |
+| Operator error/insider access | Minimal status metadata, audited provisioning and reasoned suspension, no impersonation/tenant deletion; lead anonymization defaults to dry run. | Operator staffing, restricted infrastructure access, retention/legal holds and emergency approval process require owner configuration. |
+| Denial of service/account enumeration | Generic reset/signup responses, shared atomic identity limits, bounded uploads/reports, nginx limits and explicit trusted proxy networks. | No DDoS service or deployed proxy validation; NAT/shared-network limits need pilot observation. |
 
 ## Data handling
 

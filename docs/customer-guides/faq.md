@@ -18,11 +18,11 @@ The authenticated API scopes customer data to the user's organization. Contact s
 
 ### Can I reset my password or create a workspace online?
 
-Those self-service flows are not in the current audited baseline. Use the onboarding contact provided by your organization.
+Use Forgot password on the sign-in page. Company registration is available where self-service has been enabled; otherwise request managed onboarding. Verification is required before a new company account is activated.
 
 ### Are subscription payments supported?
 
-No live or sandbox checkout is currently represented as available to customers. Do not provide payment card details through AssetFlow until an explicitly configured payment workflow is published.
+Local sandbox checkout and subscription states are functional and visibly labeled. They do not collect money. A Paystack test transaction adapter is implemented but has not been verified against a merchant account. Live payment collection is disabled. Managed hosting fees require separately agreed terms.
 
 ### How do I export data?
 
