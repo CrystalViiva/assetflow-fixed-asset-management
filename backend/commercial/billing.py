@@ -58,6 +58,27 @@ def _allocate_checkout(*, actor, plan_id, request_key):
         if str(previous.plan_id) != str(plan_id):
             raise ValidationError("This request key was already used for another plan.")
         return previous
+    if settings.BILLING_PROVIDER == "paystack_test":
+        from commercial.models import ProviderSubscription
+
+        if subscription.provider == "paystack_test" and not subscription.provider_subscription:
+            raise ValidationError("Provider subscription mapping is pending reconciliation.")
+        if subscription.provider_subscription:
+            remote = ProviderSubscription.objects.filter(
+                code=subscription.provider_subscription
+            ).first()
+            if (
+                not remote
+                or remote.status not in {"cancelled", "completed", "complete"}
+                or (subscription.period_ends_at and subscription.period_ends_at > timezone.now())
+            ):
+                raise ValidationError("This provider subscription must end before a new checkout.")
+        if Checkout.objects.filter(
+            organization=actor.organization, provider="paystack_test", status="PENDING"
+        ).exists():
+            raise ValidationError(
+                "Reconcile the pending provider checkout before starting another."
+            )
     plan = Plan.objects.filter(pk=plan_id, is_public=True, is_sandbox=True).first()
     if not plan:
         raise ValidationError("Select an available sandbox plan.")
@@ -70,7 +91,8 @@ def _allocate_checkout(*, actor, plan_id, request_key):
         amount_minor=int(plan.monthly_amount * 100),
         currency=plan.currency,
         provider=adapter.name,
-        provider_reference=f"af_{uuid4().hex}",
+        provider_reference=f"af-{uuid4().hex}",
+        billing_email=subscription.billing_email,
     )
     audit(actor.organization, actor, "SANDBOX_CHECKOUT_CREATED", checkout.pk)
     return checkout
@@ -87,7 +109,7 @@ def initialize_checkout(*, actor, plan_id, request_key):
             subscription = Subscription.objects.get(organization=checkout.organization)
             try:
                 checkout.provider_url = provider(checkout.provider).initialize(
-                    checkout, subscription.billing_email
+                    checkout, checkout.billing_email or subscription.billing_email
                 )
             except Exception:
                 raise ValidationError(
@@ -105,7 +127,13 @@ def receive_webhook(*, body, signature):
     try:
         payload = json.loads(body)
         event_type = payload["event"]
-        reference = payload["data"]["reference"]
+        metadata = {}
+        if adapter.name == "paystack_test":
+            from commercial.paystack import event_metadata
+
+            reference, metadata = event_metadata(payload)
+        else:
+            reference = payload["data"]["reference"]
         if (
             not isinstance(event_type, str)
             or len(event_type) > 80
@@ -118,7 +146,12 @@ def receive_webhook(*, body, signature):
     # Persist only allowlisted metadata, never card/customer payloads.
     event, _ = BillingEvent.objects.get_or_create(
         id=hashlib.sha256(body).hexdigest(),
-        defaults={"provider": adapter.name, "reference": reference, "event_type": event_type},
+        defaults={
+            "provider": adapter.name,
+            "reference": reference,
+            "event_type": event_type,
+            "metadata": metadata,
+        },
     )
     return event
 
@@ -127,6 +160,19 @@ def receive_webhook(*, body, signature):
 def process_event(event_id):
     event = BillingEvent.objects.select_for_update().get(pk=event_id)
     if event.status in {"PROCESSED", "IGNORED"}:
+        return event
+    if event.provider == "paystack_test":
+        from commercial.paystack import process
+
+        event.attempts += 1
+        try:
+            with transaction.atomic():
+                event.status = process(event)
+                event.last_error = ""
+                event.processed_at = timezone.now()
+        except Exception as exc:
+            event.status, event.last_error = "FAILED", type(exc).__name__[:100]
+        event.save()
         return event
     checkout = Checkout.objects.filter(
         provider_reference=event.reference, provider=event.provider
@@ -155,9 +201,18 @@ def process_event(event_id):
                 raise ValidationError("Provider timestamp is invalid.")
             status = verified["status"]
             terminal = checkout.status in {"REFUNDED", "CHARGEBACK"}
-            if terminal or (subscription.last_event_at and event_at < subscription.last_event_at):
+            reversal = status in {"REFUNDED", "CHARGEBACK"}
+            if terminal or (
+                not reversal
+                and subscription.last_event_at
+                and event_at < subscription.last_event_at
+            ):
                 event.status = "IGNORED"
-            elif subscription.canceled_at and checkout.created_at <= subscription.canceled_at:
+            elif (
+                not reversal
+                and subscription.canceled_at
+                and checkout.created_at <= subscription.canceled_at
+            ):
                 event.status = "IGNORED"
             elif status == "SUCCEEDED" and checkout.status != "SUCCEEDED":
                 fits(checkout.plan, checkout.organization)
@@ -250,6 +305,22 @@ def cancel(*, actor):
     )
     if not subscription:
         raise ValidationError("Contact your operator to cancel managed service.")
+    if Checkout.objects.filter(
+        organization=actor.organization, provider="paystack_test", status="PENDING"
+    ).exists():
+        raise ValidationError("Reconcile the pending provider checkout before cancellation.")
+    if subscription.provider == "paystack_test":
+        if not subscription.provider_subscription:
+            raise ValidationError(
+                "Provider subscription mapping is pending. Reconcile before canceling."
+            )
+        # A failed/ambiguous remote response must never report successful cancellation.
+        try:
+            provider("paystack_test").disable(subscription.provider_subscription)
+        except Exception:
+            raise ValidationError(
+                "Provider cancellation was not confirmed. Retry or contact your operator."
+            ) from None
     subscription.cancel_at_period_end = True
     subscription.canceled_at = timezone.now()
     if subscription.state == "TRIAL":

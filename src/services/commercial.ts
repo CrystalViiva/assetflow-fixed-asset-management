@@ -40,6 +40,8 @@ export interface Billing {
     period_ends_at: string | null;
     grace_ends_at: string | null;
     cancel_at_period_end: boolean;
+    recurring_status: string | null;
+    provider_setup_pending: boolean;
   };
   history: Checkout[];
 }
@@ -137,6 +139,8 @@ export async function getBilling(): Promise<Billing> {
           period_ends_at: nullableString(s.period_ends_at),
           grace_ends_at: nullableString(s.grace_ends_at),
           cancel_at_period_end: bool(s.cancel_at_period_end),
+          recurring_status: nullableString(s.recurring_status),
+          provider_setup_pending: bool(s.provider_setup_pending),
         }
       : null,
   };

@@ -300,6 +300,7 @@ def test_paystack_test_adapter_validates_signature_and_remote_record(settings, m
     body = b'{"event":"charge.success"}'
     assert adapter.verify_signature(body, adapter.signature(body))
     assert not adapter.verify_signature(body + b"x", adapter.signature(body))
+    assert not adapter.verify_signature(body, "é" * 128)
     monkeypatch.setattr(
         adapter,
         "request",
@@ -317,6 +318,22 @@ def test_paystack_test_adapter_validates_signature_and_remote_record(settings, m
     settings.PAYSTACK_SECRET_KEY = "sk_live_rejected"
     with pytest.raises(ValidationError):
         adapter.secret()
+
+
+def test_refund_after_cancellation_still_restricts_current_entitlement(owner, plan):
+    purchase = checkout(owner, plan)
+    assert (
+        process_event(simulate(actor=owner, checkout_id=purchase.pk, outcome="SUCCEEDED").pk).status
+        == "PROCESSED"
+    )
+    cancel(actor=owner)
+    assert (
+        process_event(simulate(actor=owner, checkout_id=purchase.pk, outcome="REFUNDED").pk).status
+        == "PROCESSED"
+    )
+    subscription = Subscription.objects.get(organization=owner.organization)
+    assert subscription.state == "SUSPENDED" and not writable(subscription)
+    assert Checkout.objects.get(pk=purchase.pk).status == "REFUNDED"
 
 
 def test_lead_capture_consent_honeypot_dedup_operator_workflow():

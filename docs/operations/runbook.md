@@ -53,6 +53,8 @@ Use a reviewed operator-only workflow that records the organization, reason, act
 
 Poll public `/api/v1/health/` for process liveness and `/api/v1/ready/` for PostgreSQL readiness. Use `python manage.py check_operations` from a restricted monitoring job every minute; nonzero exit means investigation is required. Forward this exit status to the selected alert service. It reports worker heartbeat freshness (three-minute threshold), a private storage write/read/delete probe, pending/exhausted mail deliveries, and failed tasks in the last 24 hours. The same metadata is visible only to operators at `/api/v1/platform/health/`.
 
+The health command also fails for billing reconciliation errors or provider events pending longer than five minutes. Inspect exception types and event IDs, resolve the provider/configuration issue, then use the audited `reconcile_billing_event` command described in the [SaaS operations notes](../saas/implementation.md). Never paste raw webhook bodies, card authorizations or cancellation tokens into incident records.
+
 Run one Beat scheduler. It enqueues identity mail every 30 seconds and worker heartbeat/billing reconciliation every 60 seconds, alongside the six original domain schedules. A missing/stalled worker or broker becomes visible through an aging heartbeat. This is not a direct queue-depth metric or HA guarantee. Failed-task records contain task ID/name and exception type; task arguments and exception messages are excluded. Structured logs retain request correlation IDs and redact credential patterns. Configure log retention and alert recipients at the host; neither is an external service provisioned by this repository.
 
 ## Environment and ingress setup

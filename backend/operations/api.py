@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 
 from accounts.identity_services import require_operator
 from accounts.models import IdentityDelivery
+from commercial.models import BillingEvent
 from operations.models import TaskFailure, WorkerPulse
 
 
@@ -43,6 +44,10 @@ def operational_health():
         .count(),
         "task_failures_24h": TaskFailure.objects.filter(
             occurred_at__gte=timezone.now() - timedelta(days=1)
+        ).count(),
+        "billing_failed": BillingEvent.objects.filter(status="FAILED").count(),
+        "billing_stalled": BillingEvent.objects.filter(
+            status="PENDING", received_at__lt=timezone.now() - timedelta(minutes=5)
         ).count(),
     }
 

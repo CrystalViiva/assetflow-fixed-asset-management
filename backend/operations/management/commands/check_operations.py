@@ -16,5 +16,7 @@ class Command(BaseCommand):
             or not values["private_storage"]
             or values["mail_failed"]
             or values["task_failures_24h"]
+            or values["billing_failed"]
+            or values["billing_stalled"]
         ):
             raise CommandError("Operational health requires attention.")

@@ -330,6 +330,16 @@ export function BillingView() {
                         : "—"}
                     </p>
                     <p>Billing contact: {sub.billing_email}</p>
+                    {sub.recurring_status && (
+                      <p>Recurring test subscription: {sub.recurring_status}</p>
+                    )}
+                    {sub.provider_setup_pending && (
+                      <p role="status">
+                        Your payment is recorded. Recurring subscription setup
+                        is awaiting provider confirmation. Refresh shortly or
+                        contact your operator if this persists.
+                      </p>
+                    )}
                     <form
                       className="mt-3 flex flex-wrap items-end gap-3"
                       onSubmit={async (e) => {

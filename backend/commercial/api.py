@@ -21,7 +21,14 @@ from accounts.models import IdentityTicket, ManagedProvision, PlatformEvent, Use
 from accounts.throttles import IdentityThrottle
 from commercial import billing
 from commercial.entitlements import usage, writable
-from commercial.models import BillingEvent, Checkout, Plan, SalesLead, Subscription
+from commercial.models import (
+    BillingEvent,
+    Checkout,
+    Plan,
+    ProviderSubscription,
+    SalesLead,
+    Subscription,
+)
 from commercial.registration import request_signup, verify_signup
 from organizations.models import Organization
 
@@ -142,6 +149,11 @@ class BillingOverview(APIView):
             .filter(organization=request.user.organization)
             .first()
         )
+        recurring = (
+            ProviderSubscription.objects.filter(code=sub.provider_subscription).first()
+            if sub
+            else None
+        )
         return Response(
             {
                 "provider": settings.BILLING_PROVIDER,
@@ -156,6 +168,9 @@ class BillingOverview(APIView):
                     "period_ends_at": sub.period_ends_at,
                     "grace_ends_at": sub.grace_ends_at,
                     "cancel_at_period_end": sub.cancel_at_period_end,
+                    "recurring_status": recurring.status if recurring else None,
+                    "provider_setup_pending": sub.provider == "paystack_test"
+                    and not sub.provider_subscription,
                 }
                 if sub
                 else None,

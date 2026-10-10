@@ -98,6 +98,28 @@ class Subscription(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class ProviderPlan(models.Model):
+    """Operator-verified test-provider mapping for one immutable plan version."""
+
+    plan = models.OneToOneField(Plan, on_delete=models.PROTECT)
+    code = models.CharField(max_length=120, unique=True)
+
+
+class ProviderCustomer(models.Model):
+    """A Paystack customer can never authorize billing for two tenants."""
+
+    code = models.CharField(max_length=120, primary_key=True)
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.PROTECT)
+
+
+class ProviderSubscription(models.Model):
+    code = models.CharField(max_length=120, primary_key=True)
+    customer = models.ForeignKey(ProviderCustomer, on_delete=models.PROTECT)
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
+    checkout = models.OneToOneField("Checkout", on_delete=models.PROTECT)
+    status = models.CharField(max_length=24)
+
+
 class Checkout(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey("organizations.Organization", on_delete=models.PROTECT)
@@ -109,6 +131,7 @@ class Checkout(models.Model):
     provider = models.CharField(max_length=24)
     provider_reference = models.CharField(max_length=120, unique=True)
     provider_url = models.URLField(blank=True)
+    billing_email = models.EmailField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     settled_at = models.DateTimeField(null=True)
     # Authoritative deterministic fake-provider ledger; never exposed for tenant writes.
@@ -129,6 +152,7 @@ class BillingEvent(models.Model):
     provider = models.CharField(max_length=24)
     reference = models.CharField(max_length=120)
     event_type = models.CharField(max_length=80)
+    metadata = models.JSONField(default=dict)
     status = models.CharField(max_length=16, default="PENDING")
     attempts = models.PositiveIntegerField(default=0)
     last_error = models.CharField(max_length=100, blank=True)
