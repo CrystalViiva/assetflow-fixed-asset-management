@@ -1,0 +1,73 @@
+{
+  "status": "passed",
+  "project": "af-smoke-956d3654dada4b51ba0a64e838900a5e",
+  "production_images": true,
+  "migrations": true,
+  "gunicorn_nginx_postgres_redis": true,
+  "beat_worker_heartbeat": true,
+  "worker_failure_alert": true,
+  "private_and_database_restart_persistence": true,
+  "billing_disabled": true,
+  "real_tls": false,
+  "smtp_delivery": false,
+  "hosted_deployment": false,
+  "images": [
+    {
+      "ID": "sha256:d33f2eb03ac069a2a9a366433c5f6a5b1dfd13fc33ddea4e948f17020a4a5057",
+      "ContainerName": "af-smoke-956d3654dada4b51ba0a64e838900a5e-worker-1",
+      "Repository": "af-smoke-956d3654dada4b51ba0a64e838900a5e-worker",
+      "Tag": "latest",
+      "Platform": "linux/amd64",
+      "Size": 246138817,
+      "LastTagTime": "2026-10-10T06:43:55.61383743Z"
+    },
+    {
+      "ID": "sha256:79bd7c99e923138f136f8009d6bffa66e21e9d4fda5c0c561b00fc9c90cfe537",
+      "ContainerName": "af-smoke-956d3654dada4b51ba0a64e838900a5e-db-1",
+      "Repository": "postgres",
+      "Tag": "17-alpine",
+      "Platform": "linux/amd64",
+      "Size": 297176980,
+      "LastTagTime": "0001-01-01T00:00:00Z"
+    },
+    {
+      "ID": "sha256:d33f2eb03ac069a2a9a366433c5f6a5b1dfd13fc33ddea4e948f17020a4a5057",
+      "ContainerName": "af-smoke-956d3654dada4b51ba0a64e838900a5e-beat-1",
+      "Repository": "af-smoke-956d3654dada4b51ba0a64e838900a5e-beat",
+      "Tag": "latest",
+      "Platform": "linux/amd64",
+      "Size": 246138817,
+      "LastTagTime": "2026-10-10T06:43:55.61383743Z"
+    },
+    {
+      "ID": "sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058",
+      "ContainerName": "af-smoke-956d3654dada4b51ba0a64e838900a5e-redis-1",
+      "Repository": "redis",
+      "Tag": "7-alpine",
+      "Platform": "linux/amd64",
+      "Size": 39061364,
+      "LastTagTime": "0001-01-01T00:00:00Z"
+    },
+    {
+      "ID": "sha256:ae0857787b3e397761758612e42d841f4b6f85a78bef0e38bf120798864cd5ed",
+      "ContainerName": "af-smoke-956d3654dada4b51ba0a64e838900a5e-frontend-1",
+      "Repository": "af-smoke-956d3654dada4b51ba0a64e838900a5e-frontend",
+      "Tag": "latest",
+      "Platform": "linux/amd64",
+      "Size": 64086707,
+      "LastTagTime": "2026-10-10T06:43:37.008347403Z"
+    },
+    {
+      "ID": "sha256:d33f2eb03ac069a2a9a366433c5f6a5b1dfd13fc33ddea4e948f17020a4a5057",
+      "ContainerName": "af-smoke-956d3654dada4b51ba0a64e838900a5e-web-1",
+      "Repository": "af-smoke-956d3654dada4b51ba0a64e838900a5e-web",
+      "Tag": "latest",
+      "Platform": "linux/amd64",
+      "Size": 246138817,
+      "LastTagTime": "2026-10-10T06:43:55.61383743Z"
+    }
+  ],
+  "elapsed_seconds": 132.82,
+  "source_commit": "4ff11666582e34dec53adbca67cf5375e04d06b5",
+  "workflow_url": "https://github.com/CrystalViiva/assetflow-fixed-asset-management/actions/runs/38031908335"
+}

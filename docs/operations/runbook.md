@@ -65,7 +65,7 @@ The production frontend binds to loopback on the Docker host, behind the owner's
 
 HSTS defaults to one year on the application host. Compose forwards `SECURE_HSTS_SECONDS`, `SECURE_HSTS_INCLUDE_SUBDOMAINS` and `SECURE_HSTS_PRELOAD`. The latter two remain opt-in: enable them only after confirming HTTPS coverage and the domain owner's preload policy. Django's strict deployment check reports W005/W021 while these options are false; this is an explicit domain-wide deployment decision, not permission to silence unrelated security findings.
 
-Backend dependencies are pinned in `backend/requirements.lock` to the tested environment. Regenerate from `requirements.txt`, review, audit and rerun regressions before upgrades. Frontend builds use `npm ci`. Exclude `.codex-*`, environment files and private data from image contexts. Resolve/tag image digests in the actual release registry after container validation; base-image vulnerabilities have not been scanned in this Docker-less environment.
+Backend dependencies are pinned in `backend/requirements.lock` to the tested environment. Regenerate from `requirements.txt`, review, audit and rerun regressions before upgrades. Frontend builds use `npm ci`. Exclude `.codex-*`, environment files and private data from image contexts. Resolve/tag image digests in the actual release registry after container validation. Linux CI now validates production builds/runtime; base-image vulnerability scanning remains an independent release gate.
 
 ## Reproducible local staging exercise
 

@@ -2,13 +2,21 @@
 
 ## Scope and environment
 
-Continuation started at `6e1e396`; validated implementation/configuration ends at `b6f9346`. Existing accounting architecture and exact Decimal calculations were retained. All new database work used an owned PostgreSQL 17.10 cluster on loopback port **55463**, under ignored `.codex-resume-pg`; no unidentified/persistent customer database was migrated. Smoke scripts create and clean uniquely named disposable databases and private/email directories.
+Continuation started at `6e1e396`; validated implementation/configuration ends at `4ff1166`. Existing accounting architecture and exact Decimal calculations were retained. Local database work used an owned PostgreSQL 17.10 cluster on loopback port **55463**, under ignored `.codex-resume-pg`; no unidentified/persistent customer database was migrated. Subsequent Linux CI used ephemeral PostgreSQL services and randomly named Compose volumes. Smoke scripts create and clean their disposable databases and private/email directories.
 
 The session-only `.codex-resume/run.py` wrapper executes its remaining arguments with an explicit disposable `DATABASE_URL`, generated Django secret, `ASSETFLOW_ENV=test`, local captured mail, sandbox billing, memory Celery transport and private temporary directories. It does not select application credentials from `.env`. Parallel focused tests used their own `af_resume_*` database names. The wrapper and synthetic artifacts are intentionally ignored, not deliverable configuration. For reproduction, supply equivalent isolated settings or use the committed CI and smoke scripts; never substitute a customer database.
 
 Below, `PY` means the executed `venv/Scripts/python.exe`; `RUN` means `PY .codex-resume/run.py PY`. Paths are shown with portable separators. Commands ran from the repository root.
 
-## Tests and checks
+## Remote release gates
+
+[Actions run 38031535116](https://github.com/CrystalViiva/assetflow-fixed-asset-management/actions/runs/38031535116), on `2ec6566`, passed the backend, frontend and commercial-browser jobs. Downloaded job logs establish **445 backend tests passed in 202.09s** (`pytest`, working directory `backend`) and **243 frontend tests passed in 17.32s**, 23 files (`npm test`). TypeScript checks, Django checks, migration drift, Ruff and both frontend production build modes passed. The commercial-browser job passed `python scripts/commercial-smoke.py --port 55462` and `python scripts/commercial-lifecycle-smoke.py --port 55462` against its disposable PostgreSQL service. These remote full-suite counts include the final cases absent from the earlier local full-suite collection.
+
+[Actions run 38031908335](https://github.com/CrystalViiva/assetflow-fixed-asset-management/actions/runs/38031908335), on `4ff1166`, adds `python scripts/ops/production_compose_smoke.py --output .codex-compose-evidence`. Its **production-compose job passed in 132.82s**. The script built the real production images and ran release migrations/static collection, Gunicorn/nginx/PostgreSQL/Redis/Celery/Beat, strict deployment checks, API proxy/HSTS/CSP, real public lead persistence, nonroot backend execution, and shared private-file access from web and worker. A Beat-issued heartbeat traversed Redis and the worker before reaching PostgreSQL. Lead/private-file records survived service restarts. An intentionally invalid registered task produced a `TypeError` failure record and made `check_operations` exit nonzero; that expected failure is an asserted success condition, not a failed job. All owned containers/volumes/network were removed. [Retained evidence and image IDs](evidence/production-compose-2026-10-10.json) identify the exact build/run.
+
+All four jobs in run 38031908335 completed successfully, including the repeated backend, frontend and commercial-browser gates. This production-container exercise simulates the trusted TLS ingress header on an isolated network. It does not issue a real TLS certificate, connect SMTP, deploy to a customer host, test off-host backup retention, scan images, or initiate payments. The final delivery documentation commit changes only evidence/docs and uses `[skip ci]` to avoid another expensive regression run; application code matches the passing implementation commit.
+
+## Local tests and checks
 
 | Executed command | Result |
 |---|---|
@@ -30,7 +38,7 @@ Below, `PY` means the executed `venv/Scripts/python.exe`; `RUN` means `PY .codex
 | `node node_modules/vite/bin/vite.js build` with `VITE_DATA_SOURCE=django`, `VITE_BACKEND_API_URL=/api/v1` (inside browser runner) | Passed, 2.07s. No Django-mode mock fallback. |
 | `npm.cmd audit --omit=dev`; `git diff --check` | Zero production dependency vulnerabilities; whitespace check passed. |
 
-The full backend suite collected before the last refund/dispute/operator-retry additions. Five new cases appear in the final 42-case subsystem run and one in the separate operator test. Changed billing code was revalidated; there is **no claim of a single final 445-test execution**. Likewise, the final seven-case frontend run adds one case to the preceding full 242-case run. Overlapping counts are not additive coverage claims.
+The local full backend suite collected before the last refund/dispute/operator-retry additions. Five new cases appear in the final 42-case subsystem run and one in the separate operator test. Likewise, the local seven-case frontend run adds one case to the preceding full 242-case run. Overlapping local counts are not additive coverage claims. The later remote full-suite passes (445 backend, 243 frontend) establish the complete final application regression.
 
 ## Integrated workflow evidence
 
@@ -54,9 +62,9 @@ This is stronger than script syntax or archive-index validation. It does not est
 - The default frontend fork-worker run reported 239 passes plus an unhandled worker-start timeout and was treated as failed. The complete thread-worker rerun passed 242 tests without unhandled errors. A new UI test initially used a generic error incorrectly; it now exercises the real API error envelope and passes.
 - The first nginx attempt encountered local sandbox configuration access denial; rerunning with authorized local service access passed. The first dependency audit hit sandbox networking/cache restrictions; the completed audit reports zero production vulnerabilities.
 - Strict production checks initially reported W005/W021 with domain-wide HSTS flags disabled. Explicit synthetic settings pass; Compose now forwards the configurable flags. The defaults remain opt-in for domain-wide coverage/preload. No unrelated security check is silenced.
-- Docker CLI/Compose are installed, but the Linux engine pipe is absent. No container build/runtime, actual Redis/Celery service deployment, image vulnerability scan, hosted TLS, production SMTP delivery, off-host backup/alerts or remote rollback was validated.
+- The local Windows Docker Linux engine pipe is absent. After safe push, the available Linux CI runner permitted actual production image/runtime and Redis/Celery validation, which passed as recorded above. Image vulnerability scans, hosted TLS, production SMTP delivery, off-host backup/alerts and remote rollback remain unverified.
 - Paystack tests use official-shaped local contracts and independently verified simulated provider responses. **No actual merchant sandbox requests or live charges occurred.** Production rejects billing providers other than `disabled`. Actual merchant event shapes/timing still need acceptance.
-- GitHub CLI reports no authenticated host. Local test evidence does not establish a passing remote Actions run. Delivery and remote HEAD are verified separately through Git when credentials permit.
+- GitHub CLI reports no authenticated host, but the public Actions API exposed job results. Existing Git credentials subsequently allowed read-only download of logs/artifacts, with credentials held only in memory and not forwarded to artifact-storage redirects. The remote passing runs above are verified evidence. Delivery and remote HEAD are checked separately through Git.
 
 ## Next gate
 
