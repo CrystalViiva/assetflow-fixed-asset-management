@@ -123,6 +123,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Isolated real Django commercial journeys
         run: python scripts/commercial-smoke.py --port 55462
+      - name: Commercial identity through accounting and subscription restrictions
+        run: python scripts/commercial-lifecycle-smoke.py --port 55462
       - uses: actions/upload-artifact@v4
         if: always()
         with:

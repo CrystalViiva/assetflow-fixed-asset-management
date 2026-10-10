@@ -40,6 +40,12 @@ def seed():
     prefix = "assetflow_f16_" if os.environ.get("F16_SMOKE_MODE") else "assetflow_f14_" if os.environ.get("F14_SMOKE_MODE") else "assetflow_f13_" if os.environ.get("F13_SMOKE_MODE") else "assetflow_f12_" if os.environ.get("F12_SMOKE_MODE") else "assetflow_f11_" if os.environ.get("F11_SMOKE_MODE") else "assetflow_f10_" if os.environ.get("F10_SMOKE_MODE") else "assetflow_f9_" if os.environ.get("F9_SMOKE_MODE") else "assetflow_f8_" if os.environ.get("F8_SMOKE_MODE") else "assetflow_f7_" if os.environ.get("F7_SMOKE_MODE") else "assetflow_f6_" if os.environ.get("F6_SMOKE_MODE") else "assetflow_f5_" if os.environ.get("F5_SMOKE_MODE") else "assetflow_f4_" if os.environ.get("F4_SMOKE_MODE") else "assetflow_f3_" if os.environ.get("F3_SMOKE_MODE") else "assetflow_f2_" if os.environ.get("F2_SMOKE_MODE") else "assetflow_f1_"
     assert settings.DATABASES["default"]["NAME"] == os.environ["F1_SMOKE_DATABASE"]
     assert os.environ["F1_SMOKE_DATABASE"].startswith(prefix)
+    if prefix.endswith("f16_") and os.environ.get("F16_COMMERCIAL_MODE") == "1":
+        from django.core.management import call_command
+
+        User.objects.create_superuser("f16-operator@example.test", os.environ["F1_SMOKE_PASSWORD"])
+        call_command("enable_platform_operator", "f16-operator@example.test")
+        return
     organization = Organization.objects.create(name=f"{prefix[:-1].upper()} smoke", code=f"{prefix[:-1].upper()}SMOKE")
     manager = User.objects.create_user(
         os.environ["F1_SMOKE_EMAIL"], os.environ["F1_SMOKE_PASSWORD"],
@@ -278,6 +284,12 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
     private_root = tempfile.mkdtemp(prefix="assetflow_f16_private_") if f16 else tempfile.mkdtemp(prefix="assetflow_f12_private_") if f12 else tempfile.mkdtemp(prefix="assetflow_f9_private_") if f9 else None
     if f9 or f12 or f16:
         environment.update({"DJANGO_SETTINGS_MODULE":"config.f9_smoke_settings","F9_SMOKE_PRIVATE_ROOT":private_root})
+        if f16 and os.environ.get("F16_COMMERCIAL_MODE") == "1":
+            environment.update({
+                "EMAIL_BACKEND": "django.core.mail.backends.filebased.EmailBackend",
+                "EMAIL_FILE_PATH": str(Path(private_root) / "captured-email"),
+                "SMOKE_PYTHON": sys.executable,
+            })
     elif f8:
         environment.update({"DJANGO_SETTINGS_MODULE":"config.f8_smoke_settings","ASSURANCE_WORK_UNIT_SIZE":"1"})
     server = None
@@ -327,7 +339,7 @@ def run(f2=False, f3=False, f4=False, f5=False, f6=False, f7=False, f8=False, f9
         node_command.extend(["--import", "tsx", "scripts/f16-api-smoke.ts" if f16 else "scripts/f14-api-smoke.ts" if f14 else "scripts/f13-api-smoke.ts" if f13 else "scripts/f12-api-smoke.ts" if f12 else "scripts/f11-api-smoke.ts" if f11 else "scripts/f10-api-smoke.ts" if f10 else "scripts/f9-api-smoke.ts" if f9 else "scripts/f8-api-smoke.ts" if f8 else "scripts/f7-api-smoke.ts" if f7 else "scripts/f6-api-smoke.ts" if f6 else "scripts/f5-api-smoke.ts" if f5 else "scripts/f4-api-smoke.ts" if f4 else "scripts/f3-api-smoke.ts" if f3 else "scripts/f2-api-smoke.ts" if f2 else "scripts/f1-api-smoke.ts"])
         result = subprocess.run(
             node_command, cwd=ROOT, env=environment,
-            capture_output=True, text=True, timeout=60, creationflags=flags, check=False,
+            capture_output=True, text=True, timeout=180 if os.environ.get("F16_COMMERCIAL_MODE") else 60, creationflags=flags, check=False,
         )
         if result.returncode:
             for line in result.stdout.splitlines():

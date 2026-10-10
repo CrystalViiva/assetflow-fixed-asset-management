@@ -16,5 +16,6 @@
 - [Sales kit and pricing strategy](sales-kit.md)
 - [Legal review checklist](legal-review-drafts.md)
 - [Release decision and validation evidence](release-decision.md)
+- [Execution checkpoint and exact continuation point](EXECUTION-STATE.md)
 
 Commercial drafts are operationally useful starting points, not legally approved contracts, privacy representations, pricing, or service commitments.

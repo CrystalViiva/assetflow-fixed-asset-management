@@ -16,6 +16,7 @@ import { DjangoReportRepository } from '../src/services/reportRepository';
 import { DjangoDashboardRepository } from '../src/services/dashboardRepository';
 import { DjangoAuditRepository } from '../src/services/auditRepository';
 import { DjangoDisposalRepository } from '../src/services/disposalRepository';
+import { prepareCommercialLifecycle, verifyCommercialLifecycle } from './commercial-lifecycle';
 
 let stage = 'session setup';
 const password = process.env.F1_SMOKE_PASSWORD!;
@@ -30,6 +31,10 @@ function makeSession(api: ApiClient) {
 }
 
 async function run() {
+  if (process.env.F16_COMMERCIAL_MODE === '1') {
+    stage = 'commercial operator provisioning, captured email activation and invitations';
+    await prepareCommercialLifecycle();
+  }
   const api = new ApiClient(process.env.F1_SMOKE_URL!);
   const { session, storage } = makeSession(api);
   await session.initialize();
@@ -223,6 +228,10 @@ async function run() {
   const eventActions = new Set((await audit.events({ page: 1, pageSize: 100, action: '', entityType: '', entityId: '', actor: '', search: '', dateFrom: '', dateTo: '', ordering: '-timestamp' })).results.map(event => event.action));
   assert.ok(eventActions.has('ASSET_DERECOGNIZED'));
 
+  if (process.env.F16_COMMERCIAL_MODE === '1') {
+    stage = 'commercial tenant isolation, subscription restrictions and retained financial history';
+    await verifyCommercialLifecycle(assetId, snapshot.id, posting.id);
+  }
   stage = 'logout and session material cleanup';
   session.logout();
   adminSession.logout();
