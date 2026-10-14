@@ -98,7 +98,7 @@ test("self-service verification, real dashboard, invitations, sandbox payment an
     "http://127.0.0.1:3007" +
       deliver("accept-invitation", "browser-colleague@example.test"),
   );
-  await colleague.getByLabel("New password").fill(password);
+  await colleague.getByLabel("New password", { exact: true }).fill(password);
   await colleague.getByLabel("Confirm password").fill(password);
   await colleague.getByRole("button", { name: "Set password" }).click();
   await expect(colleague.getByRole("status")).toContainText("password is set");
@@ -131,7 +131,7 @@ test("self-service verification, real dashboard, invitations, sandbox payment an
     "http://127.0.0.1:3007" +
       deliver("reset-password", "browser-owner@example.test"),
   );
-  await recovery.getByLabel("New password").fill(password + "-reset");
+  await recovery.getByLabel("New password", { exact: true }).fill(password + "-reset");
   await recovery.getByLabel("Confirm password").fill(password + "-reset");
   await recovery.getByRole("button", { name: "Set password" }).click();
   await expect(recovery.getByRole("status")).toContainText("password is set");
@@ -205,7 +205,7 @@ test("managed provisioning and platform operator dashboard work in the browser",
   await expect(page.getByRole("status")).toContainText("Operation recorded");
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.goto(deliver("accept-invitation", "browser-managed@example.test"));
-  await page.getByLabel("New password").fill(password);
+  await page.getByLabel("New password", { exact: true }).fill(password);
   await page.getByLabel("Confirm password").fill(password);
   await page.getByRole("button", { name: "Set password" }).click();
   await expect(page.getByRole("status")).toContainText("password is set");

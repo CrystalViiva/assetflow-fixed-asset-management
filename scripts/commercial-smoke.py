@@ -72,6 +72,8 @@ def main():
         type=Path,
         help="Optional local nginx executable for built-frontend validation",
     )
+    parser.add_argument("--self-service-disabled", action="store_true", help="Exercise the real disabled signup policy")
+    parser.add_argument("--tests", nargs="*", default=[], help="Optional Playwright test files")
     args = parser.parse_args()
     if args.port == 5432:
         parser.error(
@@ -101,7 +103,7 @@ def main():
         TRUSTED_PROXY_NETWORKS="127.0.0.1/32",
         CELERY_BROKER_URL="memory://",
         CELERY_RESULT_BACKEND="cache+memory://",
-        SELF_SERVICE_ENABLED="true",
+        SELF_SERVICE_ENABLED="false" if args.self_service_disabled else "true",
         BILLING_PROVIDER="local_sandbox",
         DISABLE_HMR="true",
         VITE_DATA_SOURCE="django",
@@ -181,7 +183,7 @@ def main():
                         ) from None
                     time.sleep(0.3)
         result = subprocess.run(
-            ["node", "node_modules/@playwright/test/cli.js", "test"],
+            ["node", "node_modules/@playwright/test/cli.js", "test", *args.tests],
             cwd=root,
             env=env,
             creationflags=flags,

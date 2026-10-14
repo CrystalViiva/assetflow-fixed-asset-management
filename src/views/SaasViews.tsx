@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AccountShell } from "./IdentityViews";
+import { AccountShell } from "../components/marketing/AccountShell";
 import { apiClient } from "../services/authRuntime";
 import {
   getBilling,
@@ -18,6 +18,7 @@ export function SignupView({ verify = false }: { verify?: boolean }) {
   const config = useQuery({
     queryKey: ["public-config"],
     queryFn: getPublicConfig,
+    retry: false,
   });
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
@@ -77,7 +78,7 @@ export function SignupView({ verify = false }: { verify?: boolean }) {
       {config.isPending ? (
         <p role="status">Loading onboarding options…</p>
       ) : config.error ? (
-        <p role="alert">{errorMessage(config.error)}</p>
+        <div className="auth-service-error"><p role="alert">{errorMessage(config.error)}</p><button type="button" className="public-button-secondary" onClick={() => void config.refetch()}>Try again</button><a href="#contact-sales">Contact sales</a></div>
       ) : !config.data?.self_service_enabled ? (
         <p>
           Managed onboarding is available.{" "}
@@ -200,6 +201,7 @@ export function SignupView({ verify = false }: { verify?: boolean }) {
               )}
               <button
                 className={button}
+                type="submit"
                 disabled={
                   busy || (verify && (!token || config.data.plans.length === 0))
                 }

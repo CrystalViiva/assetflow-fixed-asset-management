@@ -4,7 +4,9 @@ import { errorMessage } from "../services/apiError";
 import { dataSource } from "../services/config";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicConfig } from "../services/commercial";
-import { Menu, X } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { PublicHeader, PublicFooter } from "../components/marketing/PublicChrome";
+import { useAuth } from "../auth/AuthProvider";
 
 export const marketingRoutes = new Set([
   "features",
@@ -118,7 +120,7 @@ const pages: Record<
   pricing: {
     title: "Choose a service that fits your organization.",
     intro:
-      "Commercial pricing is agreed after discovery. Sandbox test amounts shown inside trial workspaces are not published prices.",
+      "Commercial pricing is agreed after discovery. Start with your asset volume, users, locations and support needs.",
     sections: [
       [
         "Managed onboarding",
@@ -126,15 +128,15 @@ const pages: Record<
       ],
       [
         "Self-service trial",
-        "When enabled, verify your email and select an available trial. Plan limits and trial expiry are enforced by the server. No card is required to activate the seeded trial.",
+        "When enabled, verify your email and select an available trial. Plan limits and trial expiry are enforced by the server. No card is required to activate a trial.",
       ],
       [
         "Hosting & support",
         "Agree hosting responsibilities, backup retention, support hours, service objectives and data export requirements before a paid engagement.",
       ],
       [
-        "Billing status",
-        "This release supports local sandbox checkout and a Paystack test adapter. Live payment collection is disabled.",
+        "Before you commit",
+        "Agree the implementation scope and service terms with our team. Trial workspaces do not collect live payments; any payment simulation is clearly labelled and is not a commercial price.",
       ],
     ],
   },
@@ -186,19 +188,6 @@ const pages: Record<
   },
 };
 
-export function CommercialNav() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="commercial-nav-wrap">
-      <div className="commercial-nav-row"><a href="#/" className="commercial-brand" aria-label="AssetFlow home">AssetFlow</a>
-        <nav aria-label="Product navigation" className="commercial-desktop-nav">{[["features", "Features"], ["solutions", "Solutions"], ["how-it-works", "How it works"], ["pricing", "Pricing"], ["request-demo", "Request demo"], ["login", "Log in"]].map(([route, label]) => <a key={route} href={`#${route}`}>{label}</a>)}<a className="commercial-nav-cta" href="#get-started">Get started</a></nav>
-        <button type="button" className="commercial-menu-button" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="commercial-mobile-navigation" onClick={() => setOpen(!open)}>{open ? <X size={21} /> : <Menu size={21} />}</button>
-      </div>
-      {open && <nav id="commercial-mobile-navigation" aria-label="Mobile navigation" className="commercial-mobile-nav">{[["features", "Features"], ["solutions", "Solutions"], ["how-it-works", "How it works"], ["pricing", "Pricing"], ["request-demo", "Request demo"], ["login", "Log in"], ["get-started", "Get started"]].map(([route, label]) => <a onClick={() => setOpen(false)} key={route} href={`#${route}`}>{label}</a>)}</nav>}
-    </div>
-  );
-}
-
 function LeadForm({ demo }: { demo: boolean }) {
   const [key] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
@@ -235,10 +224,7 @@ function LeadForm({ demo }: { demo: boolean }) {
   }
   if (dataSource !== "django")
     return (
-      <p className="rounded border border-slate-300 bg-amber-50 p-5">
-        This is the illustrative demo build. Contact submission is available on
-        the configured customer website.
-      </p>
+      <section className="static-contact"><h2>Live enquiries need the customer website.</h2><p>This is the illustrative demo build. Contact submission is available on the configured customer website.</p><p>No request is sent or stored here. Explore the product with fictional records while live service hosting is arranged.</p><a className="public-button-primary" href="#demo">Explore the illustrative demo <ArrowRight size={17} /></a></section>
     );
   if (message)
     return (
@@ -249,7 +235,7 @@ function LeadForm({ demo }: { demo: boolean }) {
   return (
     <form
       onSubmit={submit}
-      className="grid gap-5 rounded-2xl border bg-white p-6 sm:grid-cols-2"
+      className="lead-form grid gap-5 rounded-2xl border bg-white p-6 sm:grid-cols-2"
       aria-busy={busy}
     >
       {(
@@ -313,15 +299,15 @@ function LeadForm({ demo }: { demo: boolean }) {
 }
 
 export function MarketingPage({ route }: { route: string }) {
+  const { authenticated, user } = useAuth();
+  const workspaceRoute = user?.isPlatformOperator ? "#platform" : "#dashboard";
   const publicConfig = useQuery({ queryKey: ["public-config"], queryFn: getPublicConfig, enabled: dataSource === "django" && route === "get-started", retry: false });
   const lead = route === "contact-sales" || route === "request-demo";
   const page = pages[route];
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b bg-white">
-        <CommercialNav />
-      </header>
-      <main className="mx-auto max-w-6xl px-5 py-12 md:py-20">
+    <div className="marketing-page">
+      <PublicHeader authenticated={authenticated} workspaceRoute={workspaceRoute} />
+      <main id="public-main" tabIndex={-1} className="marketing-main">
         {lead ? (
           <>
             <p className="text-sm font-semibold uppercase tracking-widest text-blue-800">
@@ -332,7 +318,7 @@ export function MarketingPage({ route }: { route: string }) {
                 ? "See your asset workflows in action."
                 : "Plan your implementation."}
             </h1>
-            <LeadForm demo={route === "request-demo"} />
+            <div className="lead-layout"><aside className="lead-context"><h2>A useful conversation, shaped around your assets.</h2><p>Bring your questions about locations, custody, accounting and rollout. We can walk through the workflows relevant to your team.</p><ol><li>Review your current register and priorities</li><li>Explore acquisition, movement and reporting</li><li>Discuss setup, access and hosting</li></ol></aside><LeadForm demo={route === "request-demo"} /></div>
           </>
         ) : route === "login" ? (
           <section className="auth-explanation">
@@ -354,17 +340,19 @@ export function MarketingPage({ route }: { route: string }) {
               Get started with AssetFlow
             </h1>
             <div className="mt-8 grid gap-6 sm:grid-cols-2">
-              <article className="rounded-2xl border bg-white p-8">
+              <article className="onboarding-option">
                 <h2 className="text-xl font-semibold">Managed onboarding</h2>
                 <p className="my-4">
                   Discuss your asset register, accounting policy and rollout
                   with an implementation operator.
                 </p>
-                <a className="text-blue-900 underline" href="#request-demo">
+                <a className="public-button-primary" href="#request-demo">
                   Request a demonstration
                 </a>
               </article>
-              {dataSource === "django" && publicConfig.data?.self_service_enabled ? <article className="rounded-2xl border bg-white p-8"><h2 className="text-xl font-semibold">Self-service trial</h2><p className="my-4">Verify your business email and create an isolated company workspace. Trial availability and limits are set by the service.</p><a className="text-blue-900 underline" href="#signup">Continue to secure signup</a></article> : <article className="rounded-2xl border bg-slate-100 p-8"><h2 className="text-xl font-semibold">{dataSource === "django" && publicConfig.isLoading ? "Checking trial availability" : "Guided onboarding"}</h2><p className="my-4">{dataSource === "django" && publicConfig.isLoading ? "Checking the current service configuration." : dataSource === "django" ? "Self-service signup is not enabled for this service. Our team can discuss a managed setup." : "This static demonstration build cannot create a live workspace. Talk with our team about a demonstration and managed setup."}</p><a className="text-blue-900 underline" href="#request-demo">Request a demonstration</a></article>}
+              {dataSource === "django" && publicConfig.isError ? <article className="onboarding-option"><h2>Trial availability is temporarily unavailable</h2><p role="alert">We could not reach the service to check signup options. Try again or contact our team about onboarding.</p><button type="button" className="public-button-secondary" onClick={() => void publicConfig.refetch()}>Check again</button><a href="#contact-sales">Contact sales</a></article>
+                : dataSource === "django" && publicConfig.data?.self_service_enabled ? <article className="onboarding-option"><h2>Self-service trial</h2><p>Verify your business email and create an isolated company workspace. Trial availability and limits are set by the service.</p><a className="public-button-primary" href="#signup">Continue to secure signup <ArrowRight size={17} /></a></article>
+                : <article className="onboarding-option"><h2>{dataSource === "django" && publicConfig.isLoading ? "Checking trial availability" : "Guided onboarding"}</h2><p>{dataSource === "django" && publicConfig.isLoading ? "Checking the current service configuration." : dataSource === "django" ? "Self-service signup is not enabled for this service. Our team can discuss a managed setup." : "This static demonstration build cannot create a live workspace. Explore a fictional register or discuss managed setup on the customer website."}</p><a className="public-button-secondary" href={dataSource === "django" ? '#contact-sales' : '#demo'}>{dataSource === "django" ? 'Contact sales' : 'Explore the illustrative demo'}</a></article>}
             </div>
           </>
         ) : route === "demo" ? (
@@ -380,12 +368,12 @@ export function MarketingPage({ route }: { route: string }) {
               and location. Request a demonstration of the authenticated
               workflows.
             </p>
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-              <table className="w-full text-left">
+            <div className="demo-register">
+              <table className="w-full text-left"><caption className="sr-only">Fictional asset register: asset, category, location and custody</caption>
                 <thead>
                   <tr>
                     {["Asset", "Category", "Location", "Custody"].map((h) => (
-                      <th key={h} className="p-4">
+                      <th key={h} scope="col" className="p-4">
                         {h}
                       </th>
                     ))}
@@ -413,8 +401,8 @@ export function MarketingPage({ route }: { route: string }) {
                     ],
                   ].map((row) => (
                     <tr key={row[0]} className="border-t">
-                      {row.map((cell) => (
-                        <td key={cell} className="p-4">
+                      {row.map((cell, index) => (
+                        <td key={cell} data-label={["Asset", "Category", "Location", "Custody"][index]} className="p-4">
                           {cell}
                         </td>
                       ))}
@@ -435,29 +423,28 @@ export function MarketingPage({ route }: { route: string }) {
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
               {page.intro}
             </p>
-            <div className="mt-12 grid gap-5 md:grid-cols-2">
-              {page.sections.map(([title, text]) => (
+            <div className="marketing-page-actions"><a className="public-button-primary" href="#request-demo">Request a demo <ArrowRight size={17} /></a><a className="public-button-secondary" href="#demo">Explore the illustrative demo</a></div>
+            <div className="marketing-sections">
+              {page.sections.map(([title, text], index) => (
                 <section
                   key={title}
-                  className="rounded-2xl border bg-white p-7"
+                  className="marketing-detail"
                 >
-                  <h2 className="text-xl font-semibold">{title}</h2>
+                  <span className="marketing-detail-index" aria-hidden="true">0{index + 1}</span><h2 className="text-xl font-semibold">{title}</h2>
                   <p className="mt-4 leading-7 text-slate-600">{text}</p>
                 </section>
               ))}
             </div>
           </>
         ) : null}
-        <nav className="mt-12 flex flex-wrap gap-5 border-t pt-8 text-blue-900">
+        <nav aria-label="Explore AssetFlow" className="marketing-next-steps">
           <a href="#request-demo">Request a demo</a>
           <a href="#get-started">Get started</a>
           <a href="#demo">Illustrative demo</a>
           <a href="#help">Customer guide</a>
         </nav>
       </main>
-      <footer className="border-t bg-white p-6 text-center text-sm text-slate-500">
-        AssetFlow  -  IAS 16-aligned workflows, subject to documented limitations.
-      </footer>
+      <PublicFooter authenticated={authenticated} workspaceRoute={workspaceRoute} />
     </div>
   );
 }

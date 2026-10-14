@@ -1,16 +1,17 @@
-﻿import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './AuthProvider';
 import { queryClient } from '../services/authRuntime';
 import { dataSource } from '../services/config';
 import { LoadingState } from '../components/common/AsyncState';
 import { ChunkLoadBoundary } from '../components/common/ChunkLoadBoundary';
-import { LoginView } from '../views/LoginView';
+import { readHashPath } from '../routing/hash';
 import { PublicLandingPage } from '../views/PublicLandingPage';
-import { IdentityView } from '../views/IdentityViews';
 import { MarketingPage, marketingRoutes } from '../views/MarketingPages';
-import { SignupView } from '../views/SaasViews';
-import { PlatformView } from '../views/PlatformView';
+const LoginView = lazy(() => import('../views/LoginView').then(module => ({ default: module.LoginView })));
+const IdentityView = lazy(() => import('../views/IdentityViews').then(module => ({ default: module.IdentityView })));
+const SignupView = lazy(() => import('../views/SaasViews').then(module => ({ default: module.SignupView })));
+const PlatformView = lazy(() => import('../views/PlatformView').then(module => ({ default: module.PlatformView })));
 const App = lazy(() => import('../App'));
 
 const privateRoutes = new Set(['dashboard','all-assets','asset-categories','acquisitions','depreciation','assignments','transfers','maintenance','disposals','verification','assurance','reports','audit-log','departments','locations','users-and-roles','asset-create']);
@@ -33,14 +34,23 @@ export function safeReturnRoute(value: string | null | undefined): string | null
   return null;
 }
 
-function hashPath() {
-  const raw = window.location.hash.slice(1).trim();
-  return !raw || raw === '/' ? '' : raw.replace(/^\/+/, '');
+function useHashPath() {
+  const [path, setPath] = useState(readHashPath());
+  useEffect(() => {
+    const update = () => {
+      const next = readHashPath();
+      if (!next.startsWith('section-')) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      setPath(next);
+    };
+    window.addEventListener('hashchange', update);
+    return () => window.removeEventListener('hashchange', update);
+  }, []);
+  return path;
 }
 function navigate(route: string) { window.location.hash = route ? `#${route}` : '#/'; }
 function LoginRoute() {
   const { authenticated, initializing, user } = useAuth();
-  const params = new URLSearchParams(hashPath().split('?')[1] ?? '');
+  const params = new URLSearchParams(readHashPath().split('?')[1] ?? '');
   const destination = user?.isPlatformOperator ? 'platform' : safeReturnRoute(params.get('next')) ?? 'dashboard';
   useEffect(() => { if (!initializing && authenticated) navigate(destination); }, [initializing, authenticated, destination]);
   if (initializing) return <LoadingState label="Restoring your session..." />;
@@ -49,9 +59,12 @@ function LoginRoute() {
 }
 
 export function DjangoRoutes() {
+  return <Suspense fallback={<LoadingState label="Opening AssetFlow..." />}><DjangoRouteContent /></Suspense>;
+}
+
+function DjangoRouteContent() {
   const auth = useAuth();
-  const [path, setPath] = useState(hashPath());
-  useEffect(() => { const update = () => setPath(hashPath()); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update); }, []);
+  const path = useHashPath();
   const route = path.split('?')[0];
   const publicRoot = route === '' || route === '/' || landingSections.has(route);
   const loginRoute = route === 'login';
@@ -81,7 +94,7 @@ export function DjangoRoutes() {
   if (identityRoute) return <IdentityView key={route} route={route} />;
   if (marketingRoute) return <MarketingPage key={route} route={route} />;
   if (signupRoute) return <SignupView key={route} verify={route === 'verify-email'} />;
-  if (publicRoot) return <PublicLandingPage authenticated={auth.authenticated} />;
+  if (publicRoot) return <PublicLandingPage authenticated={auth.authenticated} workspaceRoute={auth.user?.isPlatformOperator ? "#platform" : "#dashboard"} />;
   if (auth.initializing) return <LoadingState label="Restoring your session..." />;
   if (loginRoute && !auth.authenticated) return <LoginRoute />;
   if (!auth.authenticated) return <LoadingState label="Opening sign in..." />;
@@ -91,8 +104,7 @@ export function DjangoRoutes() {
 }
 
 export function MockRoutes() {
-  const [path, setPath] = useState(hashPath());
-  useEffect(() => { const update = () => setPath(hashPath()); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update); }, []);
+  const path = useHashPath();
   const route = path.split('?')[0];
   if (!route || route === '/' || landingSections.has(route)) return <PublicLandingPage authenticated={false} mockMode />;
   if (marketingRoutes.has(route) || route === 'signup' || route === 'login') return <MarketingPage route={route} />;

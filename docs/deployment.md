@@ -74,11 +74,11 @@ Analytics output is stored separately from private evidence and static files. Pr
 
 For local, non-container Django work, install `backend/requirements.txt`, provide a PostgreSQL DATABASE_URL, Redis URLs, and a local secret, then run migrations and `python backend/manage.py runserver`. Use the Vite proxy for same-origin API paths. PostgreSQL is required; there is no SQLite fallback.
 
-The mock frontend is the safe zero-credential product demo. There is no built-in demo tenant/admin seed command or public sign-up flow. Do not make public Django mode fall back to mock data.
+The mock frontend is a zero-credential product preview; it does not create accounts, persist leads or authenticate customers. Django mode supports managed onboarding and email-verified public signup when `SELF_SERVICE_ENABLED` is enabled. See the [current onboarding procedure](operations/customer-onboarding.md) and [commercial release decision](commercial/release-decision.md). Public Django mode must never fall back to mock data.
 
 ### First organization bootstrap
 
-The API intentionally does not provide public organization provisioning. For a new private installation, an operator with database-backed shell access must create the first organization and initial accounts once. Enter the following in the Django shell using interactive prompts rather than putting passwords in shell history. This bootstrap technique is for initial private installation only; it is not an auditable repeatable customer onboarding or invitation workflow:
+For a new private installation, an operator with database-backed shell access may bootstrap initial accounts once. For customer provisioning, use the current managed onboarding procedure or enabled email-verified signup. The legacy shell example below is for an initial private installation only; it is not the repeatable customer onboarding workflow. Enter values interactively rather than putting passwords in shell history:
 
 ```python
 from getpass import getpass

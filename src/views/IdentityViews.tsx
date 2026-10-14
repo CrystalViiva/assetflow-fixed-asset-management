@@ -1,41 +1,15 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../services/authRuntime";
 import { errorMessage, isRecord } from "../services/apiError";
 import { useAuth } from "../auth/AuthProvider";
 import { organizationRoles } from "../services/organizationAdminRepository";
 import { useReferences } from "../services/referenceQueries";
-import { AssetFlowLogo } from "../components/common/AssetFlowLogo";
+import { AccountShell } from "../components/marketing/AccountShell";
 
 const input = "mt-1 block w-full rounded-lg border border-slate-300 p-3";
 const button =
   "rounded-lg bg-blue-900 px-4 py-3 font-semibold text-white disabled:opacity-50";
-export function AccountShell({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <main className="auth-page">
-      <div className="auth-layout">
-        <aside className="auth-intro"><a href="#/" className="auth-brand"><span className="auth-logo"><AssetFlowLogo className="h-8 w-8" /></span><span>AssetFlow</span></a><p className="auth-eyebrow">FIXED ASSET MANAGEMENT</p><h2>Keep every record<br />in context.</h2><p className="auth-intro-copy">A clear view of asset value, custody, and the work behind each change.</p><div className="auth-intro-rule"><span /> FINANCE · OPERATIONS · ASSURANCE</div></aside>
-        <section className="auth-card">
-          <a href="#/" className="auth-mobile-brand"><span className="auth-logo"><AssetFlowLogo className="h-7 w-7" /></span>AssetFlow</a>
-          <p className="auth-card-kicker">SECURE WORKSPACE</p>
-          <h1>{title}</h1>
-          {children}
-          <nav className="auth-links">
-            <a href="#login">Sign in</a>
-            <a href="#/">Product home</a>
-          </nav>
-        </section>
-      </div>
-    </main>
-  );
-}
-
 export function IdentityView({ route }: { route: string }) {
   const resetRequest = route === "forgot-password";
   const [email, setEmail] = useState("");
@@ -150,6 +124,7 @@ export function IdentityView({ route }: { route: string }) {
           )}
           <button
             className={button}
+            type="submit"
             disabled={busy || (!resetRequest && !token)}
           >
             {busy

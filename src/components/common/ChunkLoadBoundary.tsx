@@ -1,4 +1,5 @@
-﻿import React from 'react';
+import React from 'react';
+import { RecoveryActions } from './RecoveryActions';
 
 interface State { failed: boolean }
 
@@ -8,11 +9,11 @@ export class ChunkLoadBoundary extends React.Component<React.PropsWithChildren, 
   static getDerivedStateFromError() { return { failed: true }; }
 
   render() {
-    if (this.state.failed) return <section role="alert" className="route-not-found">
+    if (this.state.failed) return <main role="alert" className="route-not-found">
       <div><p>ASSETFLOW  -  RECOVERY</p><h1>This page could not be loaded.</h1>
       <p>The application may have been updated. Return home or reload to try the latest version.</p>
-      <div className="mt-5 flex flex-wrap gap-3"><a href="#/" className="rounded bg-[#315ee7] px-4 py-2 text-sm font-semibold text-white">Return home</a><button type="button" onClick={() => window.location.reload()} className="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800">Reload application</button></div></div>
-    </section>;
+      <RecoveryActions /></div>
+    </main>;
     return this.props.children;
   }
 }

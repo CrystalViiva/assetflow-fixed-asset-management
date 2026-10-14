@@ -107,8 +107,8 @@ it("keeps demo content visibly fictional and pricing separate from test charges"
   expect(screen.getByText(/DEMO-001.*Office workstation/)).toBeTruthy();
   view.unmount();
   wrapper(<MarketingPage route="pricing" />);
-  expect(screen.getByText(/not published prices/)).toBeTruthy();
-  expect(screen.getByText(/Live payment collection is disabled/)).toBeTruthy();
+  expect(screen.getByText(/not a commercial price/)).toBeTruthy();
+  expect(screen.getByText(/do not collect live payments/)).toBeTruthy();
 });
 
 it("rejects malformed billing responses instead of trusting browser state", () => {

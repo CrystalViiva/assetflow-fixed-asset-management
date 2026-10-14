@@ -56,6 +56,7 @@ import { assetRepository } from './services/assetRepository';
 import { dataSource } from './services/config';
 import { IntegrationPending } from './components/common/AsyncState';
 import { ChunkLoadBoundary } from './components/common/ChunkLoadBoundary';
+import { readHashPath } from './routing/hash';
 
 interface ToastNotification {
   id: string;
@@ -133,7 +134,7 @@ export default function App() {
   // Sync hash routing
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '').trim();
+      const hash = readHashPath().split('?')[0];
       if (hash) {
         if (hash.startsWith('asset-detail/')) {
           const id = hash.replace('asset-detail/', '');

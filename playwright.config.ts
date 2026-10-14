@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: "./e2e",
   workers: 1,
   timeout: 90_000,
-  globalTimeout: 300_000,
+  globalTimeout: 600_000,
   outputDir: process.env.E2E_OUTPUT_DIR || ".codex-browser-results",
   reporter: [
     ["list"],
