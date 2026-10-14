@@ -56,10 +56,12 @@ test('public routes, CTAs, browser history, responsive layout and recovery', asy
   await page.goto('/#/login');
   if (djangoMode) {
     await expect(page.getByRole('heading', { name: 'Sign in to your workspace' })).toBeVisible();
-    await expect(page.getByLabel('Password')).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: `${outputDir}/assetflow-login-desktop-1440.png`, fullPage: true, animations: 'disabled' });
   } else {
     await expect(page.getByRole('heading', { name: /sign in to your assetflow workspace/i })).toBeVisible();
-    await expect(page.getByLabel('Password')).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'Password' })).toHaveCount(0);
   }
   await page.goto('/#/unknown-route');
   await expect(page.getByRole('heading', { name: /this page.*here/i })).toBeVisible();
@@ -86,10 +88,12 @@ test('public routes, CTAs, browser history, responsive layout and recovery', asy
   await page.goto('/#/login');
   if (djangoMode) {
     await expect(page.getByRole('heading', { name: 'Sign in to your workspace' })).toBeVisible();
-    await expect(page.getByLabel('Password')).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: `${outputDir}/assetflow-login-mobile-390.png`, fullPage: true, animations: 'disabled' });
   } else {
     await expect(page.getByRole('heading', { name: /sign in to your assetflow workspace/i })).toBeVisible();
-    await expect(page.getByLabel('Password')).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'Password' })).toHaveCount(0);
   }
   await page.goto('/#/');
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));

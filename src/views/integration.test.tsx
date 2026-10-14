@@ -49,6 +49,17 @@ async function authenticated(role = identity.role) {
   return { client,session,fetcher };
 }
 describe('login and application boundary', () => {
+  it('shows the branded workspace login and provides an accessible password visibility toggle', async () => {
+    const client = new QueryClient(); const fetcher = vi.fn<typeof fetch>();
+    const session = new Session(new ApiClient('/api/v1',fetcher),sessionStorage,() => client.clear());
+    render(frame(session,client,<LoginView />)); const user = userEvent.setup();
+    const password = screen.getByLabelText('Password');
+    expect(password.getAttribute('type')).toBe('password');
+    await user.click(screen.getByRole('button',{ name:'Show password' }));
+    expect(password.getAttribute('type')).toBe('text');
+    expect(screen.getByRole('button',{ name:'Hide password' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('heading',{ name:'Sign in to your workspace' })).toBeTruthy();
+  });
   it('submits credentials by keyboard and exposes authenticated identity', async () => {
     const client = new QueryClient(); const fetcher = vi.fn<typeof fetch>();
     const session = new Session(new ApiClient('/api/v1',fetcher),sessionStorage,() => client.clear());

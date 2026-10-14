@@ -5,6 +5,7 @@ import { errorMessage, isRecord } from "../services/apiError";
 import { useAuth } from "../auth/AuthProvider";
 import { organizationRoles } from "../services/organizationAdminRepository";
 import { useReferences } from "../services/referenceQueries";
+import { AssetFlowLogo } from "../components/common/AssetFlowLogo";
 
 const input = "mt-1 block w-full rounded-lg border border-slate-300 p-3";
 const button =
@@ -17,18 +18,20 @@ export function AccountShell({
   children: ReactNode;
 }) {
   return (
-    <main className="min-h-screen bg-slate-50 p-6">
-      <section className="mx-auto max-w-2xl rounded-2xl border bg-white p-6 md:p-10">
-        <a href="#/" className="text-xl font-bold text-blue-900">
-          AssetFlow
-        </a>
-        <h1 className="my-6 text-2xl font-bold">{title}</h1>
-        {children}
-        <nav className="mt-8 flex flex-wrap gap-5 text-sm text-blue-900">
-          <a href="#login">Sign in</a>
-          <a href="#/">Product home</a>
-        </nav>
-      </section>
+    <main className="auth-page">
+      <div className="auth-layout">
+        <aside className="auth-intro"><a href="#/" className="auth-brand"><span className="auth-logo"><AssetFlowLogo className="h-8 w-8" /></span><span>AssetFlow</span></a><p className="auth-eyebrow">FIXED ASSET MANAGEMENT</p><h2>Keep every record<br />in context.</h2><p className="auth-intro-copy">A clear view of asset value, custody, and the work behind each change.</p><div className="auth-intro-rule"><span /> FINANCE · OPERATIONS · ASSURANCE</div></aside>
+        <section className="auth-card">
+          <a href="#/" className="auth-mobile-brand"><span className="auth-logo"><AssetFlowLogo className="h-7 w-7" /></span>AssetFlow</a>
+          <p className="auth-card-kicker">SECURE WORKSPACE</p>
+          <h1>{title}</h1>
+          {children}
+          <nav className="auth-links">
+            <a href="#login">Sign in</a>
+            <a href="#/">Product home</a>
+          </nav>
+        </section>
+      </div>
     </main>
   );
 }
