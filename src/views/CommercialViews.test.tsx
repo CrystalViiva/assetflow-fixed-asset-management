@@ -104,7 +104,7 @@ it("offers managed onboarding when the server disables public signup", async () 
 it("keeps demo content visibly fictional and pricing separate from test charges", () => {
   const view = wrapper(<MarketingPage route="demo" />);
   expect(screen.getByText(/fictional data, no customer records/)).toBeTruthy();
-  expect(screen.getByText("DEMO-001 · Office workstation")).toBeTruthy();
+  expect(screen.getByText(/DEMO-001.*Office workstation/)).toBeTruthy();
   view.unmount();
   wrapper(<MarketingPage route="pricing" />);
   expect(screen.getByText(/not published prices/)).toBeTruthy();

@@ -5,36 +5,34 @@ import { PublicLandingPage } from './PublicLandingPage';
 afterEach(() => { window.location.hash = ''; });
 
 describe('public product experience', () => {
-  it('describes implemented lifecycle capabilities and makes the preview explicitly illustrative', () => {
-    render(<PublicLandingPage authenticated={false} />);
-    expect(screen.getByRole('heading', { name: /control the complete lifecycle of every asset/i })).toBeTruthy();
-    expect(screen.getByText(/illustrative interface only/i)).toBeTruthy();
-    expect(screen.getByText(/straight-line depreciation workflows/i)).toBeTruthy();
-    expect(screen.getByText(/impairment accounting and other depreciation methods are not represented/i)).toBeTruthy();
-    expect(screen.getByText(/preserve a report as a dated snapshot/i)).toBeTruthy();
+  it('presents the product with clearly fictional preview values and implemented claims', () => {
+    render(<PublicLandingPage authenticated={false} mockMode />);
+    expect(screen.getByRole('heading', { name: /know your assets.*control their value/i })).toBeTruthy();
+    expect(screen.getByRole('img', { name: /illustrative assetflow workspace with fictional asset records/i })).toBeTruthy();
+    expect(screen.getByText(/synthetic data.*preview/i)).toBeTruthy();
+    expect(screen.getByRole('img', { name: /sample values/i })).toBeTruthy();
+    expect(screen.getByText(/does not claim an independent security certification/i)).toBeTruthy();
+    expect(screen.getAllByRole('link', { name: /request a demo/i }).some(link => link.getAttribute('href') === '#request-demo')).toBe(true);
+    expect(screen.getAllByRole('link', { name: 'Log in' }).every(link => link.getAttribute('href') === '#login')).toBe(true);
     expect(screen.queryByText(/fully ifrs compliant|ai-powered|predictive maintenance|malware scanned/i)).toBeNull();
-    expect(screen.getAllByRole('link', { name: /sign in to assetflow/i }).length).toBeGreaterThan(0);
-    const github = screen.getByRole('link', { name: /github/i });
-    expect(github.getAttribute('href')).toBe('https://github.com/CrystalViiva/assetflow-fixed-asset-management');
-    expect(github.getAttribute('target')).toBe('_blank');
-    expect(github.getAttribute('rel')).toContain('noopener');
-    expect(screen.getByRole('link', { name: 'Pricing' }).getAttribute('href')).toBe('#pricing');
   });
 
-  it('uses an internal dashboard CTA for an authenticated user and provides keyboard-operated mobile navigation', () => {
-    render(<PublicLandingPage authenticated />);
-    expect(screen.getAllByRole('link', { name: /open dashboard/i })[0].getAttribute('href')).toBe('#dashboard');
-    const menu = screen.getByRole('button', { name: 'Open navigation' });
-    fireEvent.click(menu);
+  it('uses unambiguous section hashes and provides an operable mobile menu', () => {
+    render(<PublicLandingPage authenticated={false} mockMode />);
+    expect(screen.getAllByRole('link', { name: 'Features' }).every(link => link.getAttribute('href') === '#section-features')).toBe(true);
+    expect(screen.getAllByRole('link', { name: 'Solutions' }).some(link => link.getAttribute('href') === '#section-solutions')).toBe(true);
+    expect(screen.getAllByRole('link', { name: 'How it works' }).some(link => link.getAttribute('href') === '#section-how-it-works')).toBe(true);
+    expect(screen.getAllByRole('link', { name: 'Pricing' }).some(link => link.getAttribute('href') === '#section-pricing')).toBe(true);
+    expect(document.getElementById('section-features')).toBeTruthy();
+    expect(document.getElementById('section-pricing')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(screen.getByRole('button', { name: 'Close navigation' }).getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('navigation', { name: 'Mobile navigation' }).querySelector('a[href="#section-features"]')!);
+    expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).toBeNull();
   });
 
-  it('exposes section navigation without requesting authenticated data', () => {
-    render(<PublicLandingPage authenticated={false} />);
-    expect(screen.getAllByRole('link', { name: 'Capabilities' })[0].getAttribute('href')).toBe('#capabilities');
-    expect(screen.getAllByRole('link', { name: 'Controls' })[0].getAttribute('href')).toBe('#controls');
-    expect(screen.getByRole('link', { name: 'Features' }).getAttribute('href')).toBe('#features');
-    expect(screen.getByRole('heading', { name: /from acquisition record to accountable disposition/i })).toBeTruthy();
+  it('offers a workspace link to authenticated visitors', () => {
+    render(<PublicLandingPage authenticated />);
+    expect(screen.getAllByRole('link', { name: 'Open workspace' }).every(link => link.getAttribute('href') === '#dashboard')).toBe(true);
   });
 });

@@ -234,7 +234,7 @@ test("commercial pages work at a mobile viewport and label fictional demo data",
     ).toBe(true);
   }
   await expect(
-    page.getByText("Illustrative demo — fictional data, no customer records"),
+    page.getByText(/Illustrative demo.*fictional data, no customer records/),
   ).toBeVisible();
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
   await page.screenshot({

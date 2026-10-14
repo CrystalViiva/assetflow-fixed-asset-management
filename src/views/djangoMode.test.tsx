@@ -46,7 +46,7 @@ it('real-mode shell shows real identity, no mock alerts/actions, and logs out', 
   for (const text of ['1,284','4 pending','2 overdue','Lagos Corporate Facility']) expect(screen.queryByText(text)).toBeNull();
   expect(screen.queryByRole('button',{ name:'Actions' })).toBeNull(); expect(screen.queryByTitle('Notifications')).toBeNull();
   fireEvent.click(screen.getByRole('button',{ name:'Sign out' }));
-  expect(await screen.findByRole('heading',{ name:/control the complete lifecycle of every asset/i })).toBeTruthy(); expect(c.client.getQueryCache().getAll()).toHaveLength(0);
+  expect(await screen.findByRole('heading',{ name:/know your assets.*control their value/i })).toBeTruthy(); expect(c.client.getQueryCache().getAll()).toHaveLength(0);
 }, 15000);
 it('Django dashboard uses live metrics and never renders mock enterprise figures', async () => {
   await renderRealApp(); await screen.findByText('Office generator', {}, { timeout: 10000 });

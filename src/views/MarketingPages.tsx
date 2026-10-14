@@ -1,7 +1,10 @@
-import { useState, type FormEvent } from "react";
+﻿import { useState, type FormEvent } from "react";
 import { apiClient } from "../services/authRuntime";
 import { errorMessage } from "../services/apiError";
 import { dataSource } from "../services/config";
+import { useQuery } from "@tanstack/react-query";
+import { getPublicConfig } from "../services/commercial";
+import { Menu, X } from "lucide-react";
 
 export const marketingRoutes = new Set([
   "features",
@@ -136,7 +139,7 @@ const pages: Record<
     ],
   },
   about: {
-    title: "AssetFlow — Fixed Asset Management Software",
+    title: "AssetFlow  -  Fixed Asset Management Software",
     intro:
       "Built to connect operational asset control with dependable accounting records.",
     sections: [
@@ -184,29 +187,15 @@ const pages: Record<
 };
 
 export function CommercialNav() {
+  const [open, setOpen] = useState(false);
   return (
-    <nav
-      aria-label="Product navigation"
-      className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4 text-sm"
-    >
-      <a href="#/" className="mr-auto text-xl font-bold text-blue-900">
-        AssetFlow
-      </a>
-      {[
-        ["features", "Features"],
-        ["how-it-works", "How it works"],
-        ["solutions", "Solutions"],
-        ["security", "Security"],
-        ["pricing", "Pricing"],
-        ["about", "About"],
-        ["request-demo", "Request a demo"],
-        ["login", "Login"],
-      ].map(([route, label]) => (
-        <a className="hover:underline" key={route} href={`#${route}`}>
-          {label}
-        </a>
-      ))}
-    </nav>
+    <div className="commercial-nav-wrap">
+      <div className="commercial-nav-row"><a href="#/" className="commercial-brand" aria-label="AssetFlow home">AssetFlow</a>
+        <nav aria-label="Product navigation" className="commercial-desktop-nav">{[["features", "Features"], ["solutions", "Solutions"], ["how-it-works", "How it works"], ["pricing", "Pricing"], ["request-demo", "Request demo"], ["login", "Log in"]].map(([route, label]) => <a key={route} href={`#${route}`}>{label}</a>)}<a className="commercial-nav-cta" href="#get-started">Get started</a></nav>
+        <button type="button" className="commercial-menu-button" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="commercial-mobile-navigation" onClick={() => setOpen(!open)}>{open ? <X size={21} /> : <Menu size={21} />}</button>
+      </div>
+      {open && <nav id="commercial-mobile-navigation" aria-label="Mobile navigation" className="commercial-mobile-nav">{[["features", "Features"], ["solutions", "Solutions"], ["how-it-works", "How it works"], ["pricing", "Pricing"], ["request-demo", "Request demo"], ["login", "Log in"], ["get-started", "Get started"]].map(([route, label]) => <a onClick={() => setOpen(false)} key={route} href={`#${route}`}>{label}</a>)}</nav>}
+    </div>
   );
 }
 
@@ -317,13 +306,14 @@ function LeadForm({ demo }: { demo: boolean }) {
         className="rounded-lg bg-blue-900 p-3 font-semibold text-white disabled:opacity-50"
         disabled={busy}
       >
-        {busy ? "Sending…" : demo ? "Request a demonstration" : "Contact sales"}
+        {busy ? "Sending..." : demo ? "Request a demonstration" : "Contact sales"}
       </button>
     </form>
   );
 }
 
 export function MarketingPage({ route }: { route: string }) {
+  const publicConfig = useQuery({ queryKey: ["public-config"], queryFn: getPublicConfig, enabled: dataSource === "django" && route === "get-started", retry: false });
   const lead = route === "contact-sales" || route === "request-demo";
   const page = pages[route];
   return (
@@ -344,6 +334,20 @@ export function MarketingPage({ route }: { route: string }) {
             </h1>
             <LeadForm demo={route === "request-demo"} />
           </>
+        ) : route === "login" ? (
+          <section className="auth-explanation">
+            <p className="section-kicker">CUSTOMER WORKSPACE</p>
+            <h1>Sign in to your AssetFlow workspace.</h1>
+            <p>Live sign-in is available on the configured customer application. This static demonstration build does not authenticate accounts or connect to customer data.</p>
+            <div><a className="public-button-primary" href="#demo">Explore the illustrative demo</a><a className="public-button-secondary" href="#request-demo">Talk to our team</a></div>
+          </section>
+        ) : route === "signup" ? (
+          <section className="auth-explanation">
+            <p className="section-kicker">WORKSPACE SETUP</p>
+            <h1>A live trial needs the configured AssetFlow service.</h1>
+            <p>This static demonstration build cannot create an organization or store account details. Talk with our team about managed onboarding.</p>
+            <div><a className="public-button-primary" href="#request-demo">Request a demo</a><a className="public-button-secondary" href="#/">Back to AssetFlow</a></div>
+          </section>
         ) : route === "get-started" ? (
           <>
             <h1 className="text-4xl font-semibold">
@@ -360,22 +364,13 @@ export function MarketingPage({ route }: { route: string }) {
                   Request a demonstration
                 </a>
               </article>
-              <article className="rounded-2xl border bg-white p-8">
-                <h2 className="text-xl font-semibold">Self-service trial</h2>
-                <p className="my-4">
-                  Verify your business email and create an isolated company
-                  workspace when trials are enabled.
-                </p>
-                <a className="text-blue-900 underline" href="#signup">
-                  Create a trial workspace
-                </a>
-              </article>
+              {dataSource === "django" && publicConfig.data?.self_service_enabled ? <article className="rounded-2xl border bg-white p-8"><h2 className="text-xl font-semibold">Self-service trial</h2><p className="my-4">Verify your business email and create an isolated company workspace. Trial availability and limits are set by the service.</p><a className="text-blue-900 underline" href="#signup">Continue to secure signup</a></article> : <article className="rounded-2xl border bg-slate-100 p-8"><h2 className="text-xl font-semibold">{dataSource === "django" && publicConfig.isLoading ? "Checking trial availability" : "Guided onboarding"}</h2><p className="my-4">{dataSource === "django" && publicConfig.isLoading ? "Checking the current service configuration." : dataSource === "django" ? "Self-service signup is not enabled for this service. Our team can discuss a managed setup." : "This static demonstration build cannot create a live workspace. Talk with our team about a demonstration and managed setup."}</p><a className="text-blue-900 underline" href="#request-demo">Request a demonstration</a></article>}
             </div>
           </>
         ) : route === "demo" ? (
           <>
             <p className="rounded bg-amber-100 p-4 font-semibold">
-              Illustrative demo — fictional data, no customer records
+              Illustrative demo  -  fictional data, no customer records
             </p>
             <h1 className="mt-8 text-4xl font-semibold">
               A clear operating record.
@@ -399,19 +394,19 @@ export function MarketingPage({ route }: { route: string }) {
                 <tbody>
                   {[
                     [
-                      "DEMO-001 · Office workstation",
+                      "DEMO-001  -  Office workstation",
                       "IT equipment",
                       "Fictional Lagos office",
                       "Assigned",
                     ],
                     [
-                      "DEMO-002 · Delivery van",
+                      "DEMO-002  -  Delivery van",
                       "Vehicles",
                       "Fictional depot",
                       "Assigned",
                     ],
                     [
-                      "DEMO-003 · Generator",
+                      "DEMO-003  -  Generator",
                       "Plant & equipment",
                       "Fictional site",
                       "Available",
@@ -454,14 +449,14 @@ export function MarketingPage({ route }: { route: string }) {
           </>
         ) : null}
         <nav className="mt-12 flex flex-wrap gap-5 border-t pt-8 text-blue-900">
-          <a href="#request-demo">Request a demo →</a>
-          <a href="#get-started">Get started →</a>
+          <a href="#request-demo">Request a demo</a>
+          <a href="#get-started">Get started</a>
           <a href="#demo">Illustrative demo</a>
           <a href="#help">Customer guide</a>
         </nav>
       </main>
       <footer className="border-t bg-white p-6 text-center text-sm text-slate-500">
-        AssetFlow · IAS 16-aligned workflows, subject to documented limitations.
+        AssetFlow  -  IAS 16-aligned workflows, subject to documented limitations.
       </footer>
     </div>
   );

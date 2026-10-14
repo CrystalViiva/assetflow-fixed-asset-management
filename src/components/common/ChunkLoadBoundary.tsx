@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 
 interface State { failed: boolean }
 
@@ -8,10 +8,10 @@ export class ChunkLoadBoundary extends React.Component<React.PropsWithChildren, 
   static getDerivedStateFromError() { return { failed: true }; }
 
   render() {
-    if (this.state.failed) return <section role="alert" className="m-5 rounded-xl border border-rose-200 bg-white p-6 text-slate-900">
-      <h1 className="text-lg font-semibold">This page could not be loaded</h1>
-      <p className="mt-2 text-sm text-slate-600">The application may have been updated. Reload to open the latest version.</p>
-      <button type="button" onClick={() => window.location.reload()} className="mt-4 rounded bg-[#00288e] px-4 py-2 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">Reload application</button>
+    if (this.state.failed) return <section role="alert" className="route-not-found">
+      <div><p>ASSETFLOW  -  RECOVERY</p><h1>This page could not be loaded.</h1>
+      <p>The application may have been updated. Return home or reload to try the latest version.</p>
+      <div className="mt-5 flex flex-wrap gap-3"><a href="#/" className="rounded bg-[#315ee7] px-4 py-2 text-sm font-semibold text-white">Return home</a><button type="button" onClick={() => window.location.reload()} className="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800">Reload application</button></div></div>
     </section>;
     return this.props.children;
   }
